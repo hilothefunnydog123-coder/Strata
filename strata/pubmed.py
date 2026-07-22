@@ -8,6 +8,8 @@ limit from 3 to 10 requests/second).
 from __future__ import annotations
 
 import os
+import ssl
+import sys
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -15,6 +17,21 @@ from dataclasses import dataclass, field
 
 EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 UA = {"User-Agent": "Strata/0.1 (evidence engine; research use)"}
+
+
+def _ssl_context() -> ssl.SSLContext:
+    """A verifying context that also trusts the operating-system certificate
+    store. On managed Windows/macOS machines this picks up the corporate or
+    school root certificate that a network proxy uses to intercept HTTPS — the
+    usual cause of 'CERTIFICATE_VERIFY_FAILED'. An explicit bundle can be given
+    via STRATA_CA_BUNDLE."""
+    bundle = os.environ.get("STRATA_CA_BUNDLE")
+    ctx = ssl.create_default_context(cafile=bundle) if bundle else ssl.create_default_context()
+    try:
+        ctx.load_default_certs(ssl.Purpose.SERVER_AUTH)   # OS trust store (Windows ROOT/CA)
+    except Exception:
+        pass
+    return ctx
 
 
 @dataclass
@@ -44,8 +61,25 @@ def _get(endpoint: str, params: dict) -> bytes:
     if key:
         params["api_key"] = key
     url = f"{EUTILS}/{endpoint}?{urllib.parse.urlencode(params)}"
-    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=30) as r:
-        return r.read()
+    req = urllib.request.Request(url, headers=UA)
+    try:
+        with urllib.request.urlopen(req, timeout=30, context=_ssl_context()) as r:
+            return r.read()
+    except urllib.error.URLError as exc:
+        # On a network that intercepts HTTPS (school/corporate proxy) whose root
+        # cert isn't installed, allow an explicit opt-out. STRATA_INSECURE=1 skips
+        # verification — fine for this read-only public data on a network you
+        # trust, never a default.
+        if isinstance(getattr(exc, "reason", None), ssl.SSLCertVerificationError) \
+                and os.environ.get("STRATA_INSECURE") == "1":
+            print("strata: STRATA_INSECURE=1 set — skipping TLS verification "
+                  "(only safe on a network you trust).", file=sys.stderr)
+            unverified = ssl.create_default_context()
+            unverified.check_hostname = False
+            unverified.verify_mode = ssl.CERT_NONE
+            with urllib.request.urlopen(req, timeout=30, context=unverified) as r:
+                return r.read()
+        raise
 
 
 def esearch(query: str, retmax: int = 20) -> list[str]:

@@ -34,6 +34,12 @@ def cmd_ask(args) -> int:
     return 0
 
 
+def cmd_serve(args) -> int:
+    from . import server
+    server.serve(port=args.port)
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(
         prog="strata", description="A medical evidence engine that grades its answers.")
@@ -43,6 +49,11 @@ def main(argv=None) -> int:
     a.add_argument("-k", type=int, default=8, help="number of sources to weigh")
     a.add_argument("--json", action="store_true", help="emit structured JSON")
     a.set_defaults(fn=cmd_ask)
+
+    s = sub.add_parser("serve", help="open the web app on localhost")
+    s.add_argument("-p", "--port", type=int, default=8600)
+    s.set_defaults(fn=cmd_serve)
+
     args = p.parse_args(argv)
     return args.fn(args)
 

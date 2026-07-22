@@ -36,6 +36,27 @@ Most "medical AI" is a chatbot that will answer anything, confidently, from a bl
 - **Graded, not just cited.** A citation isn't evidence — a *good* citation is. Strata classifies each paper's study design and assigns it a level on the evidence pyramid, so a single case report never gets to sound like settled science.
 - **Honest about strength.** Every answer carries a computed verdict — *strong / moderate / weak / very weak* — from the quality, quantity, size, and recency of what it found. If the literature doesn't answer the question, it says so.
 
+## Web app
+
+```bash
+strata serve      # opens a clean search page at http://127.0.0.1:8600
+```
+
+Ask a question in the browser and Strata renders the strength verdict, a visual
+**evidence pyramid** (how many papers landed at each level), and the graded,
+linked sources — strongest first. Standard library only; nothing is stored.
+
+## Behind a school or corporate network?
+
+If you see `CERTIFICATE_VERIFY_FAILED`, your network is intercepting HTTPS with
+its own certificate (common on managed devices). Strata already trusts the
+operating-system certificate store, which usually fixes it. If it persists:
+
+- run it on a normal network (home Wi-Fi or a phone hotspot), **or**
+- point it at your network's certificate: `set STRATA_CA_BUNDLE=C:\path\to\ca.pem`, **or**
+- as a last resort on a network you trust, `set STRATA_INSECURE=1` to skip the
+  check (only reads public data — but off by default for a reason).
+
 ## Two modes
 
 **Grounded digest (no model, no API key).** The default. A structured summary of the strongest retrieved papers — verdict, then each source with its grade and key finding. Facts come only from the abstracts.
