@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "strata-evidence"
+version = "0.1.0"
+description = "A medical evidence engine that answers clinical questions from real PubMed literature and grades how strong the evidence actually is."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{ name = "Neil Gilani" }]
+keywords = ["medicine", "evidence-based-medicine", "pubmed", "clinical", "research", "rag", "citations", "healthcare"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Healthcare Industry",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = []   # standard library only
+
+[project.scripts]
+strata = "strata.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["strata"]
