@@ -4,24 +4,49 @@ build-backend = "hatchling.build"
 
 [project]
 name = "strata-evidence"
-version = "0.1.0"
-description = "A medical evidence engine that answers clinical questions from real PubMed literature and grades how strong the evidence actually is."
+version = "0.2.0"
+description = "A medical evidence engine that answers clinical questions from real PubMed literature, grades every source on the evidence pyramid, and says honestly how strong the evidence is."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 authors = [{ name = "Neil Gilani" }]
-keywords = ["medicine", "evidence-based-medicine", "pubmed", "clinical", "research", "rag", "citations", "healthcare"]
+keywords = [
+  "medicine", "evidence-based-medicine", "pubmed", "clinical", "research",
+  "grade", "meta-analysis", "systematic-review", "citations", "healthcare",
+  "rag", "retrieval",
+]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Healthcare Industry",
   "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Medical Science Apps.",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Text Processing :: Linguistic",
 ]
-dependencies = []   # standard library only
+# Standard library only — including the neural networks, which are implemented
+# from scratch in strata/nn rather than pulled in as a dependency.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/hilothefunnydog123-coder/strata"
+Source = "https://github.com/hilothefunnydog123-coder/strata"
+Issues = "https://github.com/hilothefunnydog123-coder/strata/issues"
 
 [project.scripts]
 strata = "strata.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["strata"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"strata/nn/weights" = "strata/nn/weights"
+
+[tool.hatch.build.targets.sdist]
+include = ["strata", "tests", "examples", "docs", "README.md", "LICENSE"]
