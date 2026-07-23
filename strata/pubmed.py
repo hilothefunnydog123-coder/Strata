@@ -8,6 +8,7 @@ limit from 3 to 10 requests/second).
 from __future__ import annotations
 
 import os
+import re
 import ssl
 import sys
 import urllib.parse
@@ -43,17 +44,35 @@ class Article:
     year: int | None
     authors: list[str]
     publication_types: list[str] = field(default_factory=list)
+    doi: str = ""
+    source: str = "pubmed"
+    has_full_text: bool = False
 
     @property
     def citation(self) -> str:
         first = self.authors[0] if self.authors else "Anon"
         etal = " et al." if len(self.authors) > 1 else ""
         yr = self.year or "n.d."
-        return f"{first}{etal} ({yr}). {self.journal}. PMID {self.pmid}"
+        ident = f"PMID {self.pmid}" if self.pmid else (f"doi:{self.doi}" if self.doi else "")
+        return f"{first}{etal} ({yr}). {self.journal}. {ident}".strip()
 
     @property
     def url(self) -> str:
-        return f"https://pubmed.ncbi.nlm.nih.gov/{self.pmid}/"
+        if self.pmid:
+            return f"https://pubmed.ncbi.nlm.nih.gov/{self.pmid}/"
+        if self.doi:
+            return f"https://doi.org/{self.doi}"
+        return ""
+
+    @property
+    def dedup_key(self) -> str:
+        """Stable identity for cross-source de-duplication: DOI, else PMID, else title."""
+        if self.doi:
+            return f"doi:{self.doi.lower().strip()}"
+        if self.pmid:
+            return f"pmid:{self.pmid.strip()}"
+        norm = re.sub(r"[^a-z0-9]+", "", (self.title or "").lower())[:80]
+        return f"title:{norm}"
 
 
 def _get(endpoint: str, params: dict) -> bytes:
@@ -125,9 +144,19 @@ def parse_articles(xml_bytes: bytes) -> list[Article]:
             if last:
                 authors.append(f"{last} {initials}".strip())
         ptypes = [pt.text for pt in article.findall(".//PublicationTypeList/PublicationType") if pt.text]
+        # DOI can live in ELocationID or the ArticleIdList
+        doi = ""
+        for el in article.findall(".//ELocationID"):
+            if el.get("EIdType", "").lower() == "doi" and el.text:
+                doi = el.text.strip(); break
+        if not doi:
+            for aid in art.findall(".//ArticleIdList/ArticleId"):
+                if aid.get("IdType", "").lower() == "doi" and aid.text:
+                    doi = aid.text.strip(); break
         out.append(Article(pmid=pmid, title=title, abstract=abstract, journal=journal,
                            year=int(year) if year.isdigit() else None,
-                           authors=authors, publication_types=ptypes))
+                           authors=authors, publication_types=ptypes, doi=doi,
+                           source="pubmed"))
     return out
 
 

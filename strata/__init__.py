@@ -16,7 +16,21 @@ narrative from those same papers and nothing else.
 from .evidence import BodyAssessment, Grade, grade, summarize_body
 from .pubmed import Article, search_articles
 from .query import Evidence, Result, ask, rank
+from .verify import Verdict, verify
+from .assess import assess
+from .models import ROUTER, ModelRouter
 
-__version__ = "0.1.0"
-__all__ = ["ask", "Result", "Evidence", "rank", "grade", "summarize_body",
-           "Article", "search_articles", "Grade", "BodyAssessment"]
+__version__ = "0.2.0"
+__all__ = [
+    # classic API (kept stable)
+    "ask", "Result", "Evidence", "rank", "grade", "summarize_body",
+    "Article", "search_articles", "Grade", "BodyAssessment",
+    # claim-centered evidence intelligence
+    "verify", "Verdict", "assess", "ROUTER", "ModelRouter",
+]
+
+
+def open_db(path=None):
+    """Convenience accessor for the claim-centered store (lazy import)."""
+    from .db import get_db
+    return get_db(path)

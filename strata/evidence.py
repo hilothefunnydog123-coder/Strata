@@ -42,29 +42,33 @@ class Grade:
 
 
 def _classify(article: Article) -> tuple[int, str, bool]:
-    """Return (level, label, is_guideline) from publication types then title."""
+    """Return (level, label, is_guideline) from publication types then title.
+
+    Publication types are the strongest signal; the title fills gaps PubMed
+    rarely tags (cohort, cross-sectional). The ladder is ordered strongest-first
+    so a design is caught at its true level — an RCT titled "a prospective
+    randomized trial" is level 2, not a cohort.
+    """
     pts = {p.lower() for p in article.publication_types}
     title = article.title.lower()
     guideline = any("guideline" in p for p in pts)
 
-    def has(*needles, src=pts):
-        return any(n in s for s in src for n in needles)
+    def has(*needles):
+        return any(n in s for s in pts for n in needles)
 
-    # publication types are the strongest signal
-    if has("meta-analysis") or "meta-analysis" in title:
+    if has("meta-analysis") or "meta-analysis" in title or "meta analysis" in title:
         return 1, _LABELS[1], guideline
     if has("systematic review") or "systematic review" in title:
         return 1, _LABELS[1], guideline
-    if has("randomized controlled trial") or "randomiz" in title or "randomis" in title:
+    if (has("randomized controlled trial", "controlled clinical trial")
+            or "randomized" in title or "randomised" in title):
         return 2, _LABELS[2], guideline
-    if has("controlled clinical trial"):
-        return 2, _LABELS[2], guideline
-    # title-based study designs (PubMed rarely tags these as publication types)
-    if "cohort" in title or has("observational study") and "cohort" in title:
+    # title-based observational designs (PubMed rarely tags these as pub types)
+    if "cohort" in title or "prospective" in title or "longitudinal" in title:
         return 3, _LABELS[3], guideline
     if "case-control" in title or "case control" in title:
         return 4, "Case-control study", guideline
-    if "cross-sectional" in title or has("observational study"):
+    if "cross-sectional" in title or "cross sectional" in title or has("observational study"):
         return 4, _LABELS[4], guideline
     if has("clinical trial") or "clinical trial" in title:
         return 3, "Clinical trial", guideline
