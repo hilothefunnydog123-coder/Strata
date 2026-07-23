@@ -455,6 +455,22 @@ async function getJSON(url){var r=await fetch(url);return await r.json();}
 var EXAMPLES=["Does Treatment X reduce hospitalization in elderly patients with heart failure?",
   "Does metformin reduce cardiovascular mortality in type 2 diabetes?",
   "Is intermittent fasting effective for weight loss?"];
+// shared study/reasons renderers (used by both Verify and the Console)
+function studyCard(s){
+  var eff=s.effect?('<span class="pill">'+esc(s.effect.metric)+' '+esc(s.effect.value)+(s.effect.ci_low!=null?(' (95% CI '+esc(s.effect.ci_low)+'–'+esc(s.effect.ci_high)+')'):'')+'</span>'):'';
+  var dis=s.disagreement_label?('<span class="disagree">'+esc(s.disagreement_label)+'</span>'):'';
+  var pmv=(s.population_match&&typeof s.population_match==='object')?s.population_match.match:s.population_match;
+  var pm=pmv?('<span class="pill">population: '+esc(pmv)+'</span>'):'';
+  return '<div class="study '+esc(s.stance)+'"><div class="top">'+badge(s.strength,s.strength)+
+    '<span class="pill">'+esc(s.study_type)+'</span>'+eff+pm+dis+'<span class="pill">'+esc(s.year||'n.d.')+'</span></div>'+
+    '<div class="ti">'+esc(s.title)+'</div><div class="rz">'+esc(s.stance_reason||'')+'</div>'+
+    (s.url?('<a href="'+esc(s.url)+'" target="_blank" rel="noopener">View source →</a>'):'')+'</div>';
+}
+function reasonsPanel(d){
+  var a=d.assessment||{};var r=(a.reasons||[]).map(function(x){return '<li><span class="plus">+</span> '+esc(x)+'</li>';}).join('');
+  var l=(a.limitations||[]).map(function(x){return '<li><span class="minus">−</span> '+esc(x)+'</li>';}).join('');
+  return '<div class="panel"><h3>Why this grade</h3><ul class="reasons">'+r+l+'</ul></div>';
+}
 """
 
 _HOME_JS = r"""
@@ -476,15 +492,6 @@ function pyramid(pyr,levels){
     tbl+='<tr><th>'+esc(names[L])+'</th><td>'+c+'</td></tr>';}
   return out+tbl+'</tbody></table></div>';
 }
-function studyCard(s){
-  var eff=s.effect?('<span class="pill">'+esc(s.effect.metric)+' '+s.effect.value+(s.effect.ci_low!=null?(' (95% CI '+s.effect.ci_low+'–'+s.effect.ci_high+')'):'')+'</span>'):'';
-  var dis=s.disagreement_label?('<span class="disagree">'+esc(s.disagreement_label)+'</span>'):'';
-  var pm=s.population_match&&s.population_match.match?('<span class="pill">population: '+esc(s.population_match.match)+'</span>'):'';
-  return '<div class="study '+esc(s.stance)+'"><div class="top">'+badge(s.strength,s.strength)+
-    '<span class="pill">'+esc(s.study_type)+'</span>'+eff+pm+dis+'<span class="pill">'+(s.year||'n.d.')+'</span></div>'+
-    '<div class="ti">'+esc(s.title)+'</div><div class="rz">'+esc(s.stance_reason||'')+'</div>'+
-    (s.url?('<a href="'+esc(s.url)+'" target="_blank" rel="noopener">View source →</a>'):'')+'</div>';
-}
 function renderVerifyCompact(d){
   var sup=d.supporting_evidence||[],con=d.contradicting_evidence||[];
   var st=(d.claim_status||'').replace(/_/g,' ');
@@ -500,11 +507,6 @@ function renderVerifyCompact(d){
 }
 function countPyr(d){var p={1:0,2:0,3:0,4:0,5:0,6:0};(['supporting_evidence','contradicting_evidence','neutral_evidence']).forEach(function(k){(d[k]||[]).forEach(function(s){p[s.level]=(p[s.level]||0)+1;});});return p;}
 function levelCounts(d){return countPyr(d);}
-function reasonsPanel(d){
-  var a=d.assessment||{};var r=(a.reasons||[]).map(function(x){return '<li><span class="plus">+</span> '+esc(x)+'</li>';}).join('');
-  var l=(a.limitations||[]).map(function(x){return '<li><span class="minus">−</span> '+esc(x)+'</li>';}).join('');
-  return '<div class="panel"><h3>Why this grade</h3><ul class="reasons">'+r+l+'</ul></div>';
-}
 async function runVerify(){
   var q=document.getElementById('vq').value.trim(); if(!q) return;
   var out=document.getElementById('vout'), go=document.getElementById('vgo');
@@ -581,8 +583,10 @@ var STATE={claims:[],areas:[]};
   ['f-q','f-status','f-strength','f-area'].forEach(function(id){var el=document.getElementById(id);if(el)el.addEventListener('input',applyFilters);});
   document.getElementById('filters').addEventListener('submit',function(e){e.preventDefault();});
   document.getElementById('d-close').addEventListener('click',closeDrawer);
-  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeDrawer();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!document.getElementById('detail').hidden)closeDrawer();});
+  document.getElementById('detail').addEventListener('mousedown',function(e){if(e.target===this)closeDrawer();});
 })();
+var LAST_FOCUS=null;
 async function loadOverview(){
   var d=await getJSON('/app/console/overview'); var s=d.stats||{};
   document.getElementById('ws-name').textContent='Evidence health · '+d.workspace;
@@ -637,6 +641,7 @@ async function openClaim(id){
     '<div class="panel"><h3>Contradicting ('+(d.contradicting||[]).length+')</h3>'+((d.contradicting||[]).map(studyCard).join('')||'<p class="muted">None.</p>')+'</div>';
   var reasons=reasonsPanel({assessment:d.assessment});
   body.innerHTML=head+tl+reasons+studies;
+  LAST_FOCUS=document.activeElement;
   var dr=document.getElementById('detail'); dr.hidden=false; document.getElementById('d-close').focus();
 }
 function timeline(tl){
@@ -647,7 +652,7 @@ function timeline(tl){
     return '<div class="row"><span class="pill">v'+v.version+'</span><span class="bar" style="width:'+Math.max(8,w)+'%;background:'+col+'"></span> '+badge(v.evidence_strength,v.evidence_strength)+' <span class="muted" style="font-size:12px">'+esc((v.status||'').replace(/_/g,' '))+' · '+(v.supporting)+'↑/'+(v.contradicting)+'↓</span></div>';
   }).join('')+'</div>';
 }
-function closeDrawer(){var dr=document.getElementById('detail'); if(dr) dr.hidden=true;}
+function closeDrawer(){var dr=document.getElementById('detail'); if(dr) dr.hidden=true; if(LAST_FOCUS&&LAST_FOCUS.focus){LAST_FOCUS.focus();LAST_FOCUS=null;}}
 """
 
 _DOCS_HTML = r"""

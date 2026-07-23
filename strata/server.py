@@ -156,6 +156,11 @@ def _handler(db: Database, demo_ws: int):
                 cid = int((qs.get("id") or ["0"])[0])
             except ValueError:
                 return self._json({"error": "bad id"}, 400)
+            # the built-in Console is unauthenticated and read-only over the demo
+            # workspace only — never expose a real tenant's claim through it
+            owner = db.one("SELECT workspace_id FROM claims WHERE id=?", (cid,))
+            if not owner or owner["workspace_id"] != demo_ws:
+                return self._json({"error": "not found"}, 404)
             payload = _web.console_claim_detail(db, cid)
             if payload is None:
                 return self._json({"error": "not found"}, 404)
