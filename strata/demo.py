@@ -11,7 +11,7 @@ product uses the same pipeline against PubMed.
 """
 from __future__ import annotations
 
-from . import review, store
+from . import monitor, review, store
 from .pubmed import Article
 
 _YEAR = 2026
@@ -141,7 +141,62 @@ def seed(force: bool = False) -> list:
     return ids
 
 
+# ------------------------------------------------- monitored claims (Verify + Monitor)
+# A claim whose evidence genuinely conflicts — for the "conflict detected" alert.
+_FASTING = [
+    _a("40044001", "Intermittent fasting and cardiovascular mortality: a meta-analysis of trials",
+       ["Meta-Analysis", "Systematic Review"],
+       "Across 12 short trials (n = 2,100), intermittent fasting showed no significant effect "
+       "on cardiovascular mortality (risk ratio 0.98, 95% CI 0.82 to 1.17).", 2022),
+    _a("40044002", "Time-restricted eating and cardiometabolic risk: a randomized trial",
+       ["Randomized Controlled Trial"],
+       "In 320 adults, time-restricted eating reduced a cardiometabolic composite "
+       "(hazard ratio 0.71, 95% CI 0.52 to 0.97) over 12 months.", 2021),
+    _a("40044003", "8-hour eating window and cardiovascular death: a prospective cohort",
+       ["Observational Study"],
+       "Among 20,000 adults, a habitual 8-hour eating window was associated with higher "
+       "cardiovascular mortality (hazard ratio 1.35, 95% CI 1.10 to 1.66).", 2024),
+    _a("40044004", "Intermittent fasting: a narrative review", ["Review"],
+       "This review summarises proposed mechanisms and open questions.", 2020),
+]
+
+_CLAIMS = [
+    dict(id="clm-vitd-ari", claim="Vitamin D supplementation reduces the risk of acute respiratory infections",
+         data=_VITD, t1="2026-04-18T09:00:00+00:00", t2="2026-07-21T09:00:00+00:00"),
+    dict(id="clm-metformin-cvd", claim="Metformin reduces cardiovascular mortality in type 2 diabetes",
+         data=_METF, t1="2026-05-02T09:00:00+00:00", t2="2026-07-20T09:00:00+00:00"),
+    dict(id="clm-sglt2-hf", claim="SGLT2 inhibitors reduce heart-failure hospitalization",
+         data=_SGLT2, t1="2026-06-11T09:00:00+00:00", t2="2026-07-22T09:00:00+00:00"),
+    dict(id="clm-fasting-cvd", claim="Intermittent fasting reduces cardiovascular mortality",
+         data=_FASTING, t1="2026-05-20T09:00:00+00:00", t2="2026-07-19T09:00:00+00:00"),
+]
+
+
+def seed_claims(force: bool = False) -> list:
+    """Register the demo claims and check each twice, so the change feed has a real story."""
+    ids = []
+    for c in _CLAIMS:
+        if force:
+            store.delete(c["id"], kind="claims")
+        if not force and store.get(c["id"], kind="claims") is not None:
+            ids.append(c["id"])
+            continue
+        monitor.register(c["claim"], tenant="Meridian Health (demo)", id=c["id"])
+        earlier = c["data"][:-1]
+        full = c["data"]
+        monitor.check(c["id"], now=c["t1"], _search=lambda q, retmax=40, _e=earlier: list(_e))
+        monitor.check(c["id"], now=c["t2"], _search=lambda q, retmax=40, _f=full: list(_f))
+        ids.append(c["id"])
+    return ids
+
+
+def seed_all(force: bool = False) -> dict:
+    return {"reviews": seed(force), "claims": seed_claims(force)}
+
+
 def ensure_seeded() -> None:
-    """Seed only if the store has no reviews yet — used by `serve` in demo mode."""
+    """Seed only if the store is empty — used by `serve` in demo mode."""
     if not store.list_reviews():
         seed()
+    if not store.list_items("claims"):
+        seed_claims()

@@ -4,15 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "strata-evidence"
-version = "0.2.0"
-description = "Living evidence intelligence for medicine: define a clinical question once and Strata keeps a graded, continuously-updated systematic review of real PubMed literature — with a dashboard that shows how strong the evidence is and what changed."
+version = "0.3.0"
+description = "The verification layer for medical AI: trace any medical claim to the literature, grade the strength of the evidence, surface contradicting studies, and continuously monitor when the evidence changes — as an API, a dashboard, and a trust badge."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 authors = [{ name = "Neil Gilani" }]
 keywords = ["medicine", "evidence-based-medicine", "pubmed", "clinical", "research",
             "rag", "citations", "healthcare", "systematic-review", "living-review",
-            "evidence-surveillance", "medical-affairs"]
+            "evidence-surveillance", "medical-affairs", "ai-verification",
+            "fact-checking", "medical-ai", "hallucination"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Healthcare Industry",
@@ -22,8 +23,15 @@ classifiers = [
 ]
 dependencies = []   # standard library only
 
+[project.urls]
+Homepage = "https://github.com/hilothefunnydog123-coder/strata"
+
 [project.scripts]
 strata = "strata.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["strata"]
+
+[tool.hatch.build.targets.sdist]
+include = ["strata", "clients", "docs", "tests", "README.md", "LICENSE",
+           "Dockerfile", "docker-compose.yml", "Makefile"]

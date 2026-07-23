@@ -16,9 +16,11 @@ narrative from those same papers and nothing else.
 from .evidence import BodyAssessment, Grade, grade, summarize_body
 from .pubmed import Article, search_articles
 from .query import Evidence, Result, ask, rank
-from . import anatomy, review, store
+from .receipt import Receipt
+from . import anatomy, monitor, review, store, verify
+from .verify import verify_claim
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __all__ = ["ask", "Result", "Evidence", "rank", "grade", "summarize_body",
            "Article", "search_articles", "Grade", "BodyAssessment",
-           "review", "anatomy", "store"]
+           "verify", "verify_claim", "Receipt", "monitor", "review", "anatomy", "store"]

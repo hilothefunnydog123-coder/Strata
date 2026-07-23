@@ -675,3 +675,529 @@ function render(d){let cards='';
     <div class="plain">${esc(PLAIN[d.overall_strength]||'')}</div>
     <div class="summary">${esc(d.summary)}</div>${cards}`;}
 </script></body></html>"""
+
+
+# =====================================================================================
+# LANDING — the marketing site: "the verification layer for medical AI"
+# =====================================================================================
+LANDING_HTML = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Strata — the verification layer for medical AI</title>
+<meta name="description" content="Strata traces every medical AI claim to the literature, grades the strength of the evidence, surfaces contradictions, and alerts you when the evidence changes."/>
+<style>
+:root{--bg:#060c0e;--bg2:#0a1315;--panel:#0c181a;--panel2:#0f2023;--line:#193034;--line2:#22454a;
+ --ink:#e8f2f0;--dim:#8ba39f;--faint:#5d7573;--accent:#2dd4bf;--accent2:#38bdf8;--accentink:#04120f;
+ --green:#22c55e;--amber:#f59e0b;--red:#f2564a;--grey:#64748b;
+ --serif:ui-serif,"Iowan Old Style",Palatino,Georgia,serif;
+ --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+ --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(120% 80% at 82% -12%,rgba(45,212,191,.10),transparent 55%),
+  radial-gradient(90% 60% at -5% 0%,rgba(56,189,248,.07),transparent 50%),var(--bg);
+  color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+a{color:inherit;text-decoration:none}
+h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:-.02em;text-wrap:balance}
+.mono{font-family:var(--mono)}
+.mark{display:inline-flex;flex-direction:column;gap:2.5px;width:16px;vertical-align:middle}
+.mark i{height:2.6px;border-radius:2px;display:block}
+.mark i:nth-child(1){width:55%;background:var(--green)}
+.mark i:nth-child(2){width:80%;background:var(--amber)}
+.mark i:nth-child(3){width:100%;background:var(--red)}
+.eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--accent);display:inline-flex;align-items:center;gap:10px;margin-bottom:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.82rem;font-weight:600;
+  letter-spacing:.02em;padding:11px 18px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.btn.p{background:linear-gradient(180deg,var(--accent),#12b5a3);color:var(--accentink);
+  box-shadow:0 0 24px -6px rgba(45,212,191,.6)}
+.btn.g{background:transparent;color:var(--ink);border-color:var(--line2)}
+.btn.g:hover{border-color:var(--accent)}
+
+/* nav */
+nav{position:sticky;top:0;z-index:40;background:rgba(6,12,14,.8);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:20px;height:64px}
+.logo{display:flex;align-items:center;gap:11px;font-weight:700}
+.logo .g{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:var(--accentink);
+  font-weight:800;background:linear-gradient(150deg,var(--accent2),var(--accent));box-shadow:0 0 16px -3px rgba(45,212,191,.5)}
+nav .links{display:flex;gap:22px;margin-left:14px;font-size:.9rem;color:var(--dim)}
+nav .links a:hover{color:var(--ink)}
+nav .sp{flex:1}
+@media(max-width:760px){nav .links{display:none}}
+
+/* hero */
+.hero{padding:70px 0 40px}
+.hero .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+@media(max-width:940px){.hero .grid{grid-template-columns:1fr;gap:36px}}
+h1{font-size:clamp(2.3rem,5vw,3.7rem);line-height:1.04}
+h1 em{font-style:italic;color:var(--accent)}
+.lead{margin-top:20px;font-size:clamp(1.05rem,1.6vw,1.25rem);color:var(--dim);max-width:34em}
+.cta{display:flex;gap:12px;margin-top:26px;flex-wrap:wrap}
+.analogy{margin-top:22px;font-family:var(--mono);font-size:.8rem;color:var(--faint);border-left:2px solid var(--line2);padding-left:12px}
+.analogy b{color:var(--accent)}
+.trust{display:flex;gap:8px;flex-wrap:wrap;margin-top:30px}
+.trust span{font-family:var(--mono);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);
+  border:1px solid var(--line);border-radius:20px;padding:5px 12px}
+
+/* receipt card (shared look) */
+.rcard{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:16px;
+  padding:18px 20px;box-shadow:0 24px 60px -30px #000;position:relative}
+.rcard .rh{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.62rem;letter-spacing:1.4px;color:var(--faint)}
+.rcard .claim{font-size:1.05rem;font-weight:600;margin:11px 0 13px;line-height:1.35}
+.badge{display:inline-flex;align-items:center;gap:8px;font-weight:800;font-size:.82rem;padding:5px 11px;border-radius:8px;color:var(--accentink)}
+.st{font-weight:700;text-transform:capitalize}
+.bars{display:flex;gap:14px;font-size:.85rem;margin:12px 0}
+.bars .s{color:var(--green)}.bars .c{color:var(--red)}.bars .n{color:var(--dim)}
+.lim{font-size:.82rem;color:#e8b769;margin:8px 0 4px}
+.cite{display:flex;gap:9px;padding:7px 0;border-top:1px solid var(--line);font-size:.8rem;color:var(--dim);align-items:baseline}
+.cite .g{font-family:var(--mono);font-weight:700}
+.rcard .foot{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.62rem;color:var(--faint);
+  border-top:1px solid var(--line);padding-top:9px;margin-top:8px}
+
+/* sections */
+section{padding:64px 0;border-top:1px solid var(--line)}
+.kick{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);
+  display:inline-flex;gap:10px;align-items:center;margin-bottom:14px}
+.h2{font-size:clamp(1.7rem,3.2vw,2.5rem);line-height:1.12;max-width:18em;margin-bottom:12px}
+.sub{color:var(--dim);max-width:42em;font-size:1.05rem}
+
+/* flow */
+.flows{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:36px}
+@media(max-width:760px){.flows{grid-template-columns:1fr}}
+.flow{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px}
+.flow.now{opacity:.85}.flow.next{border-color:var(--line2);box-shadow:0 0 40px -18px rgba(45,212,191,.5)}
+.flow .t{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:14px}
+.flow.next .t{color:var(--accent)}
+.chain{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-family:var(--mono);font-size:.82rem}
+.node{background:var(--bg2);border:1px solid var(--line2);border-radius:9px;padding:8px 12px}
+.node.hi{border-color:var(--accent);color:var(--accent);background:rgba(45,212,191,.08)}
+.arw{color:var(--faint)}
+
+/* product cards */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:38px}
+@media(max-width:860px){.cards{grid-template-columns:1fr}}
+.card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:24px}
+.card .ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;margin-bottom:16px;
+  background:rgba(45,212,191,.1);border:1px solid var(--line2)}
+.card h3{font-size:1.3rem;margin-bottom:8px}
+.card .tag{font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.card p{color:var(--dim);font-size:.94rem}
+.card ul{list-style:none;margin-top:12px;display:flex;flex-direction:column;gap:6px;font-size:.86rem;color:var(--dim)}
+.card li{padding-left:16px;position:relative}.card li::before{content:"→";position:absolute;left:0;color:var(--accent)}
+
+/* alerts */
+.alerts{display:flex;flex-direction:column;gap:10px;margin-top:34px;max-width:640px}
+.alert{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px}
+.alert .d{width:10px;height:10px;border-radius:50%;flex:none}
+.alert .x{font-family:var(--mono);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);flex:none;width:96px}
+.alert .m{font-size:.9rem}
+
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:36px}
+@media(max-width:860px){.steps{grid-template-columns:1fr 1fr}}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.step .n{font-family:var(--mono);color:var(--accent);font-size:.8rem;margin-bottom:8px}
+.step h4{font-size:.98rem;margin-bottom:5px}
+.step p{font-size:.82rem;color:var(--dim)}
+
+/* dev */
+.dev{display:grid;grid-template-columns:.9fr 1.1fr;gap:30px;align-items:center;margin-top:34px}
+@media(max-width:860px){.dev{grid-template-columns:1fr}}
+.code{background:#07110f;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.tabs{display:flex;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:.78rem}
+.tab{padding:10px 15px;cursor:pointer;color:var(--faint);border-right:1px solid var(--line)}
+.tab.on{color:var(--accent);background:rgba(45,212,191,.06)}
+pre{margin:0;padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:.8rem;line-height:1.6;color:#c7d6d3}
+pre .k{color:var(--accent2)}pre .s{color:var(--green)}pre .c{color:var(--faint)}
+.pane{display:none}.pane.on{display:block}
+
+/* pricing */
+.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:36px}
+@media(max-width:860px){.tiers{grid-template-columns:1fr}}
+.tier{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px}
+.tier.mid{border-color:var(--accent);box-shadow:0 0 46px -20px rgba(45,212,191,.6)}
+.tier .nm{font-family:var(--mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+.tier .pr{font-family:var(--serif);font-size:1.7rem;margin-bottom:4px}
+.tier .pr small{font-family:var(--mono);font-size:.72rem;color:var(--faint)}
+.tier .who{color:var(--faint);font-size:.82rem;margin-bottom:14px}
+.tier ul{list-style:none;display:flex;flex-direction:column;gap:8px;font-size:.88rem;color:var(--dim)}
+.tier li{padding-left:18px;position:relative}.tier li::before{content:"✓";position:absolute;left:0;color:var(--green)}
+
+footer{border-top:1px solid var(--line);padding:36px 0 48px;color:var(--faint);font-size:.84rem}
+footer .row{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center}
+footer .disc{font-family:var(--mono);font-size:.68rem;max-width:52em;line-height:1.7;margin-top:16px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style></head><body>
+
+<nav><div class="wrap">
+  <a class="logo"><span class="g">S</span> Strata</a>
+  <div class="links"><a href="#products">Products</a><a href="#how">How it works</a>
+    <a href="#developers">Developers</a><a href="#pricing">Pricing</a><a href="/console">Console</a></div>
+  <span class="sp"></span>
+  <a class="btn g" href="/app">Live demo</a>
+  <a class="btn p" href="#developers">Get API access</a>
+</div></nav>
+
+<header class="hero"><div class="wrap"><div class="grid">
+  <div>
+    <div class="eyebrow"><span class="mark"><i></i><i></i><i></i></span> The verification layer for medical AI</div>
+    <h1>Every medical AI makes claims. Strata checks them against <em>the evidence</em>.</h1>
+    <p class="lead">Strata traces each medical claim to the underlying research, grades how strong the evidence is,
+      surfaces contradicting studies, and continuously alerts you when the evidence changes — with a citation trail
+      for every word.</p>
+    <div class="cta"><a class="btn p" href="/app">Try the live demo →</a><a class="btn g" href="#developers">Read the API</a></div>
+    <div class="analogy">Stripe processes payments. <b>Strata processes medical evidence.</b></div>
+    <div class="trust"><span>Grounded</span><span>Graded</span><span>Contradictions surfaced</span><span>Continuously monitored</span><span>Fully auditable</span></div>
+  </div>
+  <div class="rcard">
+    <div class="rh"><span>STRATA EVIDENCE RECEIPT</span><span>STR-8F42A1C9</span></div>
+    <div class="claim">"Drug X reduces hospitalization in patients with heart failure."</div>
+    <div><span class="badge" style="background:var(--green)">Supported</span>
+      <span class="st" style="color:var(--amber);margin-left:8px">moderate certainty</span></div>
+    <div class="bars"><span class="s">▲ 7 supporting</span><span class="c">▼ 2 contradicting</span><span class="n">◦ 1 neutral</span></div>
+    <div class="lim">⚠ May not generalize — evidence is thin in patients over 80.</div>
+    <div class="cite"><span class="g" style="color:var(--green)">▲</span><span>[Meta-analysis, 2023] Pooled RCTs: hospitalization reduced (HR 0.71, 95% CI 0.64–0.79)</span></div>
+    <div class="cite"><span class="g" style="color:var(--green)">▲</span><span>[Randomized trial, 2021] Worsening HF or CV death reduced (HR 0.74)</span></div>
+    <div class="cite"><span class="g" style="color:var(--red)">▼</span><span>[Cohort, 2024] No benefit in a frail subgroup (HR 1.05)</span></div>
+    <div class="foot"><span>checked today</span><span style="color:var(--amber)">● evidence changed 14 days ago</span></div>
+  </div>
+</div></div></header>
+
+<section id="problem"><div class="wrap">
+  <div class="kick"><span class="mark"><i></i><i></i><i></i></span> The whitespace</div>
+  <div class="h2">The future will have more medical AI than humans can verify.</div>
+  <p class="sub">AI doctors, AI radiologists, drug-discovery agents, scribes, patient bots — all generating claims like
+    "this treatment is effective for this population." Today companies ship <b>AI → answer</b>. Medicine needs
+    <b>AI → answer → independent evidence verification</b>. Nobody owns that layer. Strata does.</p>
+  <div class="flows">
+    <div class="flow now"><div class="t">Today</div>
+      <div class="chain"><span class="node">Medical AI</span><span class="arw">→</span><span class="node">Answer</span></div>
+      <p style="color:var(--faint);font-size:.85rem;margin-top:14px">Fluent, confident, unsourced. Who checks it?</p></div>
+    <div class="flow next"><div class="t">With Strata</div>
+      <div class="chain"><span class="node">Medical AI</span><span class="arw">→</span><span class="node">Answer</span>
+        <span class="arw">→</span><span class="node hi">Strata Verify</span><span class="arw">→</span><span class="node hi">Verified answer</span></div>
+      <p style="color:var(--dim);font-size:.85rem;margin-top:14px">Traced, graded, contradiction-checked, monitored.</p></div>
+  </div>
+</div></section>
+
+<section id="products"><div class="wrap">
+  <div class="kick"><span class="mark"><i></i><i></i><i></i></span> Three products, one evidence graph</div>
+  <div class="h2">Medical evidence infrastructure.</div>
+  <div class="cards">
+    <div class="card"><div class="ic mono" style="color:var(--accent)">{}</div>
+      <div class="tag">Strata Verify · API</div><h3>Verify</h3>
+      <p>Send a claim, get an Evidence Receipt: status, strength, supporting vs. contradicting studies, citations.
+        The highest-margin product — a software API, usage-priced.</p>
+      <ul><li>One call per claim</li><li>Support / contradiction / certainty</li><li>Every claim traceable to a paper</li></ul></div>
+    <div class="card"><div class="ic mono" style="color:var(--amber)">◉</div>
+      <div class="tag">Strata Monitor · dashboard</div><h3>Monitor</h3>
+      <p>Watch thousands of claims across a therapeutic area. Strata tells you what changed — a new trial, a
+        contradiction, a safety signal, a certainty shift.</p>
+      <ul><li>Continuous surveillance</li><li>"What changed" alerts</li><li>For pharma, hospitals, payers, AI companies</li></ul></div>
+    <div class="card"><div class="ic mono" style="color:var(--green)">✓</div>
+      <div class="tag">Strata Seal · trust mark</div><h3>Seal</h3>
+      <p>An embeddable "Evidence Verified by Strata" badge. Not "this is true" — "the evidence behind this claim has
+        been independently checked and graded." Like SSL, for medical claims.</p>
+      <ul><li>Public, verifiable badge</li><li>Links to the live receipt</li><li>"Is it Strata-verified?"</li></ul></div>
+  </div>
+</div></section>
+
+<section id="changed"><div class="wrap">
+  <div class="kick"><span class="mark"><i></i><i></i><i></i></span> The killer feature</div>
+  <div class="h2">Medical evidence changes. Strata tells you the moment it does.</div>
+  <p class="sub">A one-time answer is only as good as its freshness. Strata watches the world's literature and pushes
+    the changes that matter — the difference between a static report and living infrastructure.</p>
+  <div class="alerts">
+    <div class="alert"><span class="d" style="background:var(--green)"></span><span class="x">Upgraded</span>
+      <span class="m">New Phase III trial published — certainty <b>moderate → high</b>.</span></div>
+    <div class="alert"><span class="d" style="background:var(--amber)"></span><span class="x">Conflict</span>
+      <span class="m">A new cohort contradicts the previous consensus — status <b>Supported → Mixed</b>.</span></div>
+    <div class="alert"><span class="d" style="background:var(--red)"></span><span class="x">Weakening</span>
+      <span class="m">New safety data introduces a serious limitation in patients over 80.</span></div>
+  </div>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <div class="kick"><span class="mark"><i></i><i></i><i></i></span> How it works</div>
+  <div class="h2">Claim in. Receipt out. Watched forever.</div>
+  <div class="steps">
+    <div class="step"><div class="n">01</div><h4>Trace</h4><p>Find the studies that speak to this exact claim.</p></div>
+    <div class="step"><div class="n">02</div><h4>Grade</h4><p>Rank each on the evidence hierarchy; weigh size and recency.</p></div>
+    <div class="step"><div class="n">03</div><h4>Classify</h4><p>Mark each study supporting, contradicting, or neutral.</p></div>
+    <div class="step"><div class="n">04</div><h4>Verdict</h4><p>Aggregate to a status + certainty; surface the key limitation.</p></div>
+    <div class="step"><div class="n">05</div><h4>Monitor</h4><p>Re-check on a schedule; alert when the evidence moves.</p></div>
+  </div>
+</div></section>
+
+<section id="developers"><div class="wrap">
+  <div class="kick"><span class="mark"><i></i><i></i><i></i></span> For developers</div>
+  <div class="h2">One call to verify any medical claim.</div>
+  <div class="dev">
+    <div><p class="sub">Wrap your medical AI's output in an independent evidence check. Self-host it (no PHI leaves
+      your network — Strata reads only public literature) or call the hosted API. SDKs for Python and JavaScript,
+      zero dependencies.</p>
+      <div style="margin-top:18px;display:flex;gap:12px;flex-wrap:wrap">
+        <a class="btn p" href="/app">Try it live →</a><a class="btn g" href="/console">See the console</a></div></div>
+    <div class="code">
+      <div class="tabs"><div class="tab on" data-p="curl">curl</div><div class="tab" data-p="py">Python</div><div class="tab" data-p="js">JavaScript</div></div>
+      <div class="pane on" id="p-curl"><pre><span class="c"># Verify a claim your AI just generated</span>
+curl -X POST https://api.strata.host/v1/verify \
+  -H <span class="s">"Authorization: Bearer $STRATA_KEY"</span> \
+  -d <span class="s">'{"claim":"Metformin reduces cardiovascular mortality in type 2 diabetes"}'</span>
+
+<span class="c"># → { "status": "Supported", "strength": "moderate",</span>
+<span class="c">#     "supporting": 5, "contradicting": 1, "citations": [...] }</span></pre></div>
+      <div class="pane" id="p-py"><pre><span class="k">from</span> strata_client <span class="k">import</span> Strata
+strata = Strata(api_key=<span class="s">"sk_live_..."</span>)
+
+r = strata.verify(<span class="s">"Metformin reduces cardiovascular mortality in type 2 diabetes"</span>)
+<span class="k">if</span> r[<span class="s">"status"</span>] <span class="k">in</span> (<span class="s">"Mixed"</span>, <span class="s">"Contradicted"</span>):
+    flag_answer(r)          <span class="c"># gate the AI's response</span>
+
+claim_id = strata.monitor(r[<span class="s">"claim"</span>])[<span class="s">"id"</span>]   <span class="c"># watch it forever</span></pre></div>
+      <div class="pane" id="p-js"><pre><span class="k">import</span> { Strata } <span class="k">from</span> <span class="s">"@strata/sdk"</span>;
+<span class="k">const</span> strata = <span class="k">new</span> Strata({ apiKey: <span class="s">"sk_live_..."</span> });
+
+<span class="k">const</span> r = <span class="k">await</span> strata.verify(<span class="s">"Metformin reduces cardiovascular mortality in type 2 diabetes"</span>);
+<span class="c">// &lt;img src={strata.sealUrl(id)} /&gt;  — embed the trust badge</span></pre></div>
+    </div>
+  </div>
+</div></section>
+
+<section id="pricing"><div class="wrap">
+  <div class="kick"><span class="mark"><i></i><i></i><i></i></span> Pricing</div>
+  <div class="h2">Software margins, because the core is computation.</div>
+  <div class="tiers">
+    <div class="tier"><div class="nm">Verify API</div><div class="pr">$0.01–$1<small> / claim</small></div>
+      <div class="who">Medical-AI companies, at scale</div>
+      <ul><li>Usage-based, per verified claim</li><li>Evidence Receipt + citations</li><li>Seal badges included</li><li>Self-host or hosted</li></ul></div>
+    <div class="tier mid"><div class="nm">Monitor · Enterprise</div><div class="pr">$100k–$1M<small> / year</small></div>
+      <div class="who">Pharma, hospitals, payers, CROs</div>
+      <ul><li>Continuous surveillance of a therapeutic area</li><li>"What changed" alerts + digests</li><li>Console + audit trail</li><li>SSO, on-prem option</li></ul></div>
+    <div class="tier"><div class="nm">Platform</div><div class="pr">7 figures</div>
+      <div class="who">Health systems &amp; large AI platforms</div>
+      <ul><li>Org-wide evidence infrastructure</li><li>Private evidence graph</li><li>Custom ingestion + SLAs</li><li>Validation support (GxP / SOC 2)</li></ul></div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  <div class="row"><a class="logo"><span class="g">S</span> Strata</a>
+    <div class="links mono" style="display:flex;gap:18px;font-size:.8rem;color:var(--faint)">
+      <a href="/app">Demo</a><a href="/console">Console</a><a href="#developers">API</a><a href="/lite">Lite</a></div></div>
+  <div class="disc">Strata is medical evidence infrastructure. It appraises <b>published literature</b> for decision
+    support — it is not a medical device, handles no patient data, and does not diagnose, treat, advise, or determine
+    truth. Evidence classification is heuristic; every claim links to its primary sources for independent review.</div>
+</div></footer>
+
+<script>
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.pane').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on'); document.getElementById('p-'+t.dataset.p).classList.add('on');
+});
+</script></body></html>"""
+
+
+# =====================================================================================
+# VERIFY DEMO — paste a claim → Evidence Receipt; plus the Monitor board
+# =====================================================================================
+VERIFY_DEMO_HTML = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Strata Verify — check a medical claim</title>
+<style>
+:root{--bg:#060c0e;--bg2:#0a1315;--panel:#0c181a;--panel2:#0f2023;--line:#193034;--line2:#22454a;
+ --ink:#e8f2f0;--dim:#8ba39f;--faint:#5d7573;--accent:#2dd4bf;--accent2:#38bdf8;--accentink:#04120f;
+ --green:#22c55e;--amber:#f59e0b;--red:#f2564a;--grey:#64748b;
+ --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+ --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(120% 80% at 85% -10%,rgba(45,212,191,.08),transparent 55%),var(--bg);
+  color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+.mono{font-family:var(--mono)}
+nav{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid var(--line);
+  position:sticky;top:0;background:rgba(6,12,14,.82);backdrop-filter:blur(10px);z-index:30}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700}
+.logo .g{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--accentink);font-weight:800;
+  background:linear-gradient(150deg,var(--accent2),var(--accent))}
+.logo .k{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--faint);text-transform:uppercase;
+  border-left:1px solid var(--line2);padding-left:10px}
+nav .sp{flex:1}nav a.b{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 20px 60px}
+.grid{display:grid;grid-template-columns:1.25fr .75fr;gap:22px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+h1{font-size:20px;font-weight:700;letter-spacing:-.01em;margin-bottom:4px}
+.tag{color:var(--dim);font-size:13.5px;margin-bottom:18px}
+.search{display:flex;gap:10px}
+.search input{flex:1;padding:14px 16px;border:1px solid var(--line2);border-radius:12px;font-size:15px;
+  background:var(--panel);color:var(--ink);outline:none}
+.search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(45,212,191,.12)}
+.search button{padding:0 20px;border:0;border-radius:12px;background:linear-gradient(180deg,var(--accent),#12b5a3);
+  color:var(--accentink);font-weight:700;font-family:var(--mono);font-size:13px;cursor:pointer}
+.search button:disabled{opacity:.5}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 6px}
+.chip{font-family:var(--mono);font-size:12px;color:var(--accent);background:rgba(45,212,191,.07);
+  border:1px solid var(--line2);border-radius:20px;padding:6px 12px;cursor:pointer}
+.note{color:var(--faint);font-size:12px;font-family:var(--mono)}
+#out{margin-top:20px}
+.panel{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.rh{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;letter-spacing:1.4px;color:var(--faint)}
+.claim{font-size:16px;font-weight:600;margin:11px 0 14px;line-height:1.35}
+.verdict{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.badge{font-weight:800;font-size:14px;padding:6px 13px;border-radius:9px;color:var(--accentink)}
+.stg{font-weight:700;text-transform:capitalize}
+.blurb{color:var(--dim);font-size:13px;margin-bottom:12px}
+.diverge{height:34px;border-radius:8px;overflow:hidden;display:flex;background:var(--panel2);border:1px solid var(--line);margin-bottom:6px}
+.diverge .s{background:var(--green)}.diverge .c{background:var(--red)}.diverge .n{background:var(--grey);opacity:.5}
+.dl{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:12px}
+.lim{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:10px 12px;
+  color:#e8b769;font-size:13px;margin-bottom:14px}
+.seal{margin:6px 0 14px}
+.cites h4,.hist h4{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 8px}
+.cite{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;padding:9px 0;border-top:1px solid var(--line)}
+.stnc{font-family:var(--mono);font-weight:700;font-size:13px}
+.cite .ti{font-size:13px}.cite .mt{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:2px}
+.cite a{font-family:var(--mono);font-size:11px;white-space:nowrap}
+.pill{font-family:var(--mono);font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:5px;color:#fff}
+.mon{position:sticky;top:70px}
+.mon h3{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);
+  display:flex;justify-content:space-between;margin-bottom:12px}
+.claimrow{width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:12px 13px;margin-bottom:9px;cursor:pointer;color:var(--ink)}
+.claimrow:hover{border-color:var(--line2)}
+.claimrow.alert{box-shadow:inset 3px 0 0 var(--amber)}
+.claimrow .c{font-size:13px;font-weight:600;line-height:1.3;margin-bottom:8px}
+.claimrow .m{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;color:var(--faint);flex-wrap:wrap}
+.sdot{width:8px;height:8px;border-radius:50%}
+.chg{font-family:var(--mono);font-size:10px;color:var(--amber)}
+.feed{margin-top:14px}
+.ev{display:flex;gap:9px;align-items:baseline;font-size:12px;padding:7px 0;border-top:1px solid var(--line);color:var(--dim)}
+.ev .b{font-family:var(--mono);font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;flex:none}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--accentink);border-top-color:transparent;border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px}
+@keyframes s{to{transform:rotate(360deg)}}
+.err{background:rgba(242,86,74,.08);border:1px solid rgba(242,86,74,.3);color:#f2a99f;padding:12px 14px;border-radius:12px;font-size:13px}
+.foot{color:var(--faint);font-family:var(--mono);font-size:11px;text-align:center;margin-top:34px;line-height:1.7}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style></head><body>
+<nav><a class="logo" href="/"><span class="g">S</span> Strata <span class="k">Verify</span></a>
+  <span class="sp"></span><a class="b" href="/console">Console</a><a class="b" href="/">← Home</a></nav>
+<div class="wrap"><div class="grid">
+  <div>
+    <h1>Verify a medical claim</h1>
+    <div class="tag">Paste a claim an AI (or a person) made. Strata traces it to the literature, grades the evidence, and surfaces conflicts.</div>
+    <div class="search"><input id="q" placeholder="e.g. Metformin reduces cardiovascular mortality in type 2 diabetes" autofocus/><button id="go">Verify</button></div>
+    <div class="chips" id="chips"></div>
+    <div class="note">Heuristic appraisal of public literature — decision support, not medical advice or a claim of truth.</div>
+    <div id="out"></div>
+  </div>
+  <aside>
+    <div class="mon">
+      <h3><span>Monitor board</span><span id="monCount" class="mono"></span></h3>
+      <div id="mon"></div>
+    </div>
+  </aside>
+</div>
+<div class="foot">Strata · the verification layer for medical AI<br>Not a medical device · handles no patient data · does not diagnose or treat</div>
+</div>
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const SC={Supported:'#22c55e',Mixed:'#f59e0b',Contested:'#f59e0b',Contradicted:'#f2564a',Insufficient:'#64748b',Unsupported:'#64748b'};
+const STC={high:'#22c55e',moderate:'#f59e0b',low:'#fb7139','very low':'#f2564a',none:'#64748b'};
+const LC={1:'#16a34a',2:'#1f9e6b',3:'#d97706',4:'#ea580c',5:'#dc2626',6:'#64748b'};
+const GLY={support:['▲','#22c55e'],contradict:['▼','#f2564a'],neutral:['◦','#8ba39f']};
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm=s=>s.trim().toLowerCase().replace(/[?.]+$/,'').replace(/\s+/g,' ');
+const EX=["Metformin reduces cardiovascular mortality in type 2 diabetes",
+  "SGLT2 inhibitors reduce heart-failure hospitalization",
+  "Vitamin D supplementation reduces the risk of acute respiratory infections",
+  "Intermittent fasting reduces cardiovascular mortality"];
+$('#chips').innerHTML=EX.map(e=>`<span class="chip">${esc(e)}</span>`).join('');
+$('#chips').onclick=e=>{if(e.target.classList.contains('chip')){$('#q').value=e.target.textContent;verify();}};
+$('#go').onclick=verify;$('#q').addEventListener('keydown',e=>{if(e.key==='Enter')verify();});
+
+async function verify(){
+  const claim=$('#q').value.trim(); if(!claim)return;
+  $('#go').disabled=true;$('#go').innerHTML='<span class="spin"></span>';
+  $('#out').innerHTML='<div class="blurb" style="margin-top:18px">Tracing the literature and grading the evidence…</div>';
+  try{
+    let r;
+    if(window.EMBED){ r=(EMBED.examples||[]).find(x=>norm(x.claim)===norm(claim));
+      if(!r){$('#out').innerHTML='<div class="err">This demo has precomputed receipts for the example claims. Free-text verification runs against the live API — try an example chip, or run Strata locally / via the API.</div>';return;}
+    } else { r=await (await fetch('/v1/verify?claim='+encodeURIComponent(claim))).json();
+      if(r.error){$('#out').innerHTML=`<div class="err">${esc(r.error)}</div>`;return;} }
+    renderReceipt(r);
+  }catch(e){$('#out').innerHTML=`<div class="err">${esc(e.message||e)}</div>`;}
+  finally{$('#go').disabled=false;$('#go').textContent='Verify';}
+}
+
+function bar(r){const t=Math.max(1,r.supporting+r.contradicting+r.neutral);
+  const w=n=>Math.round(100*n/t);
+  return `<div class="diverge"><div class="s" style="width:${w(r.supporting)}%"></div>
+    <div class="c" style="width:${w(r.contradicting)}%"></div><div class="n" style="width:${w(r.neutral)}%"></div></div>
+    <div class="dl"><span style="color:var(--green)">▲ ${r.supporting} supporting</span>
+      <span style="color:var(--red)">▼ ${r.contradicting} contradicting</span>
+      <span>◦ ${r.neutral} neutral</span></div>`;}
+
+function sealChip(r){const c=SC[r.status]||'#64748b';
+  return `<div class="seal"><span style="display:inline-flex;align-items:center;gap:8px;border:1px solid ${c};
+    border-radius:8px;padding:5px 10px;font-family:var(--mono);font-size:11px">
+    <span style="color:var(--faint);letter-spacing:1px">STRATA · EVIDENCE VERIFIED</span>
+    <b style="color:${c}">${esc(r.status)}</b>
+    <b style="color:${STC[r.strength]||'#64748b'}">${esc((r.strength||'').toUpperCase())}</b></span></div>`;}
+
+function citeRow(c){const g=GLY[c.stance]||GLY.neutral;
+  const eff=c.effect&&c.effect.value!=null?`${c.effect.measure} ${c.effect.value.toFixed(2)} (${c.effect.ci_low}–${c.effect.ci_high})`:'';
+  return `<div class="cite"><span class="stnc" style="color:${g[1]}">${g[0]}</span>
+    <div><div class="ti">${esc(c.title)}</div>
+      <div class="mt"><span class="pill" style="background:${LC[c.level]}">${esc(c.label)}</span>
+        ${c.year||'n.d.'} ${eff?'· '+esc(eff):''}</div></div>
+    <a href="${esc(c.url)}" target="_blank" rel="noopener">PubMed ↗</a></div>`;}
+
+function renderReceipt(r,extra){
+  const c=SC[r.status]||'#64748b';
+  const lim=r.key_limitation?`<div class="lim">⚠ ${esc(r.key_limitation)}</div>`:'';
+  const cites=(r.citations||[]).map(citeRow).join('');
+  $('#out').innerHTML=`<div class="panel">
+    <div class="rh"><span>STRATA EVIDENCE RECEIPT</span><span>${esc(r.receipt_id||'')}</span></div>
+    <div class="claim">"${esc(r.claim)}"</div>
+    <div class="verdict"><span class="badge" style="background:${c}">${esc(r.status)}</span>
+      <span class="stg" style="color:${STC[r.strength]||'#64748b'}">${esc(r.strength)} certainty</span></div>
+    <div class="blurb">${esc(({Supported:'The weight of evidence supports this claim.',Mixed:'The evidence is mixed — meaningful support and meaningful conflict.',Contradicted:'The weight of evidence runs against this claim.',Insufficient:'Too little good-quality evidence to judge.',Unsupported:'No directional evidence was found for this exact claim.'})[r.status]||'')}</div>
+    ${bar(r)}${lim}${sealChip(r)}
+    ${extra||''}
+    <div class="cites"><h4>Traced evidence · ${(r.citations||[]).length} sources</h4>${cites}</div>
+    <div class="dl" style="margin-top:12px"><span>checked ${(r.checked||'').slice(0,10)}</span>
+      <span>${r.evidence_changed?'<b style=\"color:var(--amber)\">● evidence changed</b>':'no change since last check'}</span></div>
+  </div>`;
+}
+
+/* ---- monitor board ---- */
+async function loadMon(){
+  try{
+    const d = window.EMBED ? {claims:EMBED.claims} : await (await fetch('/v1/monitor')).json();
+    const claims=d.claims||[];
+    $('#monCount').textContent=claims.length;
+    $('#mon').innerHTML=claims.map(c=>{
+      const col=SC[c.status]||'#64748b';
+      return `<button class="claimrow ${c.evidence_changed?'alert':''}" data-id="${esc(c.id)}">
+        <div class="c">${esc(c.claim)}</div>
+        <div class="m"><span class="sdot" style="background:${col}"></span><span style="color:${col}">${esc(c.status||'—')}</span>
+          <span>· ▲${c.supporting||0} ▼${c.contradicting||0}</span>
+          ${c.evidence_changed?'<span class="chg">● changed</span>':''}</div></button>`;}).join('');
+    document.querySelectorAll('.claimrow').forEach(b=>b.onclick=()=>openClaim(b.dataset.id));
+  }catch(e){$('#mon').innerHTML='<div class="note">Monitor board unavailable.</div>';}
+}
+async function openClaim(id){
+  try{
+    const v = window.EMBED ? EMBED.views[id] : await (await fetch('/v1/monitor/get?id='+encodeURIComponent(id))).json();
+    if(!v||v.error)return;
+    const r=v.receipt; $('#q').value=r.claim;
+    const ch=v.change||{}; const feed=(ch.events||[]).length?`<div class="feed"><h4 style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:4px 0 6px">What changed</h4>`+
+      ch.events.map(e=>{const bc={green:'#22c55e',amber:'#f59e0b',red:'#f2564a'}[e.level]||'#64748b';
+        return `<div class="ev"><span class="b" style="background:${bc};color:#04120f">${esc((e.type||'').replace('_',' '))}</span><span>${esc(e.text)}</span></div>`;}).join('')+`</div>`:'';
+    renderReceipt(r,feed);
+    window.scrollTo({top:0,behavior:'smooth'});
+  }catch(e){}
+}
+loadMon();
+</script></body></html>"""

@@ -1,0 +1,25 @@
+# Strata — one-command self-host.
+#
+#   STRATA_API_KEYS=sk_live_your_key docker compose up --build
+#
+# Then open http://localhost:8600/  (landing) · /app (Verify demo) · /console (Monitor)
+# API: POST http://localhost:8600/v1/verify   (Authorization: Bearer <your key>)
+services:
+  strata:
+    build: .
+    image: strata:latest
+    ports:
+      - "8600:8600"
+    environment:
+      # Comma-separated API keys. If unset, the API is OPEN (fine for a private network only).
+      STRATA_API_KEYS: ${STRATA_API_KEYS:-}
+      # Display name shown in the console / monitor board.
+      STRATA_TENANT: ${STRATA_TENANT:-Your Health System}
+      # Optional: raise PubMed rate limit.
+      NCBI_API_KEY: ${NCBI_API_KEY:-}
+    volumes:
+      - strata-data:/data
+    restart: unless-stopped
+
+volumes:
+  strata-data:

@@ -1,0 +1,13 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+dist
+build
+*.egg-info
+.strata
+.pytest_cache
+docs
+tests
+clients
+scratchpad
