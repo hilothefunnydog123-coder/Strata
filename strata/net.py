@@ -1,11 +1,15 @@
-"""HTTP transport for the NCBI E-utilities API.
+"""HTTP transport for the public evidence APIs Strata reads.
 
-Standard library only. What this adds over a bare ``urlopen``:
+Standard library only. One code path serves NCBI E-utilities, ClinicalTrials.gov,
+Europe PMC and openFDA. What this adds over a bare ``urlopen``:
 
-**Rate limiting that respects NCBI's terms.** Three requests a second without an
-API key, ten with one. The limiter is process-wide and thread-safe, because
-``strata serve`` handles requests concurrently and a burst from four browser tabs
-is exactly how an IP gets blocked.
+**Rate limiting that respects each provider's terms.** Every upstream gets its
+own limiter, because their published ceilings differ by a factor of three and a
+single global limiter would have to run at the slowest of them. NCBI is three
+requests a second without an API key and ten with one. The limiters are
+process-wide and thread-safe, because ``strata serve`` and the enterprise API
+both handle requests concurrently and a burst from four callers is exactly how an
+IP gets blocked.
 
 **Retries with backoff and jitter.** E-utilities returns 429 and 5xx under load.
 Retrying immediately makes that worse; the backoff is exponential with jitter so
@@ -64,18 +68,38 @@ class RateLimiter:
             self._interval = 1.0 / per_second if per_second > 0 else 0.0
 
 
-_limiter = RateLimiter(3.0)
-_limiter_configured = False
+#: Requests per second, per upstream service. Each provider publishes its own
+#: ceiling and they are nowhere near the same, so one global limiter would have
+#: to be set to the slowest — which would throttle PubMed to openFDA's budget for
+#: no reason. Keyed by the service label passed to :func:`get`.
+DEFAULT_RATES = {
+    "PubMed": 3.0,               # 10/s with NCBI_API_KEY; raised in _limiter_for
+    "ClinicalTrials.gov": 5.0,   # CTG v2 asks for "reasonable"; 5/s is polite
+    "Europe PMC": 5.0,
+    "openFDA": 4.0,              # 240/min unauthenticated = 4/s
+    "RxNav": 3.0,
+}
+
+_limiters: dict[str, RateLimiter] = {}
 _limiter_lock = threading.Lock()
 
 
-def _ensure_limiter() -> None:
-    """NCBI allows 10 requests/second with a key, 3 without."""
-    global _limiter_configured
+def _limiter_for(service: str) -> RateLimiter:
+    """The rate limiter for one upstream, created on first use.
+
+    Process-wide and shared across threads: ``strata serve`` and the API both
+    handle requests concurrently, and a burst from four callers is exactly how an
+    IP gets blocked.
+    """
     with _limiter_lock:
-        if not _limiter_configured:
-            _limiter.set_rate(10.0 if os.environ.get("NCBI_API_KEY") else 3.0)
-            _limiter_configured = True
+        limiter = _limiters.get(service)
+        if limiter is None:
+            rate = DEFAULT_RATES.get(service, 3.0)
+            if service == "PubMed" and os.environ.get("NCBI_API_KEY"):
+                rate = 10.0          # NCBI allows 10/s with a key, 3 without
+            limiter = RateLimiter(rate)
+            _limiters[service] = limiter
+        return limiter
 
 
 # ------------------------------------------------------------------------ TLS
@@ -132,20 +156,30 @@ def _maybe_insecure(exc: Exception):
 # ---------------------------------------------------------------- the request
 
 def get(url: str, *, timeout: int = _DEFAULT_TIMEOUT,
-        attempts: int = _MAX_ATTEMPTS, rate_limit: bool = True) -> bytes:
-    """GET a URL, retrying transient failures. Raises :class:`NetworkError`."""
+        attempts: int = _MAX_ATTEMPTS, rate_limit: bool = True,
+        service: str = "PubMed", accept: str = "") -> bytes:
+    """GET a URL, retrying transient failures. Raises :class:`NetworkError`.
+
+    ``service`` selects the rate limiter and shapes the error message. It is a
+    display name, not an enum: an unknown one gets the conservative default rate
+    and a generic explanation, which is the right behaviour for a source added
+    later.
+    """
     if os.environ.get("STRATA_OFFLINE") == "1":
         raise NetworkError(
-            "STRATA_OFFLINE=1 is set and this result is not in the cache.")
+            f"STRATA_OFFLINE=1 is set and this {service} result is not in the cache.")
 
-    _ensure_limiter()
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    headers = {"User-Agent": USER_AGENT}
+    if accept:
+        headers["Accept"] = accept
+    req = urllib.request.Request(url, headers=headers)
+    limiter = _limiter_for(service)
     context = ssl_context()
     last: Exception | None = None
 
     for attempt in range(attempts):
         if rate_limit:
-            _limiter.acquire()
+            limiter.acquire()
         try:
             with urllib.request.urlopen(req, timeout=timeout, context=context) as r:
                 return r.read()
@@ -153,7 +187,7 @@ def get(url: str, *, timeout: int = _DEFAULT_TIMEOUT,
             last = exc
             # 429 and 5xx are worth retrying; 400 and 404 never are.
             if exc.code not in (429, 500, 502, 503, 504) or attempt == attempts - 1:
-                raise NetworkError(_explain(exc)) from exc
+                raise NetworkError(_explain(exc, service)) from exc
         except urllib.error.URLError as exc:
             last = exc
             fallback = _maybe_insecure(exc)
@@ -161,27 +195,29 @@ def get(url: str, *, timeout: int = _DEFAULT_TIMEOUT,
                 context = fallback
                 continue
             if attempt == attempts - 1:
-                raise NetworkError(_explain(exc)) from exc
+                raise NetworkError(_explain(exc, service)) from exc
         except (TimeoutError, OSError) as exc:
             last = exc
             if attempt == attempts - 1:
-                raise NetworkError(_explain(exc)) from exc
+                raise NetworkError(_explain(exc, service)) from exc
 
         # exponential backoff with jitter
         time.sleep(min(8.0, 0.6 * (2 ** attempt)) * (0.5 + random.random()))
 
-    raise NetworkError(_explain(last) if last else "request failed")
+    raise NetworkError(_explain(last, service) if last else "request failed")
 
 
-def _explain(exc: Exception | None) -> str:
+def _explain(exc: Exception | None, service: str = "PubMed") -> str:
     """Turn a transport failure into something a clinician can act on."""
     if isinstance(exc, urllib.error.HTTPError):
         if exc.code == 429:
-            return ("PubMed is rate-limiting this connection. Wait a moment, or "
-                    "set NCBI_API_KEY to raise the limit to 10 requests/second.")
+            hint = (" Set NCBI_API_KEY to raise the limit to 10 requests/second."
+                    if service == "PubMed" else "")
+            return (f"{service} is rate-limiting this connection. Wait a "
+                    f"moment.{hint}")
         if 500 <= exc.code < 600:
-            return f"PubMed returned a server error ({exc.code}). Try again shortly."
-        return f"PubMed rejected the request ({exc.code} {exc.reason})."
+            return f"{service} returned a server error ({exc.code}). Try again shortly."
+        return f"{service} rejected the request ({exc.code} {exc.reason})."
 
     reason = getattr(exc, "reason", exc)
     if isinstance(reason, ssl.SSLCertVerificationError) or \
@@ -192,8 +228,8 @@ def _explain(exc: Exception | None) -> str:
                 "PEM file, or as a last resort on a network you trust set "
                 "STRATA_INSECURE=1.")
     if isinstance(reason, TimeoutError) or isinstance(exc, TimeoutError):
-        return "PubMed did not respond in time. Check the connection and retry."
-    return f"Could not reach PubMed: {reason}"
+        return f"{service} did not respond in time. Check the connection and retry."
+    return f"Could not reach {service}: {reason}"
 
 
 def build_url(base: str, endpoint: str, params: dict) -> str:
@@ -208,6 +244,18 @@ def build_url(base: str, endpoint: str, params: dict) -> str:
     if email:
         params.setdefault("email", email)
     return f"{base}/{endpoint}?{urllib.parse.urlencode(params)}"
+
+
+def plain_url(base: str, path: str, params: dict) -> str:
+    """A URL for a provider that wants no NCBI credentials folded in.
+
+    Empty and ``None`` values are dropped rather than sent as ``key=``: several
+    of these APIs treat an empty parameter as a filter that matches nothing.
+    """
+    clean = {k: v for k, v in params.items() if v not in (None, "", [])}
+    query = urllib.parse.urlencode(clean, doseq=True)
+    stem = f"{base.rstrip('/')}/{path.lstrip('/')}" if path else base.rstrip("/")
+    return f"{stem}?{query}" if query else stem
 
 
 def redact(url: str) -> str:

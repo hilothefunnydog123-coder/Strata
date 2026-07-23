@@ -36,6 +36,8 @@ EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 #: Strata stays well under that so a single GET is always correct.
 FETCH_CHUNK = 100
 
+_NCT_RE = re.compile(r"NCT\d{8}", re.I)
+
 _RETRACTION_TYPES = {"retracted publication", "retraction of publication"}
 _CORRECTION_REFTYPES = {"RetractionIn", "ErratumIn", "ExpressionOfConcernIn",
                         "RepublishedIn", "CorrectedandRepublishedIn"}
@@ -86,9 +88,27 @@ class Article:
     issue: str = ""
     pages: str = ""
 
+    # --- cross-source fields ------------------------------------------------
+    # Strata reads four bibliographic universes now, not one. These carry what
+    # only some of them know, and default to the PubMed answer so every existing
+    # caller sees exactly the behaviour it saw before.
+    source: str = "pubmed"            # pubmed | europepmc | preprint
+    source_id: str = ""               # the record's id in that source
+    is_preprint: bool = False         # not peer reviewed — graded accordingly
+    cited_by: int | None = None       # Europe PMC citation count, when known
+    open_access: bool = False
+    full_text_url: str = ""
+    nct_ids: list[str] = field(default_factory=list)
+    #: The matching :class:`strata.sources.trials.TrialRecord`, attached by
+    #: :mod:`strata.sources.linkage`. Untyped to keep this module free of an
+    #: import cycle — pubmed is the lowest layer and must not depend on sources.
+    trial: object = None
+
     # ------------------------------------------------------------- properties
     @property
     def url(self) -> str:
+        if self.source == "europepmc" and not self.pmid:
+            return f"https://europepmc.org/article/{self.source_id or 'PPR'}"
         return f"https://pubmed.ncbi.nlm.nih.gov/{self.pmid}/"
 
     @property
@@ -150,14 +170,36 @@ class Article:
         return f"{self.title} {self.abstract}".strip()
 
     def as_dict(self) -> dict:
-        return {"pmid": self.pmid, "title": self.title, "journal": self.journal,
-                "year": self.year, "url": self.url, "doi": self.doi,
-                "authors": self.authors[:6],
-                "publication_types": self.publication_types,
-                "mesh_terms": self.mesh_terms[:12],
-                "retracted": self.is_retracted,
-                "expression_of_concern": self.has_expression_of_concern,
-                "erratum": self.has_erratum}
+        d = {"pmid": self.pmid, "title": self.title, "journal": self.journal,
+             "year": self.year, "url": self.url, "doi": self.doi,
+             "authors": self.authors[:6],
+             "publication_types": self.publication_types,
+             "mesh_terms": self.mesh_terms[:12],
+             "retracted": self.is_retracted,
+             "expression_of_concern": self.has_expression_of_concern,
+             "erratum": self.has_erratum,
+             "source": self.source}
+        if self.is_preprint:
+            d["preprint"] = True
+        if self.cited_by is not None:
+            d["cited_by"] = self.cited_by
+        if self.open_access:
+            d["open_access"] = True
+        if self.full_text_url:
+            d["full_text_url"] = self.full_text_url
+        if self.nct_ids:
+            d["nct_ids"] = self.nct_ids
+        if self.trial is not None:
+            t = self.trial
+            d["trial"] = {"nct_id": t.nct_id, "url": t.url,
+                          "prospectively_registered": t.prospectively_registered,
+                          "registration_lag_days": t.registration_lag_days,
+                          "masking": t.masking, "allocation": t.allocation,
+                          "enrollment": t.enrollment,
+                          "enrollment_type": t.enrollment_type,
+                          "sponsor_class": t.sponsor_class,
+                          "status": t.status, "why_stopped": t.why_stopped}
+        return d
 
 
 # ------------------------------------------------------------------- fetching
@@ -311,6 +353,21 @@ def parse_articles(xml_bytes: bytes) -> list[Article]:
                 corrections.append(Correction(
                     kind=ref, pmid=_text(cc, "PMID"), note=_text(cc, "RefSource")))
 
+        # Trial registration numbers. PubMed records these structurally in
+        # DataBankList when the journal deposited them, and journals require them
+        # in the abstract, so both routes are read: the two disagree often enough
+        # that using only one loses real trial-to-paper links.
+        abstract_text = _abstract(article)
+        ncts = []
+        for bank in article.findall(".//DataBankList/DataBank"):
+            if "clinicaltrials" not in _text(bank, "DataBankName").lower():
+                continue
+            for acc in bank.findall(".//AccessionNumberList/AccessionNumber"):
+                if acc.text and _NCT_RE.fullmatch(acc.text.strip()):
+                    ncts.append(acc.text.strip().upper())
+        ncts += [m.group(0).upper() for m in
+                 _NCT_RE.finditer(f"{_text(article, 'ArticleTitle')} {abstract_text}")]
+
         mesh = [_text(m, "DescriptorName")
                 for m in medline.findall(".//MeshHeadingList/MeshHeading")]
         funding = []
@@ -322,7 +379,7 @@ def parse_articles(xml_bytes: bytes) -> list[Article]:
         out.append(Article(
             pmid=pmid,
             title=_text(article, "ArticleTitle"),
-            abstract=_abstract(article),
+            abstract=abstract_text,
             journal=(_text(article, ".//Journal/ISOAbbreviation")
                      or _text(article, ".//Journal/Title")),
             year=_year(article),
@@ -341,5 +398,8 @@ def parse_articles(xml_bytes: bytes) -> list[Article]:
             volume=_text(article, ".//JournalIssue/Volume"),
             issue=_text(article, ".//JournalIssue/Issue"),
             pages=_text(article, ".//Pagination/MedlinePgn"),
+            source="pubmed",
+            source_id=pmid,
+            nct_ids=sorted(set(ncts)),
         ))
     return out

@@ -121,14 +121,57 @@ class DuplicateGroup:
     reason: str
 
 
+def _merge_reason(a, b, overlap_threshold: float, sig_a, sig_b) -> str:
+    """Why two records are the same work, or "" if they are not.
+
+    Ordered by confidence. An identifier match is decisive and cheap; the text
+    comparison is the fallback that catches an epub-ahead-of-print against its
+    print version, and a preprint against the paper it became.
+    """
+    if a.pmid and a.pmid == b.pmid:
+        return "same PMID"
+    if a.doi and a.doi == b.doi:
+        return "same DOI"
+    if jaccard(sig_a, sig_b) >= overlap_threshold:
+        if a.is_preprint != b.is_preprint:
+            return "preprint and published version"
+        if a.source != b.source:
+            return "same record from two databases"
+        return "near-identical text"
+    return ""
+
+
+def _keep_rank(article) -> tuple:
+    """Sort key deciding which of a duplicate set survives. Higher wins.
+
+    The order encodes four judgements:
+
+    1. A retracted record never loses silently to a clean one. The retraction is
+       the most important thing on the page.
+    2. A peer-reviewed paper supersedes its own preprint. Same work, one version
+       has been through review — and keeping the preprint would understate the
+       evidence while keeping both would double-count it.
+    3. Where PubMed and Europe PMC both hold a record, PubMed's wins. Not because
+       it is more true, but because it carries MeSH headings, NLM-assigned
+       publication types and linked retraction notices, all of which the grader
+       reads and the other record lacks.
+    4. Then the fullest abstract, since the rest are usually truncated copies.
+    """
+    return (article.is_retracted,
+            not article.is_preprint,
+            article.source == "pubmed",
+            len(article.abstract),
+            article.year or 0)
+
+
 def find_duplicates(articles, threshold: float = 0.55) -> list[DuplicateGroup]:
     """Group near-identical records, keeping the most informative of each.
 
-    Two signals, in order of confidence: an identical DOI is decisive, and a high
-    shingle overlap between title-plus-abstract catches the rest. The record kept
-    is the one with the fuller abstract, since the others are usually truncated
-    duplicates of it — except that a retracted record never displaces a clean one
-    silently, because the retraction is the more important fact.
+    Signals in order of confidence: an identical PMID or DOI is decisive, and a
+    high shingle overlap between title-plus-abstract catches the rest. This runs
+    across sources as well as within one — Strata retrieves from PubMed and
+    Europe PMC, whose indexes overlap almost entirely for journal articles, and
+    treating that union as "more evidence" would count every trial twice.
     """
     n = len(articles)
     groups: list[DuplicateGroup] = []
@@ -142,22 +185,15 @@ def find_duplicates(articles, threshold: float = 0.55) -> list[DuplicateGroup]:
         for j in range(i + 1, n):
             if j in merged:
                 continue
-            reason = ""
-            if articles[i].doi and articles[i].doi == articles[j].doi:
-                reason = "same DOI"
-            elif jaccard(sigs[i], sigs[j]) >= threshold:
-                reason = "near-identical text"
+            reason = _merge_reason(articles[i], articles[j], threshold,
+                                   sigs[i], sigs[j])
             if reason:
                 members.append((j, reason))
         if not members:
             continue
 
         candidates = [i] + [j for j, _ in members]
-        # Prefer a retracted record so the retraction is never hidden; otherwise
-        # prefer the fullest abstract.
-        keep = max(candidates, key=lambda k: (articles[k].is_retracted,
-                                              len(articles[k].abstract),
-                                              articles[k].year or 0))
+        keep = max(candidates, key=lambda k: _keep_rank(articles[k]))
         dropped = [k for k in candidates if k != keep]
         merged.update(dropped)
         groups.append(DuplicateGroup(keep=keep, dropped=dropped,
