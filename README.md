@@ -1,11 +1,12 @@
 # Strata
 
-**The verification layer for medical AI.**
+**Continuous evidence intelligence — the verification layer for medical AI.**
 
-Strata checks whether an AI's medical claims are actually supported by science. Send it a
-claim, and it traces the claim to the underlying research, grades how strong the evidence
-is, surfaces contradicting studies, and continuously alerts you when the evidence changes —
-with a citation trail for every word.
+Medical evidence changes every day; the systems that rely on it update periodically. Strata
+closes that gap. Send it a claim, and it traces the claim to the underlying research, grades
+how strong the evidence is *with an inspectable GRADE*, explains why supporting and
+contradicting studies disagree, and then **watches** the claim — versioning it and alerting
+you the moment the evidence materially changes, with a citation trail for every word.
 
 > Stripe processes payments. **Strata processes medical evidence.**
 
@@ -45,13 +46,32 @@ a person, structured enough for a machine to embed:
 It is a transparent appraisal of **published evidence**, never a claim of absolute truth —
 and the receipt says so.
 
+## The core object: a versioned Claim
+
+Strata treats every medical claim as a **first-class, versioned object** — not a search query.
+Each claim lives in an object graph and carries its own history:
+
+```
+Organization → Workspace → Therapeutic Area → Claim → Claim Version
+                                                 ↓         ↓
+                                          Alert Rules   Evidence (graded studies)
+                                                 ↓         ↓
+                                     Evidence Change Event → Alert
+```
+
+Every *material* change in a claim's evidence creates a new **version**; version diffs are
+mined into structured **change events**; events that cross a claim's **alert rules** (new
+meta-analysis, new RCT, new contradiction, strength/status change, safety signal, effect
+drift) become **alerts** with signed-webhook delivery. It is *version control for medical
+knowledge* — and the accumulating evidence-change history is the long-term data asset.
+
 ## Three products, one evidence engine
 
 | | | |
 |---|---|---|
-| **Strata Verify** · API | Send a claim → get a receipt. | The high-margin core: a software API, usage-priced. |
-| **Strata Monitor** · dashboard | Watch thousands of claims; get *what changed* alerts. | For pharma, hospitals, payers, AI companies. |
-| **Strata Seal** · trust mark | An embeddable "Evidence Verified" badge. | Like SSL — for medical claims. |
+| **Strata Verify** · API + demo | Send a claim → get a graded Evidence Receipt. | The high-margin core: a software API, usage-priced. |
+| **Strata Console** · Evidence Health | *What changed in our evidence base?* — versioned claims, alerts, timelines, per-area rollups. | For pharma, hospitals, payers, AI companies. |
+| **Strata API** · infrastructure | Verify + monitor from code; signed change webhooks; an embeddable **Seal** trust badge. | The independent evidence layer for medical AI. |
 
 ## The API
 
@@ -82,9 +102,12 @@ for event in strata.check(claim_id)["change"]["events"]:
     print(event["text"])                      # "Certainty upgraded: moderate → high"
 ```
 
-Endpoints: `POST /v1/verify` · `POST /v1/compare` · `POST /v1/keys` · `POST /v1/cohort` ·
-`GET /v1/monitor(/register|/check|/get)` · `GET /v1/receipt/<id>` · `GET /v1/seal/<id>.svg`
-(public badge). Full reference: **[`docs/api.md`](docs/api.md)** · step-by-step:
+Claim-centered endpoints: `POST/GET /v1/claims` · `GET /v1/claims/<id>(/recheck|/history)` ·
+`GET /v1/changes` (the evidence-change feed) · `GET /v1/evidence/<id>` · `GET /v1/console/summary`
+(Evidence Health) · `GET /v1/alerts(/<id>/ack)` · `GET/POST /v1/webhooks` (signed). Plus
+`POST /v1/verify(/stream|/batch)` · `POST /v1/compare` · `POST /v1/keys` · `POST /v1/cohort` ·
+`GET /v1/seal/<id>.svg` (public badge). Full reference lives at **`/docs`** (a real developer
+platform, served by the app) · schema in **[`docs/api.md`](docs/api.md)** · step-by-step:
 **[`docs/integration.md`](docs/integration.md)**.
 
 Optional AI (`strata.llm`) sharpens borderline stance calls using any OpenAI-compatible
@@ -116,9 +139,17 @@ strata demo        # seed reproducible reviews + monitored claims (offline)
 strata serve       # http://127.0.0.1:8600
 ```
 
-Surfaces served: **`/`** landing · **`/app`** the Verify + Monitor demo (paste a claim) ·
-**`/console`** the Monitor console (therapeutic-area view, with a live evidence map) ·
-**`/lite`** the simple ask-one-question page.
+Surfaces served: **`/`** landing · **`/app`** the Verify demo (paste a claim, watch the
+pipeline stream) · **`/console`** the **Evidence-Health dashboard** (what changed, per-area
+rollups, filterable claims, per-claim dossiers with the GRADE rationale + contradiction
+analysis) · **`/search`** the live streaming evidence search · **`/why` `/pricing` `/trust`
+`/security`** the company site · **`/docs`** the developer platform · **`/lite`** the simple
+ask-one-question page.
+
+```bash
+strata console     # the Evidence-Health rollup in your terminal
+strata changes     # the recent evidence-change alert feed
+```
 
 ## Self-host / download (for businesses)
 
@@ -143,9 +174,15 @@ Each retrieved study is placed on the evidence hierarchy (Oxford CEBM / GRADE, s
 meta-analysis → RCT → cohort → case report — then adjusted for sample size and recency. For
 a claim, each study's extracted effect is classified **supporting / contradicting / neutral**
 relative to what the claim asserts, weighted by evidence strength, and aggregated into a
-status (*Supported / Mixed / Contradicted / Insufficient / Unsupported*) and a certainty. It
-is a transparent heuristic — decision support, not a substitute for reading the papers, and
-not medical advice.
+status (*Supported / Mixed / Contradicted / Insufficient / Unsupported*) and a certainty.
+
+The certainty is **inspectable**: it breaks into GRADE-style domains (design, consistency,
+directness, precision, recency, replication) rated from the actual studies, with plain-language
+`+` upgrades and `−` limitations. When studies disagree, a **contradiction engine** names the
+likely reason — different populations, doses, follow-up, designs, or plain statistical
+uncertainty — citing the studies that show each difference, and labels a genuinely unexplained
+conflict as unresolved rather than averaging it away. It is a transparent heuristic — decision
+support, not a substitute for reading the papers, and not medical advice.
 
 ## Not a medical device
 

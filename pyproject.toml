@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "strata-evidence"
-version = "0.5.1"
-description = "The verification layer for medical AI: trace any medical claim across PubMed, Europe PMC, ClinicalTrials.gov, OpenAlex and Crossref, grade the evidence, surface contradictions, compare claims, and monitor when the evidence changes. API keys, SDKs, optional AI, and a self-host platform with local cohort import."
+version = "0.6.0"
+description = "Continuous evidence intelligence for medical AI and healthcare. Treat every medical claim as a first-class, versioned object: trace it across PubMed, Europe PMC, ClinicalTrials.gov, OpenAlex and Crossref, grade the evidence with an inspectable GRADE rationale, explain contradictions, and monitor it continuously — versioning the claim and raising alerts when the evidence materially changes. Ships an enterprise Console (Evidence Health), a claim/changes/evidence API with signed webhooks, real hashed API keys, SDKs, optional AI, and a self-host platform with local cohort import."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"

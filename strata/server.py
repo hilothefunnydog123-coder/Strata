@@ -1,19 +1,24 @@
-"""`strata serve` — the Strata web app + the Verify API, standard library only.
+"""`strata serve` — the Strata web app + Console + the API, standard library only.
 
-Web:   /  landing   /app  Verify+Compare demo   /platform  self-host platform
-       /console  Monitor console   /lite  ask one question
+Web:   /  landing   /app  Verify+Compare demo   /console  Evidence-Health dashboard
+       /search  live evidence search   /why /pricing /trust /security /docs  company + docs
+       /platform  self-host platform   /lite  ask one question
 
 API (v1):
-    GET/POST /v1/verify            {claim, cohort?}     Evidence Receipt
+    GET/POST /v1/verify (+ /stream /batch)  {claim, cohort?}  Evidence Receipt
     POST     /v1/compare           {claim_a, claim_b}   which claim has stronger evidence
-    GET      /v1/receipt/<id>                            a monitored claim's latest receipt
-    GET      /v1/monitor (+ /register /check /get)       continuous claim watching
-    POST     /v1/keys                                    generate a working API key
-    GET      /v1/keys  ·  GET /v1/keys/revoke?id=        list / revoke keys
-    POST     /v1/cohort  ·  GET /v1/cohort               import a population profile (local)
-    GET      /v1/seal/<id>.svg                            public trust badge
-    POST     /v1/demo-request                             email a demo request
-    GET      /v1/sources  ·  GET /v1/health
+    POST/GET /v1/claims                                 create (with alert rules) / list claims
+    GET      /v1/claims/<id> (+ /recheck /history)      claim dossier, re-verify, timeline
+    GET      /v1/changes                                the evidence-change alert feed
+    GET      /v1/evidence/<id>                          resolve a study across the claims citing it
+    GET      /v1/console/summary                        the Evidence-Health rollup
+    GET      /v1/alerts (+ /<id>/ack)                   list / acknowledge alerts
+    GET/POST /v1/webhooks                               register signed change webhooks
+    GET      /v1/monitor (+ /register /check /get)      continuous claim watching
+    GET      /v1/receipt/<id>  ·  GET /v1/seal/<id>.svg  latest receipt / public trust badge
+    POST     /v1/keys  ·  GET /v1/keys (+ /revoke /rotate /logs)   real hashed API keys
+    POST     /v1/cohort  ·  GET /v1/cohort              import a population profile (local)
+    POST     /v1/demo-request  ·  GET /v1/sources /v1/health /v1/models
 
 Auth: a generated key (Authorization: Bearer / X-API-Key / ?key=) always authorizes. If
 ``STRATA_API_KEYS`` is set, only listed or generated keys pass; if unset, the API is open
@@ -536,9 +541,10 @@ def serve(port: int = 8600, *, host: str = "127.0.0.1", demo_seed: bool = True) 
     base = f"http://{shown}:{port}"
     print(f"Strata  ->  {base}/            landing")
     print(f"        ->  {base}/app         Verify + Compare demo")
+    print(f"        ->  {base}/console     Evidence-Health dashboard   ·   /search live search")
+    print(f"        ->  {base}/why  /pricing  /trust  /security  /docs   company + developer platform")
     print(f"        ->  {base}/platform    self-host platform")
-    print(f"        ->  {base}/console     Monitor console   ·   /lite")
-    print(f"        ->  {base}/v1/verify   API (POST {{\"claim\": \"...\"}})")
+    print(f"        ->  {base}/v1/verify   API (POST {{\"claim\": \"...\"}})   ·   /v1/claims  /v1/changes")
     if os.environ.get("STRATA_API_KEYS"):
         print("        API key required (STRATA_API_KEYS is set).")
     print("(ctrl-c to stop)")

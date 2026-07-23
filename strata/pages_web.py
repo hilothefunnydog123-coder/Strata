@@ -424,6 +424,19 @@ details.audit summary{cursor:pointer;font-family:var(--mono);font-size:12px;colo
 details.audit summary::-webkit-details-marker{display:none}
 details.audit summary::before{content:"▸ ";color:var(--green)}
 details.audit[open] summary::before{content:"▾ "}
+details.why{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+details.why summary{cursor:pointer;font-family:var(--mono);font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#c7d6d3;list-style:none}
+details.why summary::-webkit-details-marker{display:none}
+details.why summary::before{content:"▸ ";color:var(--green)}details.why[open] summary::before{content:"▾ "}
+.dims{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 16px;margin:14px 0}
+@media(max-width:560px){.dims{grid-template-columns:1fr 1fr}}
+.dim .dn{display:flex;justify-content:space-between;font-size:12px;color:#aab6b4;margin-bottom:4px}
+.dim .dn b{font-family:var(--mono);text-transform:capitalize}
+.dim .db2{height:6px;border-radius:4px;background:#101922;overflow:hidden}.dim .db2 span{display:block;height:100%;border-radius:4px}
+.wrs{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.wr{display:grid;grid-template-columns:16px 1fr;gap:9px;font-size:14px;line-height:1.45;align-items:baseline}
+.cz{border:1px solid rgba(255,93,115,.24);background:rgba(255,93,115,.05);border-radius:11px;padding:12px 14px;margin-top:10px}
+.cz b{display:block;font-size:14.5px;margin-bottom:5px}.cz div{font-size:13.5px;color:#aab6b4;line-height:1.5}
 .aud{display:grid;grid-template-columns:110px 1fr auto;gap:12px;font-size:12.5px;padding:8px 0;border-bottom:1px solid var(--line);align-items:baseline}
 .aud .s{font-family:var(--mono);color:var(--green);font-weight:700;text-transform:uppercase;font-size:10px}
 .aud .d{color:#fff;opacity:.82}.aud .ms{font-family:var(--mono);color:#7c8a90}
@@ -656,6 +669,18 @@ function auditBlock(r){const a=r.audit_trail||[];if(!a.length)return '';
   const ai=(r.models_used&&r.models_used.length)?('AI on '+r.models_used.length+' tasks'):'heuristics only';
   return `<details class="audit"><summary>Audit trail · ${a.length} stages · ${r.elapsed_ms||0} ms · ${ai}</summary>`+
     a.map(s=>`<div class="aud"><span class="s">${esc(s.stage)}</span><span class="d">${esc(s.detail)}</span><span class="ms">${s.ms}ms</span></div>`).join('')+`</details>`;}
+const SORD2={'very low':0.25,low:0.5,moderate:0.75,high:1};
+function gradeBlock(r){const g=r.strength_rationale;if(!g||!g.dimensions)return '';
+  const order=['study_design','consistency','directness','precision','recency','replication'];
+  const dims=order.filter(k=>g.dimensions[k]).map(k=>{const v=g.dimensions[k],p=Math.round((SORD2[v]||.5)*100),c=STC[v]||'#7c8a90';
+    return `<div class="dim"><div class="dn">${esc(k.replace('_',' '))}<b style="color:${c}">${esc(v)}</b></div><div class="db2"><span style="width:${p}%;background:${c}"></span></div></div>`;}).join('');
+  const facs=(g.factors||[]).map(f=>`<div class="wr"><span style="color:var(--green);font-weight:800">+</span><span>${esc(f.text)}</span></div>`).join('');
+  const lims=(g.limitations||[]).map(l=>`<div class="wr"><span style="color:var(--amber);font-weight:800">−</span><span>${esc(l.text)}</span></div>`).join('');
+  return `<details class="why" open><summary>Why this grade · ${esc(g.grade||'')}</summary>
+    <div class="dims">${dims}</div><div class="wrs">${facs}${lims}</div></details>`;}
+function contraBlock(r){const c=r.contradiction;if(!c||!c.reasons||!c.reasons.length)return '';
+  return `<details class="why"><summary>Why the studies disagree · ${c.supporting}▲ vs ${c.contradicting}▼</summary>`+
+    c.reasons.map(x=>`<div class="cz"><b>${esc(x.title)}</b><div>${esc(x.explanation)}</div></div>`).join('')+`</details>`;}
 function receiptHTML(r,extra){
   const col=SC[r.status]||'#7c8a90';const t=Math.max(1,r.supporting+r.contradicting+r.neutral);
   const w=n=>Math.round(100*n/t);
@@ -683,7 +708,7 @@ function receiptHTML(r,extra){
       <span class="c" style="width:${w(r.contradicting)}%"></span><span class="n" style="width:${w(r.neutral)}%"></span></div>
     <div class="slabels"><span class="s">${r.supporting} supporting</span>
       <span class="c">${r.contradicting} contradicting</span><span class="n">${r.neutral} neutral</span></div>
-    ${picoBlock(r)}${srcBar(r.sources)}${strong}${lim}${pop}${extra||''}
+    ${picoBlock(r)}${srcBar(r.sources)}${strong}${gradeBlock(r)}${contraBlock(r)}${lim}${pop}${extra||''}
     <div class="cites">${cites}</div>${auditBlock(r)}</div>`;
 }
 function renderVerdict(r,extra){$('#stage').innerHTML=receiptHTML(r,extra);}

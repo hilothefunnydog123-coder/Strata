@@ -3,7 +3,9 @@
     strata verify "<claim>"                    check a claim → Evidence Receipt
     strata monitor add "<claim>"               put a claim under continuous surveillance
     strata monitor list | check <id> | show <id> | delete <id>
-    strata serve [--host 0.0.0.0] [--port 8600]   run the web app + Verify API
+    strata console                             the Evidence-Health rollup (what changed)
+    strata changes [--limit N]                 the recent evidence-change alert feed
+    strata serve [--host 0.0.0.0] [--port 8600]   run the web app + Console + Verify API
     strata demo [--force]                      seed reproducible reviews + claims
 
     strata ask "<question>"                     one-shot graded answer (Lite engine)
@@ -159,6 +161,40 @@ def cmd_serve(args) -> int:
     return 0
 
 
+def cmd_console(args) -> int:
+    """Print the Evidence-Health rollup — what changed across the monitored evidence base."""
+    from . import demo, entities
+    demo.ensure_seeded()
+    s = entities.console_summary(workspace_id=args.workspace)
+    print(f"EVIDENCE HEALTH\n\n  {s['claims_monitored']} claims monitored")
+    print(f"  ↑ {s['strengthened']} strengthened   ↓ {s['weakened']} weakened   "
+          f"⚠ {s['newly_contradicted']} newly contradicted   ● {s['new_studies']} new studies")
+    print(f"  {s['open_alerts']} open alert(s)\n")
+    if s["by_area"]:
+        print("  Therapeutic areas:")
+        for a in s["by_area"]:
+            print(f"    {(a['name'] or 'Unassigned'):<32} {a['claims']} claim(s), {a['changed']} changed, {a['alerts']} alert(s)")
+    att = s.get("attention") or []
+    if att:
+        print("\n  Needs attention:")
+        for c in att[:6]:
+            print(f"    [{(c.get('top_severity') or '-').upper():<5}] {str(c['status'] or '-'):<12} {(c['claim'] or '')[:52]}")
+    return 0
+
+
+def cmd_changes(args) -> int:
+    from . import demo, entities
+    demo.ensure_seeded()
+    feed = entities.changes_feed(workspace_id=args.workspace, limit=args.limit)
+    if not feed:
+        print("no evidence changes recorded yet.")
+        return 0
+    for a in feed:
+        print(f"[{(a['severity'] or '-').upper():<5}] {a['headline']}")
+        print(f"        {(a.get('claim') or '')[:64]}   ({(a.get('created') or '')[:10]})")
+    return 0
+
+
 def cmd_demo(args) -> int:
     from . import demo
     out = demo.seed_all(force=args.force)
@@ -220,6 +256,15 @@ def main(argv=None) -> int:
         sp = rsub.add_parser(name)
         sp.add_argument("id")
     r.set_defaults(fn=cmd_review)
+
+    co = sub.add_parser("console", help="print the Evidence-Health rollup (what changed)")
+    co.add_argument("--workspace", default=None)
+    co.set_defaults(fn=cmd_console)
+
+    cg = sub.add_parser("changes", help="print the recent evidence-change alert feed")
+    cg.add_argument("--workspace", default=None)
+    cg.add_argument("--limit", type=int, default=20)
+    cg.set_defaults(fn=cmd_changes)
 
     d = sub.add_parser("demo", help="seed reproducible reviews + monitored claims")
     d.add_argument("--force", action="store_true")
