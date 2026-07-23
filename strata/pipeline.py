@@ -21,6 +21,7 @@ import re
 import time
 from typing import Callable, Optional
 
+from . import assessment
 from . import cohort as _cohort
 from . import llm, models, sources, verify
 from .evidence import grade, summarize_body
@@ -170,8 +171,13 @@ def stream(claim: str, *, pico: Optional[dict] = None, context: Optional[dict] =
         elif st == "contradict":
             con_w += w
     sup, con, neu = len(by_stance["support"]), len(by_stance["contradict"]), len(by_stance["neutral"])
-    yield stage("contradiction", f"{sup} supporting, {con} contradicting, {neu} neutral.",
-                supporting=sup, contradicting=con, neutral=neu)
+    support_items = [it for it in items if it[2] == "support"]
+    contradict_items = [it for it in items if it[2] == "contradict"]
+    contra = assessment.contradiction_analysis(support_items, contradict_items)
+    _detail = (f"{sup} supporting, {con} contradicting, {neu} neutral."
+               + (f" Disagreement explained by {len(contra['reasons'])} factor(s)." if contra.get("reasons") else ""))
+    yield stage("contradiction", _detail, supporting=sup, contradicting=con, neutral=neu,
+                reasons=[r["factor"] for r in contra.get("reasons", [])])
 
     # 9 grade (status, strength, confidence)
     status, strength = verify._status_and_strength(sup_w, con_w, sup, con, by_stance, len(items))
@@ -182,8 +188,11 @@ def stream(claim: str, *, pico: Optional[dict] = None, context: Optional[dict] =
     claim_status = CLAIM_STATUS.get(status, "INSUFFICIENT")
     if status == "Supported" and strength in ("low", "very low"):
         claim_status = "PARTIALLY_SUPPORTED"
-    yield stage("grade", f"{claim_status} at {strength} certainty (confidence {confidence}).",
-                claim_status=claim_status, strength=strength, confidence=confidence)
+    rationale = assessment.strength_rationale(items, status, strength, current_year,
+                                              pico=pico_obj, supporting=sup, contradicting=con)
+    yield stage("grade", f"{claim_status} at {strength} certainty (confidence {confidence}). {rationale['summary']}",
+                claim_status=claim_status, strength=strength, confidence=confidence,
+                rationale=rationale)
 
     # 10 synthesize (optional)
     synthesis = None
@@ -219,7 +228,8 @@ def stream(claim: str, *, pico: Optional[dict] = None, context: Optional[dict] =
         highest_evidence=highest, key_limitation=verify._limitation(items, status),
         citations=citations, query=query, sources=breakdown, population_note=pop_note,
         synthesis=synthesis, claim_status=claim_status, confidence=confidence, pico=pico_obj,
-        effect_estimates=effect_estimates, population_limitations=pop_limits,
+        effect_estimates=effect_estimates, strength_rationale=rationale, contradiction=contra,
+        population_limitations=pop_limits,
         audit_trail=audit, models_used=sorted(set(models_used)),
         elapsed_ms=int((time.perf_counter() - t0) * 1000))
     yield {"type": "done", "receipt": receipt.to_dict(), "_receipt": receipt}

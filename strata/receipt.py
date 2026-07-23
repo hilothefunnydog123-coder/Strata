@@ -59,6 +59,8 @@ class Receipt:
     confidence: float = 0.0                         # 0..1, calibrated from quantity + quality + agreement
     pico: dict = field(default_factory=dict)        # {population, intervention, comparator, outcome, direction}
     effect_estimates: list = field(default_factory=list)  # extracted measures with CIs
+    strength_rationale: dict = field(default_factory=dict)  # inspectable GRADE: domains + +/- reasons
+    contradiction: dict = field(default_factory=dict)       # why supporting/contradicting studies disagree
     population_limitations: list = field(default_factory=list)
     audit_trail: list = field(default_factory=list)  # per-stage record, every conclusion traceable
     models_used: list = field(default_factory=list)  # which models ran, if any
