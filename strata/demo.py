@@ -22,6 +22,24 @@ def _a(pmid, title, ptypes, abstract, year, authors=("Ng V", "Okafor L", "Sato H
                    year=year, authors=list(authors), publication_types=list(ptypes))
 
 
+def _enrich(articles):
+    """Give demo records realistic source provenance + citation counts so the receipts show
+    the full multi-source picture offline."""
+    cyc = ["pubmed", "europepmc", "openalex", "europepmc", "pubmed", "openalex", "crossref"]
+    for i, a in enumerate(articles):
+        pts = " ".join(a.publication_types).lower()
+        t = a.title.lower()
+        a.source = "clinicaltrials" if "registry" in pts else cyc[i % len(cyc)]
+        lvl = (1 if ("meta" in t or "meta-analysis" in pts or "systematic" in t) else
+               2 if ("randomiz" in t or "randomized" in pts) else
+               3 if "cohort" in t else 5 if "case" in t else 4)
+        base = {1: 540, 2: 270, 3: 120, 4: 48, 5: 12, 6: 22}[lvl]
+        a.cited_by = base + (int((a.pmid or "0")[-2:]) % 40) * 3
+        if a.doi is None:
+            a.doi = f"10.1101/strata.{a.pmid}"
+    return articles
+
+
 # --------------------------------------------------------------- 1) Vitamin D
 _VITD = [
     _a("40011001", "Vitamin D and respiratory infection: a meta-analysis of randomized trials",
@@ -159,6 +177,10 @@ _FASTING = [
     _a("40044004", "Intermittent fasting: a narrative review", ["Review"],
        "This review summarises proposed mechanisms and open questions.", 2020),
 ]
+
+for _ds in (_VITD, _METF, _SGLT2, _FASTING):   # add source provenance + citation counts
+    _enrich(_ds)
+
 
 _CLAIMS = [
     dict(id="clm-vitd-ari", claim="Vitamin D supplementation reduces the risk of acute respiratory infections",

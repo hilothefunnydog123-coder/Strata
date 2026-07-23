@@ -1,63 +1,96 @@
-# Strata Verify — API reference
+# Strata API reference (v1)
 
-The verification layer, over HTTP. Standard-library server; run it with `strata serve` (see
-[self-hosting](self-hosting.md)). Base URL below is the local default.
+The verification layer over HTTP. Standard-library server; run it with `strata serve`
+(see [self-hosting](self-hosting.md)). Base URL below is the local default.
 
 ```
 http://127.0.0.1:8600
 ```
 
+New here? Start with the [integration guide](integration.md).
+
 ## Authentication
 
-If the `STRATA_API_KEYS` environment variable is set (comma-separated keys), every `/v1/*`
-call except the public Seal badge requires a matching key, supplied as any of:
+Generate a working key (returned once):
 
-```
-Authorization: Bearer <key>
-X-API-Key: <key>
-?key=<key>
+```bash
+curl -X POST http://127.0.0.1:8600/v1/keys -d '{"label":"my app"}'
+# { "key": "sk_live_...", "id": "key_...", "prefix": "sk_live_...abcd", "requests": 0 }
 ```
 
-If `STRATA_API_KEYS` is unset, the API is **open** — intended only for a trusted private
-network or local development.
+Send it on every `/v1/*` call (except the public Seal badge and `/v1/health`) as any of:
+
+```
+Authorization: Bearer sk_live_...
+X-API-Key: sk_live_...
+?key=sk_live_...
+```
+
+A generated key always authorizes and its usage is tracked. If `STRATA_API_KEYS` is set,
+those keys work too and everything else is rejected; if it is unset, the API is open (fine
+for a trusted private network). Key **creation** can be gated with `STRATA_ADMIN_KEY`.
+
+## Data sources
+
+Every verification fans out, in one pass, across **PubMed**, **Europe PMC**,
+**ClinicalTrials.gov**, **OpenAlex**, and **Crossref**, then de-duplicates by DOI / PMID /
+title and carries citation counts + source provenance. `GET /v1/sources` lists what is
+enabled; set `STRATA_SOURCES` to choose.
 
 ## Endpoints
 
 ### `POST /v1/verify` — verify a claim
-Body: `{"claim": "<text>"}` (or `GET /v1/verify?claim=...`). Returns an **Evidence Receipt**.
+Body: `{"claim": "...", "cohort": "<optional cohort id>"}` (or `GET /v1/verify?claim=...`).
+Returns an **Evidence Receipt**.
 
 ```bash
 curl -X POST http://127.0.0.1:8600/v1/verify \
   -H "Authorization: Bearer $STRATA_KEY" \
-  -H "Content-Type: application/json" \
   -d '{"claim":"Metformin reduces cardiovascular mortality in type 2 diabetes"}'
 ```
 
-### `GET /v1/monitor` — list monitored claims
-Returns `{tenant, claims: [{id, claim, status, strength, supporting, contradicting, evidence_changed, last_checked, checks}]}`.
+### `POST /v1/compare` — compare two claims
+Body: `{"claim_a": "...", "claim_b": "..."}`. Returns two receipts plus which has the stronger
+evidence base.
 
-### `GET /v1/monitor/register?claim=&tenant=` — start monitoring
-Registers the claim and runs the first check. Returns `{id, receipt, change}`.
+```jsonc
+{ "winner": "a", "rationale": "...stronger evidence base (Supported, high, 5 supporting)...",
+  "a": { /* receipt */ }, "b": { /* receipt */ } }
+```
 
-### `GET /v1/monitor/check?id=` — re-check
-Re-verifies a monitored claim and returns `{id, receipt, change}`. The `change` object is the
-"what changed" feed (see below).
+### `POST /v1/keys` · `GET /v1/keys` · `GET /v1/keys/revoke?id=`
+Create (returns the raw key once), list (redacted, with usage), and revoke keys.
 
-### `GET /v1/monitor/get?id=` — current state
-Returns `{protocol, receipt, history, change}` — the latest receipt plus the check history.
+### `POST /v1/cohort` · `GET /v1/cohort`
+Import a **local** population profile; list imported cohorts. Rows are reduced to aggregates
+immediately and never transmitted anywhere.
+
+```bash
+curl -X POST http://127.0.0.1:8600/v1/cohort -H "Authorization: Bearer $STRATA_KEY" \
+  -d '{"name":"clinic A","rows":[{"age":82,"medications":"metformin","conditions":"diabetes"}]}'
+# -> { "id": "cohort-clinic-a", "profile": { "age_median": 82, "age_bands": {...}, ... } }
+```
+
+Pass the returned id as `cohort` to `/v1/verify` to get a population-specific
+`population_note`.
+
+### `GET /v1/monitor` · `/register?claim=` · `/check?id=` · `/get?id=`
+Continuous claim watching. `register` and `check` return `{id, receipt, change}`, where
+`change` is the "what changed" feed.
 
 ### `GET /v1/receipt/<id>` — a monitored claim's latest receipt
 
-### `GET /v1/seal/<id>.svg` — the public trust badge
-Returns an `image/svg+xml` "Evidence Verified" badge for the claim's latest receipt. Public
-(no key). Embed it:
-
+### `GET /v1/seal/<id>.svg` — public "Evidence Verified" badge
 ```html
 <img src="http://127.0.0.1:8600/v1/seal/clm-sglt2-hf.svg" alt="Evidence Verified by Strata"/>
 ```
 
-### `GET /v1/health`
-`{status, version, auth}`.
+### `POST /v1/demo-request` — request a demo
+Body: `{"email":"...","org":"...","message":"..."}`. Stored locally and emailed to the
+founder when SMTP is configured. Public.
+
+### `GET /v1/health` · `GET /v1/sources`
+Version, enabled sources, whether AI + auth are configured.
 
 ## The Evidence Receipt
 
@@ -65,75 +98,41 @@ Returns an `image/svg+xml` "Evidence Verified" badge for the claim's latest rece
 {
   "receipt_id": "STR-8F42A1C9",
   "claim": "Metformin reduces cardiovascular mortality in type 2 diabetes",
-  "status": "Supported",          // Supported | Mixed | Contradicted | Insufficient | Unsupported
-  "strength": "moderate",         // high | moderate | low | very low | none
-  "supporting": 4,
-  "contradicting": 0,
-  "neutral": 1,
-  "total": 5,
+  "status": "Supported",            // Supported | Mixed | Contradicted | Insufficient | Unsupported
+  "strength": "moderate",           // high | moderate | low | very low | none
+  "supporting": 5, "contradicting": 0, "neutral": 1, "total": 6,
   "checked": "2026-07-23T09:00:00+00:00",
-  "highest_evidence": {
-    "pmid": "40022001", "title": "…", "year": 2020,
-    "url": "https://pubmed.ncbi.nlm.nih.gov/40022001/",
-    "label": "Systematic review / meta-analysis", "level": 1, "strength": "high"
-  },
-  "key_limitation": "Rests largely on a single high-quality study …",
+  "highest_evidence": { "label": "Systematic review / meta-analysis", "level": 1,
+                        "year": 2020, "url": "...", "source": "europepmc" },
+  "key_limitation": "Rests largely on observational and older trials.",
   "citations": [
-    {
-      "n": 1, "pmid": "40022001", "title": "…", "year": 2020,
-      "url": "…", "level": 1, "label": "Systematic review / meta-analysis",
-      "strength": "high", "stance": "support",     // support | contradict | neutral
-      "snippet": "…",
-      "effect": {"measure": "HR", "value": 0.83, "ci_low": 0.74, "ci_high": 0.93,
-                 "direction": "reduction", "significant": true}
-    }
+    { "n": 1, "title": "...", "year": 2020, "url": "...", "level": 1,
+      "label": "Systematic review / meta-analysis", "strength": "high",
+      "stance": "support",          // support | contradict | neutral
+      "source": "europepmc",        // which database it came from
+      "cited_by": 543, "doi": "10.xxxx/...",
+      "effect": {"measure":"HR","value":0.83,"ci_low":0.74,"ci_high":0.93,
+                 "direction":"reduction","significant":true} }
   ],
+  "sources": { "pubmed": 12, "europepmc": 10, "openalex": 8, "clinicaltrials": 5 },
+  "population_note": "45% of your population is 80+, where trial evidence is thinnest.",
+  "synthesis": null,                // optional AI plain-language summary
   "evidence_changed": false,
-  "change": { /* the what-changed feed, see below */ },
-  "query": "Metformin cardiovascular mortality type diabetes",
-  "disclaimer": "Heuristic appraisal of public literature for decision support. …"
-}
-```
-
-### The `change` (what-changed) feed
-```jsonc
-{
-  "changed": true,
-  "first_check": false,
-  "headline": "Certainty upgraded: moderate → high",
-  "events": [
-    {"type": "upgraded",    "level": "green", "text": "Certainty upgraded: moderate → high"},
-    {"type": "new_study",   "level": "green", "text": "New support study: …", "pmid": "…"},
-    {"type": "conflict",    "level": "amber", "text": "Status changed: Supported → Mixed"}
-  ]
+  "change": { "changed": true, "events": [ {"type":"upgraded","text":"..."} ] },
+  "disclaimer": "Heuristic appraisal of public literature ..."
 }
 ```
 
 ## SDKs
 
-**Python** ([`clients/python/strata_client.py`](../clients/python/strata_client.py)) — zero deps:
-
-```python
-from strata_client import Strata
-strata = Strata(api_key="sk_live_...", base_url="https://api.your-strata.host")
-r = strata.verify("SGLT2 inhibitors reduce heart-failure hospitalization")
-cid = strata.monitor(r["claim"])["id"]
-change = strata.check(cid)["change"]
-badge = strata.seal_url(cid)          # embed as <img>
-```
-
-**JavaScript / TypeScript** ([`clients/js/strata.js`](../clients/js/strata.js)) — browser + Node:
-
-```js
-import { Strata } from "@strata/sdk";
-const strata = new Strata({ apiKey: "sk_live_..." });
-const r = await strata.verify("SGLT2 inhibitors reduce heart-failure hospitalization");
-```
+Python ([`clients/python/strata_client.py`](../clients/python/strata_client.py)) and
+JavaScript ([`clients/js/strata.js`](../clients/js/strata.js)), both zero-dependency. See the
+[integration guide](integration.md) for end-to-end examples.
 
 ## Notes & limits
 
-- Effect classification (support / contradict) is a **heuristic** over abstracts; every
-  citation links to its source for review. Do not treat a receipt as a determination of truth.
-- Live verification queries PubMed (public NCBI E-utilities). Set `NCBI_API_KEY` to raise the
-  rate limit. The seeded demo claims verify offline.
-- No rate limiting or billing is built in — put the service behind your gateway for production.
+- Stance (support / contradict) is a heuristic over abstracts, optionally sharpened by an AI
+  model when configured; every citation links to its source. A receipt is an appraisal, never
+  a determination of truth.
+- Live verification hits public APIs; the seeded demo claims resolve offline.
+- No built-in rate limiting or billing. Put the service behind your gateway for production.

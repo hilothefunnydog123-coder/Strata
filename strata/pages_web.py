@@ -121,6 +121,11 @@ section{padding:100px 0;border-top:1px solid var(--line)}
 footer{border-top:1px solid var(--line);padding:40px 0}
 footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center}
 footer .disc{font-size:14px;font-weight:500;color:#fff;opacity:.55;max-width:60ch;margin-top:18px;line-height:1.6}
+.srcgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:50px}
+@media(max-width:800px){.srcgrid{grid-template-columns:repeat(2,1fr)}}
+.sc{border:1px solid var(--line);border-radius:16px;padding:26px 22px}
+.sc b{display:block;font-size:38px;font-weight:800;letter-spacing:-.03em;color:var(--green)}
+.sc span{display:block;margin-top:8px;font-size:15px;font-weight:600;color:#fff;opacity:.75}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}.splitbar .s{width:80%}.splitbar .c{width:14%}.verdict .status{opacity:1;transform:none}}
 </style></head><body><span id="top"></span>
 
@@ -128,8 +133,9 @@ footer .disc{font-size:14px;font-weight:500;color:#fff;opacity:.55;max-width:60c
   <a class="logo" href="#top"><span class="g">S</span> Strata</a>
   <span class="sp"></span>
   <a class="lk hide" href="#how">How it works</a>
-  <a class="lk hide" href="#products">Products</a>
+  <a class="lk hide" href="#data">Data</a>
   <a class="lk hide" href="#developers">Developers</a>
+  <a class="lk hide" href="/platform">Platform</a>
   <a class="btn p" href="/app" style="padding:10px 18px;font-size:14px">Try it live</a>
 </div></nav>
 
@@ -198,6 +204,17 @@ curl -X POST https://api.strata.health/v1/verify \
   </div>
 </div></section>
 
+<section id="data"><div class="wrap reveal">
+  <div class="big-statement">Powered by the world's <span class="go">open research.</span></div>
+  <div class="lead">Every claim is checked across PubMed, Europe PMC, ClinicalTrials.gov, OpenAlex, and Crossref, then deduplicated and graded in one pass.</div>
+  <div class="srcgrid">
+    <div class="sc"><b>38M+</b><span>PubMed and Europe PMC papers</span></div>
+    <div class="sc"><b>250M+</b><span>OpenAlex scholarly works</span></div>
+    <div class="sc"><b>450k+</b><span>registered clinical trials</span></div>
+    <div class="sc"><b>5</b><span>sources, one receipt</span></div>
+  </div>
+</div></section>
+
 <section id="pricing"><div class="wrap">
   <div class="big-statement reveal">A systematic review costs <span class="go">$200,000</span> and is stale within a year.</div>
   <div class="lead reveal">Strata watches your entire evidence base continuously, for every claim, at software cost.</div>
@@ -210,13 +227,16 @@ curl -X POST https://api.strata.health/v1/verify \
 
 <div class="cta-final"><div class="wrap reveal">
   <h2>Stop shipping medical AI you can't defend.</h2>
-  <a class="btn p" href="/app" style="font-size:17px;padding:16px 28px">Verify a claim</a>
+  <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+    <a class="btn p" href="/app" style="font-size:17px;padding:16px 28px">Verify a claim</a>
+    <a class="btn g" id="demoBtn" style="font-size:17px;padding:16px 28px">Request a demo</a>
+  </div>
 </div></div>
 
 <footer><div class="wrap">
   <div style="display:flex;justify-content:space-between;width:100%;gap:20px;flex-wrap:wrap">
     <a class="logo" href="#top"><span class="g">S</span> Strata</a>
-    <div style="display:flex;gap:22px;font-weight:600"><a href="/app">Demo</a><a href="/console">Console</a><a href="#developers">API</a></div>
+    <div style="display:flex;gap:22px;font-weight:600"><a href="/app">Demo</a><a href="/platform">Platform</a><a href="/console">Console</a><a href="#developers">API</a></div>
   </div>
   <div class="disc">Strata appraises published literature for decision support. It is not a medical device, handles no patient data, and does not diagnose, treat, advise, or determine truth. Every claim links to its sources.</div>
 </div></footer>
@@ -224,6 +244,11 @@ curl -X POST https://api.strata.health/v1/verify \
 <script>
 const io=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.15});
 document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+function requestDemo(){var email=prompt("Your email (we'll reach out to schedule):");if(!email)return;
+  var org=prompt('Organization (optional):')||'';
+  fetch('/v1/demo-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,org:org,source:'landing'})}).catch(function(){});
+  window.location.href='mailto:dlake003@gmail.com?subject='+encodeURIComponent('Strata demo request')+'&body='+encodeURIComponent('Email: '+email+'\nOrg: '+org+'\n\nI would like a demo of Strata.');}
+var _db=document.getElementById('demoBtn');if(_db)_db.onclick=requestDemo;
 </script></body></html>"""
 
 
@@ -319,6 +344,26 @@ nav .sp{flex:1}nav a.lk{font-weight:600;color:#fff;opacity:.7}nav a.lk:hover{opa
 .spin{display:inline-block;width:15px;height:15px;border:2.5px solid #03140d;border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
 .err{background:rgba(255,93,115,.08);border:1px solid rgba(255,93,115,.3);color:#ff9aa8;padding:16px 18px;border-radius:14px;font-size:16px;font-weight:600}
 .foot{text-align:center;color:#fff;opacity:.5;font-size:14px;margin:56px 0 30px;line-height:1.7}
+.srcbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:18px 0 4px}
+.srcbar .lbl{font-size:13px;font-weight:600;color:#fff;opacity:.72;margin-right:4px}
+.schip{font-family:var(--mono);font-size:12px;font-weight:600;color:#d6f5ec;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:20px;padding:5px 11px}
+.schip b{color:var(--green)}
+.srctag{font-family:var(--mono);font-size:11px;color:#7c8a90}
+.tools{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.tools button,.tools a{font-family:var(--mono);font-size:13px;font-weight:700;color:#fff;background:transparent;border:1px solid var(--line);border-radius:10px;padding:9px 14px;cursor:pointer}
+.tools button:hover,.tools a:hover{border-color:var(--green);color:var(--green)}
+.tools .on{border-color:var(--green);color:var(--green);background:rgba(56,230,166,.06)}
+.cmp2{max-width:760px;margin:12px auto 0;padding:0 24px;display:none}
+.cmp2.show{display:block}
+.keypanel{background:var(--card);border:1px solid var(--green);border-radius:18px;padding:24px 26px;margin-top:24px}
+.keypanel h3{font-size:22px;font-weight:800;margin-bottom:6px}
+.keypanel .k{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--green);background:#03140d;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:14px 0;word-break:break-all;display:flex;justify-content:space-between;gap:12px;align-items:center}
+.keypanel .copy{cursor:pointer;color:#fff;opacity:.7;font-size:13px}
+.keypanel pre{background:#03140d;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:var(--mono);font-size:13px;color:#d6f5ec;line-height:1.7}
+.keypanel .note{font-size:13px;color:#ffce70;margin-top:10px;font-weight:600}
+.cmpwrap{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.cmpwrap{grid-template-columns:1fr}}
+.winner{text-align:center;background:rgba(56,230,166,.08);border:1px solid rgba(56,230,166,.3);border-radius:14px;padding:16px 18px;margin-bottom:16px;font-size:16px;font-weight:700}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.001s!important}}
 </style></head><body>
 <nav><div class="wrap"><a class="logo" href="/"><span class="g">S</span> Strata <span class="k">Verify</span></a>
@@ -330,7 +375,13 @@ nav .sp{flex:1}nav a.lk{font-weight:600;color:#fff;opacity:.7}nav a.lk:hover{opa
   <div class="search"><input id="q" placeholder="Metformin reduces cardiovascular mortality in type 2 diabetes" autofocus/>
     <button id="go">Verify</button></div>
   <div class="chips" id="chips"></div>
+  <div class="tools">
+    <button id="cmpBtn">Compare two claims</button>
+    <button id="keyBtn">Get an API key</button>
+    <a id="demoBtn">Request a demo</a>
+  </div>
 </div>
+<div class="cmp2" id="cmp2"><div class="search"><input id="q2" placeholder="Second claim to compare, e.g. GLP-1 agonists reduce heart-failure hospitalization"/></div></div>
 <div class="wrap2">
   <div id="stage"></div>
   <div class="monsec">
@@ -365,18 +416,72 @@ async function getReceipt(claim){
   const r=await(await fetch('/v1/verify?claim='+encodeURIComponent(claim))).json();
   return r.error?null:r;
 }
-async function run(){
+async function run(){ if(COMPARE) return doCompare(); return verifyOne(); }
+async function verifyOne(){
   const claim=$('#q').value.trim();if(!claim)return;
   $('#go').disabled=true;$('#go').innerHTML='<span class="spin"></span>';
   try{
     const r=await getReceipt(claim);
-    if(r==='nomatch'){$('#stage').innerHTML='<div class="err">This demo has live receipts for the example claims below. Free-text verification runs against the API. Try an example, or run Strata locally.</div>';return;}
+    if(r==='nomatch'){$('#stage').innerHTML='<div class="err">This demo has live receipts for the example claims below. Free-text verification runs against the API with your key. Try an example, or run Strata locally.</div>';return;}
     if(!r){$('#stage').innerHTML='<div class="err">Could not verify. The evidence source may be unreachable.</div>';return;}
     if(!RM) await animate(r);
     renderVerdict(r);
     window.scrollTo({top:0,behavior:'smooth'});
   }catch(e){$('#stage').innerHTML=`<div class="err">${esc(e.message||e)}</div>`;}
-  finally{$('#go').disabled=false;$('#go').textContent='Verify';}
+  finally{$('#go').disabled=false;$('#go').textContent=COMPARE?'Compare':'Verify';}
+}
+
+/* ---- compare, api key, request a demo ---- */
+let COMPARE=false;
+$('#cmpBtn').onclick=()=>{COMPARE=!COMPARE;$('#cmpBtn').classList.toggle('on',COMPARE);
+  $('#cmp2').classList.toggle('show',COMPARE);$('#go').textContent=COMPARE?'Compare':'Verify';
+  $('#q').placeholder=COMPARE?'First claim to compare':'Metformin reduces cardiovascular mortality in type 2 diabetes';};
+$('#keyBtn').onclick=generateKey;
+$('#demoBtn').onclick=requestDemo;
+
+function scoreCompare(a,b,ra,rb){
+  const SS={Supported:3,Mixed:1,Insufficient:0,Unsupported:0,Contradicted:-2},ord=['very low','low','moderate','high'];
+  const sc=r=>(SS[r.status]||0)+(ord.indexOf(r.strength)>=0?ord.indexOf(r.strength):0)*0.5+(r.supporting-r.contradicting)*0.15;
+  const sa=sc(ra),sb=sc(rb);
+  if(Math.abs(sa-sb)<0.4)return{rationale:'Both claims have comparably strong (or weak) evidence behind them.'};
+  const win=sa>sb?'a':'b',s=win==='a'?ra:rb,w=win==='a'?rb:ra,c=win==='a'?a:b;
+  return{rationale:`"${c.slice(0,58)}" has the stronger evidence base (${s.status}, ${s.strength}, ${s.supporting} supporting) versus (${w.status}, ${w.strength}, ${w.supporting} supporting).`};
+}
+async function doCompare(){
+  const a=$('#q').value.trim(),b=$('#q2').value.trim();
+  if(!a||!b){$('#stage').innerHTML='<div class="err">Enter two claims to compare.</div>';return;}
+  $('#go').disabled=true;$('#go').innerHTML='<span class="spin"></span>';
+  try{
+    const ra=await getReceipt(a),rb=await getReceipt(b);
+    if(ra==='nomatch'||rb==='nomatch'){$('#stage').innerHTML='<div class="err">This demo compares the example claims. Try two of the chips, or run Strata for free-text compare.</div>';return;}
+    if(!ra||!rb){$('#stage').innerHTML='<div class="err">Could not compare. Evidence source unreachable.</div>';return;}
+    const cmp=scoreCompare(a,b,ra,rb);
+    $('#stage').innerHTML=`<div class="winner">${esc(cmp.rationale)}</div><div class="cmpwrap"><div>${receiptHTML(ra)}</div><div>${receiptHTML(rb)}</div></div>`;
+    window.scrollTo({top:0,behavior:'smooth'});
+  }catch(e){$('#stage').innerHTML=`<div class="err">${esc(e.message||e)}</div>`;}
+  finally{$('#go').disabled=false;$('#go').textContent='Compare';}
+}
+function hex(n){let s='';for(let i=0;i<n;i++)s+='0123456789abcdef'[Math.floor(Math.random()*16)];return s;}
+async function generateKey(){
+  let out;
+  if(window.EMBED){out={key:'sk_live_'+hex(40),demo:true};}
+  else{try{out=await(await fetch('/v1/keys',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label:'web'})})).json();}
+    catch(e){out={error:'Run Strata (strata serve) to issue real keys.'};}}
+  if(out.error){$('#stage').innerHTML=`<div class="err">${esc(out.error)}</div>`;return;}
+  const base=window.EMBED?'https://your-strata-host':location.origin;
+  const curl='curl -X POST '+base+'/v1/verify \\\n  -H "Authorization: Bearer '+out.key+'" \\\n  -d \'{"claim":"SGLT2 inhibitors reduce heart-failure hospitalization"}\'';
+  $('#stage').innerHTML=`<div class="keypanel"><h3>Your Strata API key</h3>
+    <div style="opacity:.75;font-weight:500">Verify any medical claim from your own code. Shown once, store it safely.</div>
+    <div class="k"><span>${esc(out.key)}</span><span class="copy" onclick="navigator.clipboard&&navigator.clipboard.writeText('${out.key}')">copy</span></div>
+    <pre>${esc(curl)}</pre>
+    ${out.demo?'<div class="note">Demo key. Run Strata (pip install strata-evidence; strata serve) to issue real, working keys.</div>':'<div class="note" style="color:#8ff3d0">This key works now, against this server.</div>'}</div>`;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function requestDemo(){
+  const email=prompt("Your email (we'll reach out to schedule):");if(!email)return;
+  const org=prompt('Organization (optional):')||'';
+  if(!window.EMBED){fetch('/v1/demo-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,org:org,source:'verify-demo'})}).catch(()=>{});}
+  window.location.href='mailto:dlake003@gmail.com?subject='+encodeURIComponent('Strata demo request')+'&body='+encodeURIComponent('Email: '+email+'\nOrg: '+org+'\n\nI would like a demo of Strata.');
 }
 
 async function animate(r){
@@ -405,19 +510,30 @@ async function animate(r){
 }
 function shortTitle(t){t=t||'';return t.length>52?t.slice(0,52)+'…':t;}
 
-function renderVerdict(r,extra){
+const SRC={pubmed:'PubMed',europepmc:'Europe PMC',openalex:'OpenAlex',crossref:'Crossref',clinicaltrials:'ClinicalTrials.gov'};
+function srcBar(sources){
+  const ents=Object.entries(sources||{}).sort((a,b)=>b[1]-a[1]);
+  if(!ents.length)return '';
+  const total=ents.reduce((s,e)=>s+e[1],0);
+  return `<div class="srcbar"><span class="lbl">Sourced from ${total} records across</span>`+
+    ents.map(([k,v])=>`<span class="schip">${esc(SRC[k]||k)} <b>${v}</b></span>`).join('')+`</div>`;
+}
+function receiptHTML(r,extra){
   const col=SC[r.status]||'#7c8a90';const t=Math.max(1,r.supporting+r.contradicting+r.neutral);
   const w=n=>Math.round(100*n/t);
   const cites=(r.citations||[]).map(c=>{const g=GLY[c.stance]||GLY.neutral;
     const eff=c.effect&&c.effect.value!=null?`${c.effect.measure} ${c.effect.value.toFixed(2)} (${c.effect.ci_low} to ${c.effect.ci_high})`:'';
+    const cb=c.cited_by!=null?`· ${Number(c.cited_by).toLocaleString()} citations `:'';
+    const link=c.source==='clinicaltrials'?'Trial':(c.pmid?'PubMed':'Source');
     return `<div class="cite"><span class="tg" style="color:${g[1]}">${g[0]}</span>
       <div><div class="ti">${esc(c.title)}</div><div class="mt">
         <span class="tagpill2" style="background:${STC[c.strength]||'#7c8a90'}">${esc(c.label)}</span>
-        ${c.year||''} ${eff?'· '+esc(eff):''}</div></div>
-      <a href="${esc(c.url)}" target="_blank" rel="noopener">PubMed</a></div>`;}).join('');
+        ${c.year||''} ${eff?'· '+esc(eff)+' ':''}${cb}<span class="srctag">${esc(SRC[c.source]||c.source||'')}</span></div></div>
+      <a href="${esc(c.url)}" target="_blank" rel="noopener">${link} ↗</a></div>`;}).join('');
   const strong=r.highest_evidence?`<div class="strong">Strongest evidence: ${esc(r.highest_evidence.label)} (${r.highest_evidence.year||'n.d.'}).</div>`:'';
   const lim=r.key_limitation?`<div class="lim">${esc(r.key_limitation)}</div>`:'';
-  $('#stage').innerHTML=`<div class="rcard">
+  const pop=r.population_note?`<div class="lim" style="background:rgba(56,230,166,.08);border-color:rgba(56,230,166,.3);color:#8ff3d0">Your population: ${esc(r.population_note)}</div>`:'';
+  return `<div class="rcard">
     <div class="rh"><span>Strata Evidence Receipt</span><span>${esc(r.receipt_id||'')}</span></div>
     <div class="claim">"${esc(r.claim)}"</div>
     <div class="bigv"><span class="status" style="color:${col}">${esc((r.status||'').toUpperCase())}</span>
@@ -427,9 +543,10 @@ function renderVerdict(r,extra){
       <span class="c" style="width:${w(r.contradicting)}%"></span><span class="n" style="width:${w(r.neutral)}%"></span></div>
     <div class="slabels"><span class="s">${r.supporting} supporting</span>
       <span class="c">${r.contradicting} contradicting</span><span class="n">${r.neutral} neutral</span></div>
-    ${strong}${lim}${extra||''}
+    ${srcBar(r.sources)}${strong}${lim}${pop}${extra||''}
     <div class="cites">${cites}</div></div>`;
 }
+function renderVerdict(r,extra){$('#stage').innerHTML=receiptHTML(r,extra);}
 
 /* ---- monitor board ---- */
 async function loadBoard(){
@@ -463,4 +580,91 @@ async function openClaim(id){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 loadBoard();
+</script></body></html>"""
+
+
+PLATFORM_HTML = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Strata Platform · run it inside your walls</title>
+<style>""" + _CSS + r"""
+nav{position:sticky;top:0;z-index:50;background:rgba(4,6,10,.72);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;height:66px;gap:20px}
+.logo{display:flex;align-items:center;gap:11px;font-weight:800;font-size:19px;letter-spacing:-.02em}
+.logo .g{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#03140d;font-weight:900;background:var(--green)}
+nav .sp{flex:1}nav .lk{font-weight:600;font-size:15px;color:#fff;opacity:.75}nav .lk:hover{opacity:1}
+.hero{text-align:center;padding:88px 0 40px}
+.hero h1{font-size:clamp(2.4rem,6vw,4.4rem);font-weight:800;letter-spacing:-.035em;line-height:1.03;max-width:16ch;margin:0 auto}
+.hero h1 .go{color:var(--green)}
+.hero p{font-size:clamp(1.05rem,2vw,1.35rem);font-weight:500;color:#fff;max-width:34ch;margin:24px auto 0;line-height:1.45}
+.hero .cta{display:flex;gap:14px;justify-content:center;margin-top:30px;flex-wrap:wrap}
+section{padding:70px 0;border-top:1px solid var(--line)}
+.h2{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;max-width:20ch}
+.lead{font-size:1.15rem;font-weight:500;color:#fff;opacity:.78;max-width:44ch;margin-top:18px}
+.feats{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-top:44px}
+@media(max-width:760px){.feats{grid-template-columns:1fr}}
+.feat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px}
+.feat .n{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--green);margin-bottom:12px}
+.feat h3{font-size:22px;font-weight:800;margin-bottom:8px;letter-spacing:-.02em}
+.feat p{font-size:16px;font-weight:500;color:#fff;opacity:.75}
+.code{background:#02040733;border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-top:36px}
+.code pre{margin:0;padding:22px;overflow-x:auto;font-family:var(--mono);font-size:14.5px;line-height:1.8;color:#d6f5ec}
+.code .c{color:#68787f}.code .k{color:var(--green)}
+.priv{background:rgba(56,230,166,.05);border:1px solid rgba(56,230,166,.28);border-radius:16px;padding:26px;margin-top:30px}
+.priv h3{font-size:20px;font-weight:800;margin-bottom:8px}
+.priv p{font-size:16px;font-weight:500;color:#fff;opacity:.85}
+.cta-final{text-align:center;padding:100px 0}
+.cta-final h2{font-size:clamp(2rem,5vw,3.6rem);font-weight:800;letter-spacing:-.03em;margin-bottom:28px;max-width:18ch;margin-left:auto;margin-right:auto}
+footer{border-top:1px solid var(--line);padding:34px 0;color:#fff}
+footer .disc{opacity:.55;font-size:14px;max-width:60ch;margin-top:14px;line-height:1.6}
+</style></head><body>
+<nav><div class="wrap"><a class="logo" href="/"><span class="g">S</span> Strata</a><span class="sp"></span>
+  <a class="lk" href="/app">Verify</a><a class="lk" href="/console">Console</a><a class="lk" href="/">Home</a></div></nav>
+
+<header class="hero"><div class="wrap">
+  <h1>Run Strata <span class="go">inside your walls.</span></h1>
+  <p>The downloadable platform. Import your population, keep every byte on-prem, and the verification API is built in.</p>
+  <div class="cta"><a class="btn p" href="#get">Get the platform</a><a class="btn g" id="demoBtn">Request a demo</a></div>
+</div></header>
+
+<section><div class="wrap">
+  <div class="h2">Everything integrated. Nothing leaves.</div>
+  <div class="feats">
+    <div class="feat"><div class="n">01 / DEPLOY</div><h3>One command</h3><p>Docker or pip. It ships with the Verify API, the Monitor console, and the evidence engine already wired together.</p></div>
+    <div class="feat"><div class="n">02 / IMPORT</div><h3>Your population</h3><p>Load your patients' ages, medications, and conditions. Strata reduces them to a local profile and folds those factors into every verdict.</p></div>
+    <div class="feat"><div class="n">03 / KEYS</div><h3>Issue API keys</h3><p>Generate working keys for your own apps. Every claim your systems make can be verified through one call.</p></div>
+    <div class="feat"><div class="n">04 / MONITOR</div><h3>Watch it change</h3><p>Put your key claims under surveillance and get alerted the moment the evidence turns.</p></div>
+  </div>
+</div></section>
+
+<section id="get"><div class="wrap">
+  <div class="h2">Deploy in a minute.</div>
+  <div class="code"><pre><span class="c"># Docker (recommended). Data persists in a local volume; nothing is sent out.</span>
+STRATA_API_KEYS=sk_live_your_key <span class="k">docker compose up --build</span>
+
+<span class="c"># or with pip</span>
+pip install strata-evidence
+STRATA_API_KEYS=sk_live_your_key <span class="k">strata serve --host 0.0.0.0</span>
+
+<span class="c"># import a population profile (aggregated locally, never transmitted)</span>
+curl -X POST localhost:8600/v1/cohort -H <span class="k">"Authorization: Bearer $KEY"</span> \
+  -d <span class="k">'{"name":"clinic-A","rows":[{"age":82,"medications":"metformin","conditions":"diabetes"}]}'</span>
+
+<span class="c"># verify a claim, tailored to that population</span>
+curl -X POST localhost:8600/v1/verify -H <span class="k">"Authorization: Bearer $KEY"</span> \
+  -d <span class="k">'{"claim":"Metformin reduces cardiovascular mortality","cohort":"cohort-clinic-a"}'</span></pre></div>
+  <div class="priv"><h3>Privacy by design</h3><p>Cohort data is reduced to aggregates the instant it arrives, stored only locally under your control, and <b>never sent to any external source or AI model</b>. Literature searches use the claim's keywords only. Strata is decision support for a population, never a decision about an individual.</p></div>
+</div></section>
+
+<div class="cta-final"><div class="wrap">
+  <h2>See it on your own data.</h2>
+  <a class="btn p" id="demoBtn2" style="font-size:17px;padding:16px 28px">Request a demo</a>
+</div></div>
+<footer><div class="wrap"><a class="logo" href="/"><span class="g">S</span> Strata</a>
+  <div class="disc">Strata appraises published literature for decision support. Not a medical device, no diagnosis, no determination of truth. Cohort features run only where you host them.</div></div></footer>
+<script>
+function requestDemo(){const email=prompt("Your email (we'll reach out to schedule):");if(!email)return;
+  const org=prompt('Organization (optional):')||'';
+  fetch('/v1/demo-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,org:org,source:'platform'})}).catch(()=>{});
+  window.location.href='mailto:dlake003@gmail.com?subject='+encodeURIComponent('Strata platform demo request')+'&body='+encodeURIComponent('Email: '+email+'\nOrg: '+org+'\n\nI would like a demo of the Strata platform.');}
+document.getElementById('demoBtn').onclick=requestDemo;document.getElementById('demoBtn2').onclick=requestDemo;
 </script></body></html>"""

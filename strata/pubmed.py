@@ -43,17 +43,34 @@ class Article:
     year: int | None
     authors: list[str]
     publication_types: list[str] = field(default_factory=list)
+    source: str = "pubmed"                 # pubmed | europepmc | clinicaltrials | openalex | crossref
+    doi: str | None = None
+    cited_by: int | None = None            # citation count where a source provides it
+    full_text_url: str | None = None       # open-access full text, when available
 
     @property
     def citation(self) -> str:
         first = self.authors[0] if self.authors else "Anon"
         etal = " et al." if len(self.authors) > 1 else ""
         yr = self.year or "n.d."
-        return f"{first}{etal} ({yr}). {self.journal}. PMID {self.pmid}"
+        ref = f"PMID {self.pmid}" if self.pmid else (f"doi:{self.doi}" if self.doi else self.source)
+        return f"{first}{etal} ({yr}). {self.journal}. {ref}"
 
     @property
     def url(self) -> str:
-        return f"https://pubmed.ncbi.nlm.nih.gov/{self.pmid}/"
+        if self.pmid:
+            return f"https://pubmed.ncbi.nlm.nih.gov/{self.pmid}/"
+        if self.doi:
+            return f"https://doi.org/{self.doi}"
+        return self.full_text_url or "#"
+
+    @property
+    def dedupe_key(self) -> str:
+        if self.doi:
+            return "doi:" + self.doi.lower()
+        if self.pmid:
+            return "pmid:" + self.pmid
+        return "ttl:" + "".join(ch for ch in self.title.lower() if ch.isalnum())[:60]
 
 
 def _get(endpoint: str, params: dict) -> bytes:

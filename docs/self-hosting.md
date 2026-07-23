@@ -42,7 +42,48 @@ STRATA_API_KEYS=sk_live_change_me strata serve --host 0.0.0.0 --port 8600
 | `STRATA_HOME` | Where monitored claims + reviews persist. | `~/.strata` (`/data` in Docker) |
 | `STRATA_TENANT` | Display name in the console / monitor board. | `Meridian Health (demo)` |
 | `NCBI_API_KEY` | Raise the PubMed rate limit (3 → 10 req/s). | *(unset)* |
+| `STRATA_ADMIN_KEY` | If set, required (via `X-Admin-Key`) to create API keys. | *(unset, open)* |
+| `STRATA_SOURCES` | Comma list of enabled sources (`pubmed,europepmc,clinicaltrials,openalex,crossref`). | first four |
+| `STRATA_CONTACT_EMAIL` | Contact for the OpenAlex/Crossref polite pool. | placeholder |
+| `STRATA_LLM_BASE_URL` / `STRATA_LLM_KEY` / `STRATA_LLM_MODEL` | Optional AI (any OpenAI-compatible endpoint). | Groq defaults |
+| `STRATA_SMTP_HOST` / `_PORT` / `_USER` / `_PASS` / `_FROM` | Email demo requests to the founder. | *(unset, stored locally)* |
 | `STRATA_CA_BUNDLE` | Custom CA bundle for TLS interception on managed networks. | OS trust store |
+
+## Data sources
+
+One query fans out across **PubMed, Europe PMC, ClinicalTrials.gov, OpenAlex, Crossref** (all
+free, no key), de-duplicated by DOI/PMID/title with citation counts merged. All are keyless;
+set `NCBI_API_KEY` and `STRATA_CONTACT_EMAIL` to be a good citizen and lift rate limits. Choose
+a subset with `STRATA_SOURCES`. Each source fails soft, so one being down never breaks a search.
+
+## Optional AI (free tiers)
+
+Set an OpenAI-compatible endpoint to sharpen borderline stance calls and (optionally) write a
+plain-language synthesis. Free tiers that fit a pre-VC runway:
+
+```bash
+# Groq
+export STRATA_LLM_BASE_URL=https://api.groq.com/openai/v1
+export STRATA_LLM_KEY=gsk_...   STRATA_LLM_MODEL=llama-3.3-70b-versatile
+# Google Gemini (OpenAI-compatible endpoint)
+export STRATA_LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+export STRATA_LLM_KEY=...        STRATA_LLM_MODEL=gemini-2.0-flash
+```
+
+The model only ever sees the claim and public abstracts. It never sees cohort/patient data,
+and Strata records its verdict beside the transparent grade.
+
+## Cohort import (population profiles)
+
+`POST /v1/cohort` accepts patient rows (`age`, `medications`, `conditions`) and stores only the
+**aggregate** profile under `STRATA_HOME`. Pass the cohort id to `/v1/verify` to get a
+population-specific generalizability note. Cohort data is never transmitted to any external
+source or model. This is decision support for a population, not a decision about an individual.
+
+## Demo requests
+
+`POST /v1/demo-request` records requests to `STRATA_HOME/demo_requests.jsonl` and, when SMTP is
+configured, emails them. Set `STRATA_SMTP_HOST` (and friends) to enable delivery.
 
 ## Hardening for production
 

@@ -55,11 +55,19 @@ and the receipt says so.
 
 ## The API
 
+Generate a working key, then verify anything:
+
 ```bash
+curl -X POST http://127.0.0.1:8600/v1/keys -d '{"label":"my app"}'      # -> sk_live_...
+
 curl -X POST http://127.0.0.1:8600/v1/verify \
   -H "Authorization: Bearer $STRATA_KEY" \
   -d '{"claim":"SGLT2 inhibitors reduce heart-failure hospitalization"}'
 ```
+
+Every verification fans out across **PubMed, Europe PMC, ClinicalTrials.gov, OpenAlex, and
+Crossref** (all free, keyless), deduplicated and graded in one pass, with citation counts and
+source provenance on every receipt. `POST /v1/compare` weighs two claims against each other.
 
 ```python
 from strata_client import Strata            # clients/python/strata_client.py — zero deps
@@ -74,9 +82,14 @@ for event in strata.check(claim_id)["change"]["events"]:
     print(event["text"])                      # "Certainty upgraded: moderate → high"
 ```
 
-Endpoints: `POST /v1/verify` · `GET /v1/monitor` · `GET /v1/monitor/register` ·
-`GET /v1/monitor/check` · `GET /v1/receipt/<id>` · `GET /v1/seal/<id>.svg` (public badge).
-Full reference: **[`docs/api.md`](docs/api.md)**.
+Endpoints: `POST /v1/verify` · `POST /v1/compare` · `POST /v1/keys` · `POST /v1/cohort` ·
+`GET /v1/monitor(/register|/check|/get)` · `GET /v1/receipt/<id>` · `GET /v1/seal/<id>.svg`
+(public badge). Full reference: **[`docs/api.md`](docs/api.md)** · step-by-step:
+**[`docs/integration.md`](docs/integration.md)**.
+
+Optional AI (`strata.llm`) sharpens borderline stance calls using any OpenAI-compatible
+free tier (Groq, Gemini); it only ever sees public abstracts and is never the source of a
+fact. Without it, the transparent heuristic still runs.
 
 ## The killer feature: *what changed*
 
@@ -111,7 +124,10 @@ STRATA_API_KEYS=sk_live_your_key docker compose up --build   # → http://localh
 
 Or install the wheel (`pip install strata-evidence`) and run `strata serve --host 0.0.0.0`.
 Set `STRATA_API_KEYS` (comma-separated) to require an API key; leave it unset for an open
-private-network deployment. Details: **[`docs/self-hosting.md`](docs/self-hosting.md)**.
+private-network deployment. The self-hosted **platform** (`/platform`) ships with the API
+integrated and lets you **import your population** (ages, medications, conditions) so verdicts
+flag generalizability to *your* patients. Cohort data is aggregated locally and **never
+leaves the box**. Details: **[`docs/self-hosting.md`](docs/self-hosting.md)**.
 SDKs: [`clients/python`](clients/python/strata_client.py) · [`clients/js`](clients/js/strata.js).
 
 ## How the grading works
@@ -133,8 +149,9 @@ independent review. *(Framing, not legal advice.)*
 
 ## Docs
 
-- [`docs/api.md`](docs/api.md) — Verify API reference + Evidence Receipt schema + SDKs.
-- [`docs/self-hosting.md`](docs/self-hosting.md) — Docker / on-prem / API keys.
+- [`docs/api.md`](docs/api.md) — full API reference + Evidence Receipt schema.
+- [`docs/integration.md`](docs/integration.md) — step-by-step: key, verify, gate, monitor, cohort.
+- [`docs/self-hosting.md`](docs/self-hosting.md) — Docker / on-prem / keys / AI / cohort / SMTP.
 - [`docs/strategy.md`](docs/strategy.md) — the verification-layer thesis and the unicorn case.
 - [`docs/console.md`](docs/console.md) — the Monitor console & living-review engine.
 - [`docs/vision.md`](docs/vision.md) · [`docs/pitch.md`](docs/pitch.md) — company strategy & positioning.

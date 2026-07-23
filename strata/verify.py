@@ -1,36 +1,38 @@
 """Strata Verify — the verification layer.
 
 Input: a medical **claim** in plain language.
-Output: an :class:`~strata.receipt.Receipt` — the claim traced to the literature, every
-source graded, each source classified as supporting / contradicting / neutral, aggregated
-into an evidence status and strength, with the key limitation surfaced.
+Output: an :class:`~strata.receipt.Receipt` — the claim traced across the open research world
+(PubMed, Europe PMC, ClinicalTrials.gov, OpenAlex, Crossref), every source graded and
+classified supporting / contradicting / neutral, aggregated into a status and strength, with
+the strongest evidence, the key limitation, source provenance, and citations.
 
     from strata import verify
     r = verify.verify_claim("Metformin reduces cardiovascular mortality in type 2 diabetes")
-    print(r.status, r.strength, r.supporting, r.contradicting)
+    print(r.status, r.strength, r.supporting, r.contradicting, r.sources)
 
-This is a transparent heuristic over public literature — it appraises evidence, it does not
-pronounce truth, and the receipt says so. Every network call is injectable (``_search``) so
-the whole thing runs, and is tested, offline.
+An optional AI layer (``strata.llm``) sharpens borderline stance calls when a key is set; it
+is never the source of a fact. A local cohort profile (``context=``) folds population factors
+into the generalizability note without ever leaving the machine. Every network call is
+injectable (``_search``) so the whole thing runs, and is tested, offline.
 """
 from __future__ import annotations
 
 import datetime as _dt
 import hashlib
+import math
 import re
 from typing import Callable, Optional
 
+from . import cohort as _cohort
+from . import llm, sources
 from .evidence import grade, summarize_body
-from .pubmed import search_articles
 from .query import rank
 from .receipt import Receipt
 from .review import _extract_effect, _first_sentences
 
 _ORDER = ["very low", "low", "moderate", "high"]
 _STOP = {"does", "do", "is", "are", "the", "a", "an", "of", "in", "for", "on", "to", "and",
-         "with", "that", "this", "can", "could", "will", "reduce", "reduces", "reducing"}
-
-# words that flip the claim's asserted direction of effect on the (usually adverse) outcome
+         "with", "that", "this", "can", "could", "will"}
 _UP = (r"increase", r"raise", r"rais", r"worsen", r"cause", r"higher risk", r"elevat",
        r"greater risk", r"more likely", r"harm")
 
@@ -44,17 +46,14 @@ def normalize(claim: str) -> str:
 
 
 def receipt_id(claim: str) -> str:
-    h = hashlib.sha256(normalize(claim).encode("utf-8")).hexdigest()
-    return "STR-" + h[:10].upper()
+    return "STR-" + hashlib.sha256(normalize(claim).encode("utf-8")).hexdigest()[:10].upper()
 
 
 def _claim_direction(claim: str) -> str:
-    """The direction of effect the claim asserts on its outcome: 'up' (claims the
-    intervention increases/worsens the outcome) or 'down' (reduces/prevents/effective)."""
     low = claim.lower()
     if any(re.search(p, low) for p in _UP) and not re.search(r"reduc|lower|prevent|decreas", low):
         return "up"
-    return "down"          # benefit / effectiveness / reduction — the common case
+    return "down"
 
 
 def _query(claim: str) -> str:
@@ -64,7 +63,6 @@ def _query(claim: str) -> str:
 
 
 def _stance(effect: Optional[dict], claim_dir: str, text: str) -> str:
-    """Classify one study relative to the claim: support / contradict / neutral."""
     d = effect.get("direction") if effect else None
     if d == "null":
         return "neutral"
@@ -73,8 +71,7 @@ def _stance(effect: Optional[dict], claim_dir: str, text: str) -> str:
     else:
         low = text.lower()
         if re.search(r"no significant|no difference|not associated|no effect|no benefit|"
-                     r"did not (?:reduce|improve|lower|prevent|affect)|ineffective|"
-                     r"failed to", low):
+                     r"did not (?:reduce|improve|lower|prevent|affect)|ineffective|failed to", low):
             return "neutral"
         if re.search(r"reduc|lower|decreas|prevent|protect|improv|benefit|fewer|efficac|"
                      r"associated with (?:lower|reduced|fewer)", low):
@@ -87,23 +84,25 @@ def _stance(effect: Optional[dict], claim_dir: str, text: str) -> str:
     return "support" if study_dir == claim_dir else "contradict"
 
 
-def _weight(level: int, effect: Optional[dict]) -> float:
-    base = 7 - level                                   # 1..6 -> 6..1
+def _weight(level: int, effect: Optional[dict], cited_by: Optional[int]) -> float:
+    base = 7 - level
     if effect and effect.get("value") is not None:
-        return base * (1.0 if effect.get("significant") else 0.65)
-    return base * 0.6                                  # qualitative / textual signal
+        base *= 1.0 if effect.get("significant") else 0.65
+    else:
+        base *= 0.6
+    if cited_by:                                    # influential work counts a little more
+        base *= 1.0 + min(0.4, math.log10(cited_by + 1) / 6)
+    return base
 
 
 def _limitation(items: list, status: str) -> Optional[str]:
-    """One honest sentence on the biggest caveat. items: (article, grade, stance, effect)."""
     aligned = [(a, g, e) for a, g, st, e in items
                if st == ("contradict" if status == "Contradicted" else "support")]
     if status in ("Insufficient", "Unsupported"):
         return "Too few directly relevant, good-quality studies to draw a firm conclusion."
     strong = [g for a, g, e in aligned if g.level <= 2]
     if not strong:
-        return "No high-quality (RCT or meta-analysis) study directly backs this — weaker designs only."
-    # generalizability signals in the aligned abstracts
+        return "No high-quality (RCT or meta-analysis) study directly backs this. Weaker designs only."
     pat = re.compile(r"(?:did not|does not|not) generalis?z?e|only in (?:patients|adults|women|men|"
                      r"children|those|people)[^.]{0,48}|limited to [^.]{0,40}|excluded [^.]{0,40}|"
                      r"aged \d{2}|(?:patients|adults) (?:over|under) \d{2}|"
@@ -111,12 +110,12 @@ def _limitation(items: list, status: str) -> Optional[str]:
     for a, g, e in aligned:
         m = pat.search(a.abstract or "")
         if m:
-            return "May not generalize — " + re.sub(r"\s+", " ", m.group(0)).strip() + "."
+            return "May not generalize. " + re.sub(r"\s+", " ", m.group(0)).strip() + "."
     if len(strong) == 1:
-        return "Rests largely on a single high-quality study — not yet replicated in the retrieved set."
+        return "Rests largely on a single high-quality study, not yet replicated in the retrieved set."
     ns = [g.sample_size for a, g, e in aligned if g.sample_size]
     if ns and max(ns) < 100:
-        return "Based on small studies (largest n < 100) — estimates may be imprecise."
+        return "Based on small studies (largest n < 100). Estimates may be imprecise."
     return None
 
 
@@ -130,7 +129,6 @@ def _status_and_strength(sup_w, con_w, sup, con, grades_by_stance, total):
         return "Supported", summarize_body(grades_by_stance["support"]).overall_strength
     if con_w >= 2.2 * sup_w and con > 0:
         return "Contradicted", summarize_body(grades_by_stance["contradict"]).overall_strength
-    # genuine conflict
     return "Mixed", _cap(summarize_body(sum(grades_by_stance.values(), [])).overall_strength, "moderate")
 
 
@@ -141,62 +139,105 @@ def _cap(strength: str, ceiling: str) -> str:
 
 
 def verify_claim(claim: str, *, current_year: Optional[int] = None, retmax: int = 40,
-                 consider: int = 15, now: Optional[str] = None,
-                 _search: Callable = search_articles) -> Receipt:
+                 consider: int = 18, now: Optional[str] = None, context: Optional[dict] = None,
+                 use_llm: Optional[bool] = None, _search: Optional[Callable] = None) -> Receipt:
     if current_year is None:
         current_year = _dt.date.today().year
     now = now or _now()
+    search = _search or sources.search_all
     claim_dir = _claim_direction(claim)
     query = _query(claim)
 
-    articles = _search(query, retmax=retmax)
+    articles = search(query, retmax=retmax)
+    source_counts = sources.source_breakdown(articles)
     graded = [(a, grade(a, current_year)) for a in articles]
     ranked = rank([a for a, _ in graded], [g for _, g in graded], current_year)[:consider]
 
+    ai = llm.available() if use_llm is None else use_llm
     items, by_stance = [], {"support": [], "contradict": [], "neutral": []}
     sup_w = con_w = 0.0
+    ai_calls = 0
     for e in ranked:
         a, g = e.article, e.grade
         eff = _extract_effect(f"{a.title}. {a.abstract}")
         st = _stance(eff, claim_dir, f"{a.title}. {a.abstract}")
+        # let the AI resolve the borderline (heuristic-neutral) cases, when configured
+        if ai and st == "neutral" and a.abstract and ai_calls < 8:
+            ai_calls += 1
+            verdict = llm.classify_stance(claim, a.title, a.abstract)
+            if verdict and verdict["confidence"] >= 0.6 and verdict["stance"] != "neutral":
+                st = verdict["stance"]
         by_stance[st].append(g)
-        w = _weight(g.level, eff)
+        w = _weight(g.level, eff, a.cited_by)
         if st == "support":
             sup_w += w
         elif st == "contradict":
             con_w += w
         items.append((a, g, st, eff))
 
-    sup, con, neu = len(by_stance["support"]), len(by_stance["contradict"]), len(by_stance["neutral"])
+    sup, con, neu = (len(by_stance["support"]), len(by_stance["contradict"]), len(by_stance["neutral"]))
     status, strength = _status_and_strength(sup_w, con_w, sup, con, by_stance, len(items))
 
-    # strongest aligned (or overall) study
     aligned = [it for it in items if it[2] == ("contradict" if status == "Contradicted" else "support")]
     top = min(aligned or items, key=lambda it: it[1].level, default=None) if items else None
     highest = None
     if top:
         a, g = top[0], top[1]
         highest = {"pmid": a.pmid, "title": a.title, "year": a.year, "url": a.url,
-                   "label": g.label, "level": g.level, "strength": g.strength}
+                   "label": g.label, "level": g.level, "strength": g.strength, "source": a.source}
 
     citations = [{
         "n": i, "pmid": a.pmid, "title": a.title, "year": a.year, "url": a.url,
         "level": g.level, "label": g.label, "strength": g.strength, "stance": st,
-        "snippet": _first_sentences(a.abstract) or "(no abstract)",
-        "effect": eff,
-    } for i, (a, g, st, eff) in enumerate(items[:8], 1)]
+        "source": a.source, "cited_by": a.cited_by, "doi": a.doi,
+        "snippet": _first_sentences(a.abstract) or "(no abstract)", "effect": eff,
+    } for i, (a, g, st, eff) in enumerate(items[:10], 1)]
+
+    pop_note = _cohort.population_note(context, citations) if context else None
 
     return Receipt(
         receipt_id=receipt_id(claim), claim=claim.strip(), status=status, strength=strength,
         supporting=sup, contradicting=con, neutral=neu, total=len(items), checked=now,
         highest_evidence=highest, key_limitation=_limitation(items, status),
-        citations=citations, query=query,
+        citations=citations, query=query, sources=source_counts, population_note=pop_note,
     )
+
+
+# ------------------------------------------------------------------- comparison
+_STATUS_SCORE = {"Supported": 3, "Mixed": 1, "Insufficient": 0, "Unsupported": 0, "Contradicted": -2}
+
+
+def _score(r: Receipt) -> float:
+    s = _STATUS_SCORE.get(r.status, 0)
+    s += (_ORDER.index(r.strength) if r.strength in _ORDER else 0) * 0.5
+    s += (r.supporting - r.contradicting) * 0.15
+    return s
+
+
+def compare_claims(claim_a: str, claim_b: str, *, now: Optional[str] = None,
+                   _search: Optional[Callable] = None, **kw) -> dict:
+    """Verify two claims and say which has the stronger evidence base."""
+    ra = verify_claim(claim_a, now=now, _search=_search, **kw)
+    rb = verify_claim(claim_b, now=now, _search=_search, **kw)
+    sa, sb = _score(ra), _score(rb)
+    if abs(sa - sb) < 0.4:
+        winner, rationale = "tie", "Both claims have comparably strong (or weak) evidence behind them."
+    else:
+        winner = "a" if sa > sb else "b"
+        strong, weak = (ra, rb) if winner == "a" else (rb, ra)
+        rationale = (f"\"{_short(strong.claim)}\" has the stronger evidence base "
+                     f"({strong.status}, {strong.strength}, {strong.supporting} supporting) versus "
+                     f"({weak.status}, {weak.strength}, {weak.supporting} supporting).")
+    return {"claim_a": claim_a, "claim_b": claim_b, "a": ra.to_dict(), "b": rb.to_dict(),
+            "winner": winner, "rationale": rationale, "checked": now or _now()}
+
+
+def _short(s: str, n: int = 60) -> str:
+    return s if len(s) <= n else s[:n] + "..."
 
 
 # ------------------------------------------------------------------- change detection
 def diff(old: Optional[dict], new: Receipt) -> dict:
-    """Compare a previous receipt (dict) to a new one — the 'what changed' feed."""
     if not old:
         return {"changed": False, "first_check": True, "events": [], "headline": "Baseline established."}
     events = []
@@ -204,19 +245,19 @@ def diff(old: Optional[dict], new: Receipt) -> dict:
     if o_str != n_str and o_str in _ORDER and n_str in _ORDER:
         up = _ORDER.index(n_str) > _ORDER.index(o_str)
         events.append({"type": "upgraded" if up else "downgraded", "level": "green" if up else "red",
-                       "text": f"Certainty {'upgraded' if up else 'downgraded'}: {o_str} → {n_str}"})
+                       "text": f"Certainty {'upgraded' if up else 'downgraded'}: {o_str} to {n_str}"})
     if old.get("status") != new.status:
         kind = "conflict" if new.status in ("Mixed", "Contradicted") else "resolved"
         events.append({"type": kind, "level": "amber" if kind == "conflict" else "green",
-                       "text": f"Status changed: {old.get('status')} → {new.status}"})
-    old_ids = {c.get("pmid") for c in old.get("citations", [])}
-    fresh = [c for c in new.citations if c.get("pmid") not in old_ids]
+                       "text": f"Status changed: {old.get('status')} to {new.status}"})
+    old_ids = {c.get("pmid") or c.get("doi") for c in old.get("citations", [])}
+    fresh = [c for c in new.citations if (c.get("pmid") or c.get("doi")) not in old_ids]
     for c in fresh[:4]:
         events.append({"type": "new_study", "level": "amber" if c["stance"] == "contradict" else "green",
                        "text": f"New {c['stance']} study: {c['title']}", "pmid": c.get("pmid")})
     if new.contradicting > old.get("contradicting", 0):
         events.append({"type": "conflict", "level": "amber",
-                       "text": f"Contradicting evidence grew: {old.get('contradicting',0)} → {new.contradicting}"})
+                       "text": f"Contradicting evidence grew: {old.get('contradicting', 0)} to {new.contradicting}"})
     changed = bool(events)
-    headline = events[0]["text"] if events else "No change since last check."
-    return {"changed": changed, "first_check": False, "events": events, "headline": headline}
+    return {"changed": changed, "first_check": False, "events": events,
+            "headline": events[0]["text"] if events else "No change since last check."}

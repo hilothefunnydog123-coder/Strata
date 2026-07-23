@@ -25,10 +25,11 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from . import anatomy, store
+from . import anatomy, sources, store
 from .evidence import grade, summarize_body
-from .pubmed import search_articles
 from .query import rank
+
+search_articles = sources.search_all      # reviews search every source, not just PubMed
 
 _ORDER = ["very low", "low", "moderate", "high"]
 

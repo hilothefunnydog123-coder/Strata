@@ -45,6 +45,9 @@ class Receipt:
     evidence_changed: bool = False
     change: dict | None = None
     query: str = ""
+    sources: dict = field(default_factory=dict)     # {source_name: count} across the databases searched
+    population_note: str | None = None              # generalizability to an imported cohort (local only)
+    synthesis: str | None = None                    # optional plain-language AI summary of the evidence
     disclaimer: str = DISCLAIMER
 
     def to_dict(self) -> dict:
