@@ -28,7 +28,7 @@ import re
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import cohort, demo, keys, models, monitor, pipeline, review, sources, verify
+from . import cohort, demo, entities, keys, models, monitor, pipeline, review, sources, store, verify
 from .console_page import CONSOLE_HTML
 from .pages import LITE_HTML
 from .pages_web import LANDING_HTML, PLATFORM_HTML, VERIFY_DEMO_HTML
@@ -36,7 +36,7 @@ from .query import ask
 from .receipt import seal_svg
 
 _LEVEL_COLOR = {1: "#16a34a", 2: "#22a06b", 3: "#d97706", 4: "#ea580c", 5: "#dc2626", 6: "#9ca3af"}
-_VERSION = "0.5.1"
+_VERSION = "0.6.0"
 _DEMO_EMAIL = "dlake003@gmail.com"
 _DEMO_REVIEW = {t["id"]: t for t in demo._TOPICS}
 _DEMO_CLAIM = {c["id"]: c for c in demo._CLAIMS}
@@ -97,6 +97,37 @@ def _verify_claim(claim: str, context=None, pico=None):
     """Seeded example claims verify offline; everything else hits the live multi-source search."""
     search, yr = _demo_search(claim)
     return verify.verify_claim(claim, context=context, pico=pico, current_year=yr, _search=search)
+
+
+def _recheck(cid: str) -> dict:
+    """Re-verify a monitored claim through the enterprise change/version/alert engine. Seeded
+    claims resolve offline; anything else hits the live multi-source search."""
+    proto = entities.get_claim(cid)
+    if not proto:
+        raise KeyError(cid)
+    search, _ = _demo_search(proto.get("claim", ""))
+    kw = {"_search": search} if search is not None else {}
+    return entities.recheck(cid, **kw)
+
+
+def _evidence_lookup(eid: str):
+    """Resolve one evidence item (PMID or DOI) across the monitored evidence base: the study
+    record plus which claims cite it and how (supporting / contradicting)."""
+    hits = []
+    for row in entities.list_claims():
+        doc = store.get(row["id"], kind="claims")
+        snaps = doc.get("snapshots", []) if doc else []
+        cur = snaps[-1] if snaps else None
+        for c in (cur or {}).get("citations", []):
+            if c.get("pmid") == eid or (c.get("doi") and c.get("doi") == eid):
+                hits.append({"claim_id": row["id"], "claim": row["claim"], "stance": c.get("stance"),
+                             "citation": c})
+    if not hits:
+        return None
+    base = dict(hits[0]["citation"])
+    base["cited_by_claims"] = [{"claim_id": h["claim_id"], "claim": h["claim"], "stance": h["stance"]}
+                               for h in hits]
+    return base
 
 
 def _compare(claim_a: str, claim_b: str) -> dict:
@@ -375,9 +406,13 @@ def _handler():
                     claim = (b.get("claim") or (q.get("claim") or [""])[0]).strip()
                     if not claim:
                         return self._json({"error": "missing 'claim'"}, 400)
-                    p = monitor.register(claim, tenant=(b.get("tenant") or (q.get("tenant") or [_tenant()])[0]))
-                    rd, ch = monitor.check(p["id"])
-                    return self._json({"id": p["id"], "receipt": rd, "change": ch})
+                    p = entities.create_claim(
+                        claim, tenant=(b.get("tenant") or (q.get("tenant") or [_tenant()])[0]),
+                        workspace_id=b.get("workspace_id"), area_id=b.get("area_id"),
+                        alert_rules=b.get("alert_conditions") or b.get("alert_rules"))
+                    res = _recheck(p["id"])
+                    return self._json({"id": p["id"], "receipt": res["receipt"], "change": res["change"],
+                                       "alerts": res["alerts"]})
                 if path == "/v1/monitor/check":
                     try:
                         rd, ch = _check_claim((q.get("id") or [""])[0])
@@ -387,6 +422,78 @@ def _handler():
                 if path == "/v1/monitor/get":
                     v = monitor.view((q.get("id") or [""])[0])
                     return self._json(v) if v else self._json({"error": "no such claim"}, 404)
+
+                # ---- claim-centered enterprise API (orgs / workspaces / areas / claims / changes) ----
+                if path == "/v1/console/summary":
+                    ws = (q.get("workspace") or [None])[0]
+                    return self._json(entities.console_summary(workspace_id=ws))
+                if path == "/v1/changes":
+                    ws = (q.get("workspace") or [None])[0]
+                    lim = int((q.get("limit") or ["50"])[0])
+                    return self._json({"changes": entities.changes_feed(workspace_id=ws, limit=lim)})
+                if path == "/v1/workspaces":
+                    return self._json({"workspaces": entities.list_workspaces((q.get("org") or [None])[0])})
+                if path == "/v1/areas":
+                    return self._json({"areas": entities.list_areas((q.get("workspace") or [None])[0])})
+
+                if path == "/v1/claims":
+                    if self.command == "POST":
+                        b = self._body()
+                        claim = (b.get("claim") or "").strip()
+                        if not claim:
+                            return self._json({"error": "missing 'claim'"}, 400)
+                        pico = {k: b.get(k) for k in ("population", "intervention", "comparator", "outcome") if b.get(k)}
+                        proto = entities.create_claim(
+                            claim, tenant=b.get("tenant") or _tenant(),
+                            workspace_id=b.get("workspace_id"), area_id=b.get("area_id"),
+                            pico=pico or None, alert_rules=b.get("alert_rules"),
+                            priority=b.get("priority", "normal"))
+                        res = _recheck(proto["id"])
+                        return self._json({"id": proto["id"], "claim": entities.get_claim(proto["id"]),
+                                           "receipt": res["receipt"], "change": res["change"],
+                                           "alerts": res["alerts"], "version": res["version"]})
+                    return self._json({"claims": entities.list_claims(
+                        workspace_id=(q.get("workspace") or [None])[0],
+                        area_id=(q.get("area") or [None])[0])})
+
+                cm = re.match(r"^/v1/claims/([A-Za-z0-9\-_]+?)(/recheck|/history)?$", path)
+                if cm:
+                    cid, sub = cm.group(1), cm.group(2)
+                    if sub == "/recheck":
+                        try:
+                            res = _recheck(cid)
+                        except KeyError:
+                            return self._json({"error": "no such claim"}, 404)
+                        return self._json(res)
+                    detail = entities.claim_detail(cid)
+                    if not detail:
+                        return self._json({"error": "no such claim"}, 404)
+                    if sub == "/history":
+                        return self._json({"id": cid, "version": detail["claim"]["version"],
+                                           "timeline": detail["timeline"]})
+                    return self._json(detail)
+
+                em = re.match(r"^/v1/evidence/([A-Za-z0-9._\-/]+)$", path)
+                if em:
+                    ev = _evidence_lookup(em.group(1))
+                    return self._json(ev) if ev else self._json({"error": "evidence not found in the monitored set"}, 404)
+
+                if path == "/v1/alerts":
+                    return self._json({"alerts": entities.list_alerts(
+                        workspace_id=(q.get("workspace") or [None])[0],
+                        unacknowledged=(q.get("unacknowledged") or ["0"])[0] in ("1", "true"))})
+                am = re.match(r"^/v1/alerts/([A-Za-z0-9\-_]+)/ack$", path)
+                if am:
+                    return self._json({"acknowledged": entities.acknowledge_alert(am.group(1))})
+
+                if path == "/v1/webhooks":
+                    if self.command == "POST":
+                        b = self._body()
+                        url = (b.get("url") or "").strip()
+                        if not url.startswith(("http://", "https://")):
+                            return self._json({"error": "a valid http(s) 'url' is required"}, 400)
+                        return self._json(entities.register_webhook(url, workspace_id=b.get("workspace_id")))
+                    return self._json({"webhooks": entities.list_webhooks((q.get("workspace") or [None])[0])})
 
                 if path == "/v1/cohort":
                     if self.command == "POST":
