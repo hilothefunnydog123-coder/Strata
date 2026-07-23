@@ -48,8 +48,8 @@ def _boot():
 
 def test_console_summary_and_changes():
     s = _get("/v1/console/summary")
-    assert s["claims_monitored"] == 4 and s["strengthened"] >= 1
-    assert "by_area" in s and sum(a["claims"] for a in s["by_area"]) == 4
+    assert s["claims_monitored"] == 7 and s["strengthened"] >= 1
+    assert "by_area" in s and sum(a["claims"] for a in s["by_area"]) == 7
     ch = _get("/v1/changes?limit=5")["changes"]
     assert ch and all("severity" in c and "headline" in c for c in ch)
     print("ok  GET /v1/console/summary + /v1/changes return the Evidence-Health rollup")
@@ -57,7 +57,7 @@ def test_console_summary_and_changes():
 
 def test_claims_list_detail_history():
     cl = _get("/v1/claims")["claims"]
-    assert len(cl) == 4 and all("version" in c and "area" in c for c in cl)
+    assert len(cl) == 7 and all("version" in c and "area" in c for c in cl)
     d = _get("/v1/claims/clm-metformin-cvd")
     assert d["claim"]["area"] == "Endocrinology & Metabolism"
     assert len(d["timeline"]) == 2 and "receipt" in d
@@ -86,8 +86,9 @@ def entitiesget(cid):
 
 
 def test_evidence_lookup_and_webhooks():
-    ev = _get("/v1/evidence/40022006")            # a metformin RCT in the seed set
-    assert ev.get("cited_by_claims") and ev["cited_by_claims"][0]["claim_id"] == "clm-metformin-cvd"
+    ev = _get("/v1/evidence/40022006")            # a metformin RCT cited by >=1 monitored claim
+    citing = {c["claim_id"] for c in ev.get("cited_by_claims", [])}
+    assert "clm-metformin-cvd" in citing           # resolves the study across the claims citing it
     assert _get("/v1/evidence/nonexistent-pmid").get("error")
     wh = _post("/v1/webhooks", {"url": "https://example.test/strata"})
     assert wh["id"].startswith("wh_") and wh["secret"].startswith("whsec_")

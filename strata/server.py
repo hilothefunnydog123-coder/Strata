@@ -33,10 +33,12 @@ import re
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import cohort, demo, entities, keys, models, monitor, pipeline, review, sources, store, verify
+from . import (cohort, demo, entities, graph, keys, models, monitor, pipeline,
+               review, sources, store, verify)
 from .console_page import CONSOLE_HTML
 from .dashboard_page import DASHBOARD_HTML
 from .docs_page import DOCS_HTML
+from .graph_page import GRAPH_HTML
 from .pages import LITE_HTML
 from .pages_site import PRICING_HTML, SECURITY_HTML, TRUST_HTML, WHY_HTML
 from .pages_web import LANDING_HTML, PLATFORM_HTML, VERIFY_DEMO_HTML
@@ -288,6 +290,8 @@ def _handler():
                     return self._html(PLATFORM_HTML)
                 if path == "/console":
                     return self._html(DASHBOARD_HTML)
+                if path in ("/graph", "/evidence-graph"):
+                    return self._html(GRAPH_HTML)
                 if path in ("/search", "/console/search"):
                     return self._html(CONSOLE_HTML)
                 if path == "/lite":
@@ -516,6 +520,31 @@ def _handler():
                         return self._json(entities.register_webhook(url, workspace_id=b.get("workspace_id")))
                     return self._json({"webhooks": entities.list_webhooks((q.get("workspace") or [None])[0])})
 
+                # ---- Evidence Graph: cross-claim intelligence (the compounding asset) ----
+                if path.startswith("/v1/graph"):
+                    ws = (q.get("workspace") or [None])[0]
+                    lim = int((q.get("limit") or ["10"])[0])
+                    if path == "/v1/graph/summary":
+                        return self._json(graph.summary(ws))
+                    if path == "/v1/graph/view":
+                        return self._json(graph.graph_view(ws, top_studies=int((q.get("top") or ["40"])[0])))
+                    _g = graph.build(ws)
+                    if path == "/v1/graph/hubs":
+                        return self._json({"hub_studies": graph.hub_studies(_g, limit=lim)})
+                    if path == "/v1/graph/contested":
+                        return self._json({"contested_studies": graph.contested_studies(_g, limit=lim)})
+                    if path == "/v1/graph/unstable":
+                        return self._json({"unstable_claims": graph.unstable_claims(_g, limit=lim)})
+                    if path == "/v1/graph/gaps":
+                        return self._json({"evidence_gaps": graph.evidence_gaps(_g, limit=lim)})
+                    gm = re.match(r"^/v1/graph/study/([A-Za-z0-9._:\-/]+)$", path)
+                    if gm:
+                        d = graph.study_detail(_g, gm.group(1))
+                        return self._json(d) if d else self._json({"error": "study not in the graph"}, 404)
+                    grm = re.match(r"^/v1/graph/claim/([A-Za-z0-9\-_]+)/related$", path)
+                    if grm:
+                        return self._json({"related": graph.related_claims(_g, grm.group(1), limit=lim)})
+
                 if path == "/v1/cohort":
                     if self.command == "POST":
                         b = self._body()
@@ -541,7 +570,7 @@ def serve(port: int = 8600, *, host: str = "127.0.0.1", demo_seed: bool = True) 
     base = f"http://{shown}:{port}"
     print(f"Strata  ->  {base}/            landing")
     print(f"        ->  {base}/app         Verify + Compare demo")
-    print(f"        ->  {base}/console     Evidence-Health dashboard   ·   /search live search")
+    print(f"        ->  {base}/console     Evidence-Health dashboard   ·   /graph the Evidence Graph")
     print(f"        ->  {base}/why  /pricing  /trust  /security  /docs   company + developer platform")
     print(f"        ->  {base}/platform    self-host platform")
     print(f"        ->  {base}/v1/verify   API (POST {{\"claim\": \"...\"}})   ·   /v1/claims  /v1/changes")

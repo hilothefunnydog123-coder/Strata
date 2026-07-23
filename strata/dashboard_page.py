@@ -179,7 +179,7 @@ a{color:inherit;text-decoration:none}.mono{font-family:var(--mono)}
 </style></head><body>
 <div class="top"><a class="logo" href="/"><span class="g">S</span> Strata <span class="k">Console</span></a>
  <span class="sp"></span><span class="mono" id="tn" style="font-size:11px;color:var(--faint)"></span>
- <a class="lk" href="/search">Search</a><a class="lk" href="/app">Verify</a><a class="lk" href="/docs">API</a><a class="lk" href="/">Home</a></div>
+ <a class="lk" href="/graph">Graph</a><a class="lk" href="/search">Search</a><a class="lk" href="/app">Verify</a><a class="lk" href="/docs">API</a><a class="lk" href="/">Home</a></div>
 <div class="wrap">
   <div class="head">
     <div><h1>Evidence Health</h1><div class="sub" id="sub">Loading your evidence base…</div></div>

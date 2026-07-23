@@ -239,8 +239,39 @@ def seed_claims(force: bool = False) -> list:
     return ids
 
 
+# Related claims that share the SAME pivotal trials — a real evidence base overlaps, and that
+# overlap is what the Evidence Graph turns into cross-claim intelligence. The 8-hour-window
+# cohort (higher CV mortality) legitimately *supports* the "increases mortality" claim while
+# *contradicting* the "reduces mortality" claim — a genuine contested study.
+_RELATED = [
+    dict(id="clm-sglt2-cvd", claim="SGLT2 inhibitors reduce cardiovascular death",
+         data=_SGLT2, area="area-cardiology", t="2026-07-22T10:00:00+00:00"),
+    dict(id="clm-metformin-acm", claim="Metformin reduces all-cause mortality in type 2 diabetes",
+         data=_METF, area="area-endocrinology", t="2026-07-20T10:00:00+00:00"),
+    dict(id="clm-fasting-harm", claim="Intermittent fasting increases cardiovascular mortality",
+         data=_FASTING, area="area-cardiology", t="2026-07-19T10:00:00+00:00"),
+]
+
+
+def seed_related(force: bool = False) -> list:
+    """Register claims that share evidence with the core set, so the graph has real overlap."""
+    seed_org(force)
+    ids = []
+    for c in _RELATED:
+        if force:
+            store.delete(c["id"], kind="claims")
+        if not force and store.get(c["id"], kind="claims") is not None:
+            ids.append(c["id"])
+            continue
+        entities.create_claim(c["claim"], tenant=_TENANT, workspace_id=_WS_ID,
+                              area_id=c["area"], id=c["id"])
+        monitor.check(c["id"], now=c["t"], _search=lambda q, retmax=40, _d=c["data"]: list(_d))
+        ids.append(c["id"])
+    return ids
+
+
 def seed_all(force: bool = False) -> dict:
-    return {"reviews": seed(force), "claims": seed_claims(force)}
+    return {"reviews": seed(force), "claims": seed_claims(force) + seed_related(force)}
 
 
 def ensure_seeded() -> None:
@@ -249,8 +280,10 @@ def ensure_seeded() -> None:
         seed()
     if not store.list_items("claims"):
         seed_claims()
+        seed_related()
     elif store.get(_ORG_ID, kind="orgs") is None:      # claims exist but pre-date the org model
         seed_org()
         for c in _CLAIMS:
             if store.get(c["id"], kind="claims") is not None:
                 entities.backfill_alerts(c["id"])
+        seed_related()

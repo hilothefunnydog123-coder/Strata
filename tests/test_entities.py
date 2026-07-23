@@ -110,10 +110,10 @@ def test_webhook_delivery_signs_payload():
 def test_console_summary_from_demo():
     demo.seed_all(force=True)
     s = entities.console_summary(workspace_id=demo._WS_ID)
-    assert s["claims_monitored"] == 4
+    assert s["claims_monitored"] == 7             # 4 core + 3 related (shared-evidence) claims
     assert s["strengthened"] >= 1 and s["new_studies"] >= 1
     assert s["open_alerts"] >= 1
-    assert sum(a["claims"] for a in s["by_area"]) == 4
+    assert sum(a["claims"] for a in s["by_area"]) == 7
     feed = entities.changes_feed(workspace_id=demo._WS_ID)
     assert feed and all("severity" in a for a in feed)
     d = entities.claim_detail("clm-metformin-cvd")

@@ -182,6 +182,29 @@ def cmd_console(args) -> int:
     return 0
 
 
+def cmd_graph(args) -> int:
+    """Print the Evidence-Graph rollup — the cross-claim intelligence layer."""
+    from . import demo, graph
+    demo.ensure_seeded()
+    g = graph.build(args.workspace)
+    s = graph.summary(g=g)
+    print("EVIDENCE GRAPH\n")
+    print(f"  {s['claims']} claims · {s['studies']} studies · {s['edges']} links "
+          f"· density {s['density']} studies/claim")
+    print(f"  {s['hub_studies']} hub studies · {s['contested_studies']} contested "
+          f"· {s['unstable_claims']} unstable claims · {s['evidence_gaps']} evidence gaps "
+          f"· avg reliability {s['avg_reliability']}\n")
+    print("  Hub studies (underpin the most claims):")
+    for h in graph.hub_studies(g, limit=5):
+        print(f"    x{h['claim_count']}  rel {h['reliability']:<5} {(h['title'] or '')[:56]}")
+    contested = graph.contested_studies(g, limit=4)
+    if contested:
+        print("\n  Contested studies (cited both ways):")
+        for c in contested:
+            print(f"    ▲{c['support']} ▼{c['contradict']}  {(c['title'] or '')[:56]}")
+    return 0
+
+
 def cmd_changes(args) -> int:
     from . import demo, entities
     demo.ensure_seeded()
@@ -265,6 +288,10 @@ def main(argv=None) -> int:
     cg.add_argument("--workspace", default=None)
     cg.add_argument("--limit", type=int, default=20)
     cg.set_defaults(fn=cmd_changes)
+
+    gr = sub.add_parser("graph", help="print the Evidence-Graph rollup (cross-claim intelligence)")
+    gr.add_argument("--workspace", default=None)
+    gr.set_defaults(fn=cmd_graph)
 
     d = sub.add_parser("demo", help="seed reproducible reviews + monitored claims")
     d.add_argument("--force", action="store_true")

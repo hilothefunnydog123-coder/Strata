@@ -21,6 +21,7 @@ _ROUTES = {
     "/": "when it matters",
     "/app": "backed by evidence",
     "/console": "Evidence Health",
+    "/graph": "Evidence Graph",
     "/search": "Live evidence search",
     "/why": "update periodically",
     "/pricing": "300k",
