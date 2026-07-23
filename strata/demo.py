@@ -11,10 +11,19 @@ product uses the same pipeline against PubMed.
 """
 from __future__ import annotations
 
-from . import monitor, review, store
+from . import entities, monitor, review, store
 from .pubmed import Article
 
 _YEAR = 2026
+
+# the demo organization's evidence base — a real object graph the Console renders
+_ORG_ID, _WS_ID = "org-meridian", "ws-meridian"
+_TENANT = "Meridian Health (demo)"
+_AREAS = [
+    ("area-cardiology", "Cardiology"),
+    ("area-endocrinology", "Endocrinology & Metabolism"),
+    ("area-infectious-disease", "Infectious Disease"),
+]
 
 
 def _a(pmid, title, ptypes, abstract, year, authors=("Ng V", "Okafor L", "Sato H")):
@@ -184,18 +193,34 @@ for _ds in (_VITD, _METF, _SGLT2, _FASTING):   # add source provenance + citatio
 
 _CLAIMS = [
     dict(id="clm-vitd-ari", claim="Vitamin D supplementation reduces the risk of acute respiratory infections",
-         data=_VITD, t1="2026-04-18T09:00:00+00:00", t2="2026-07-21T09:00:00+00:00"),
+         data=_VITD, area="area-infectious-disease", priority="normal",
+         t1="2026-04-18T09:00:00+00:00", t2="2026-07-21T09:00:00+00:00"),
     dict(id="clm-metformin-cvd", claim="Metformin reduces cardiovascular mortality in type 2 diabetes",
-         data=_METF, t1="2026-05-02T09:00:00+00:00", t2="2026-07-20T09:00:00+00:00"),
+         data=_METF, area="area-endocrinology", priority="high",
+         t1="2026-05-02T09:00:00+00:00", t2="2026-07-20T09:00:00+00:00"),
     dict(id="clm-sglt2-hf", claim="SGLT2 inhibitors reduce heart-failure hospitalization",
-         data=_SGLT2, t1="2026-06-11T09:00:00+00:00", t2="2026-07-22T09:00:00+00:00"),
+         data=_SGLT2, area="area-cardiology", priority="high",
+         t1="2026-06-11T09:00:00+00:00", t2="2026-07-22T09:00:00+00:00"),
     dict(id="clm-fasting-cvd", claim="Intermittent fasting reduces cardiovascular mortality",
-         data=_FASTING, t1="2026-05-20T09:00:00+00:00", t2="2026-07-19T09:00:00+00:00"),
+         data=_FASTING, area="area-cardiology", priority="normal",
+         t1="2026-05-20T09:00:00+00:00", t2="2026-07-19T09:00:00+00:00"),
 ]
 
 
+def seed_org(force: bool = False) -> dict:
+    """Create the demo Organization -> Workspace -> Therapeutic Areas graph."""
+    if force or store.get(_ORG_ID, kind="orgs") is None:
+        entities.create_org(_TENANT, plan="enterprise", id=_ORG_ID)
+        entities.create_workspace(_ORG_ID, "Cardiometabolic Evidence", id=_WS_ID)
+        for aid, name in _AREAS:
+            entities.create_area(_WS_ID, name, id=aid)
+    return {"org": _ORG_ID, "workspace": _WS_ID, "areas": [a for a, _ in _AREAS]}
+
+
 def seed_claims(force: bool = False) -> list:
-    """Register the demo claims and check each twice, so the change feed has a real story."""
+    """Register the demo claims as first-class Claims in the workspace, check each twice so
+    the change feed has a real story, then backfill the alert feed from that history."""
+    seed_org(force)
     ids = []
     for c in _CLAIMS:
         if force:
@@ -203,11 +228,13 @@ def seed_claims(force: bool = False) -> list:
         if not force and store.get(c["id"], kind="claims") is not None:
             ids.append(c["id"])
             continue
-        monitor.register(c["claim"], tenant="Meridian Health (demo)", id=c["id"])
+        entities.create_claim(c["claim"], tenant=_TENANT, workspace_id=_WS_ID,
+                              area_id=c["area"], priority=c.get("priority", "normal"), id=c["id"])
         earlier = c["data"][:-1]
         full = c["data"]
         monitor.check(c["id"], now=c["t1"], _search=lambda q, retmax=40, _e=earlier: list(_e))
         monitor.check(c["id"], now=c["t2"], _search=lambda q, retmax=40, _f=full: list(_f))
+        entities.backfill_alerts(c["id"])
         ids.append(c["id"])
     return ids
 
@@ -222,3 +249,8 @@ def ensure_seeded() -> None:
         seed()
     if not store.list_items("claims"):
         seed_claims()
+    elif store.get(_ORG_ID, kind="orgs") is None:      # claims exist but pre-date the org model
+        seed_org()
+        for c in _CLAIMS:
+            if store.get(c["id"], kind="claims") is not None:
+                entities.backfill_alerts(c["id"])
