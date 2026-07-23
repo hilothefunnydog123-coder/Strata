@@ -34,5 +34,5 @@ strata-desktop = "strata.desktop:main"
 packages = ["strata"]
 
 [tool.hatch.build.targets.sdist]
-include = ["strata", "clients", "docs", "tests", "README.md", "LICENSE",
+include = ["strata", "clients", "docs", "tests", "packaging", "README.md", "LICENSE",
            "Dockerfile", "docker-compose.yml", "Makefile"]

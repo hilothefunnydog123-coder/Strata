@@ -172,6 +172,25 @@ strata console     # the Evidence-Health rollup in your terminal
 strata changes     # the recent evidence-change alert feed
 ```
 
+## Strata Desktop (the downloadable app)
+
+A native, **offline** workstation for the point of decision — a doctor between appointments, a
+pharmacist at the counter, a medical-affairs analyst on a locked-down hospital laptop. It runs
+the whole engine on the machine: type a claim, get a graded, sourced verdict — no browser, no
+account, **no data leaving the device**. Strata reads only public literature and never touches
+a patient record, which is exactly why it's safe to run on-prem.
+
+```bash
+pip install strata-evidence
+strata desktop          # native control panel: server status, one-click Console/Verify/Graph,
+                        # an inline Verify tab, API-key issuance, optional AI
+```
+
+Prebuilt **Windows / macOS / Linux** binaries are produced on every release tag by
+[`.github/workflows/desktop.yml`](.github/workflows/desktop.yml) (PyInstaller) and attached to
+the GitHub Release. Build one yourself with `python packaging/build.py`. Full guide:
+**[`docs/desktop.md`](docs/desktop.md)**. Not a medical device; decision support only.
+
 ## Self-host / download (for businesses)
 
 Strata reads only **public literature**, so no patient data (PHI) ever leaves your network —

@@ -1,0 +1,69 @@
+name: Build Strata Desktop
+
+# Produces the downloadable desktop binaries. PyInstaller builds for the OS it runs on, so we
+# fan out across Windows / macOS / Linux runners and upload each artifact. On a version tag
+# (v*), the binaries are also attached to the GitHub Release — that is the "download" link.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write        # needed to attach artifacts to a Release on tag
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: Strata-linux
+            binary: dist/Strata
+          - os: windows-latest
+            artifact: Strata-windows.exe
+            binary: dist/Strata.exe
+          - os: macos-latest
+            artifact: Strata-macos
+            binary: dist/Strata
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Tk (Linux build needs it present)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y python3-tk
+
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller
+
+      - name: Sanity — engine tests (headless)
+        run: |
+          python tests/test_desktop.py
+          python tests/test_eval.py
+
+      - name: Build
+        run: python -m PyInstaller --noconfirm packaging/strata_desktop.spec
+
+      - name: Rename artifact
+        shell: bash
+        run: |
+          mkdir -p out
+          cp "${{ matrix.binary }}" "out/${{ matrix.artifact }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: out/${{ matrix.artifact }}
+
+      - name: Attach to Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/${{ matrix.artifact }}
