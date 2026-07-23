@@ -29,17 +29,24 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import cohort, demo, keys, models, monitor, pipeline, review, sources, verify
-from .pages import CONSOLE_HTML, LITE_HTML
+from .console_page import CONSOLE_HTML
+from .pages import LITE_HTML
 from .pages_web import LANDING_HTML, PLATFORM_HTML, VERIFY_DEMO_HTML
 from .query import ask
 from .receipt import seal_svg
 
 _LEVEL_COLOR = {1: "#16a34a", 2: "#22a06b", 3: "#d97706", 4: "#ea580c", 5: "#dc2626", 6: "#9ca3af"}
-_VERSION = "0.5.0"
+_VERSION = "0.5.1"
 _DEMO_EMAIL = "dlake003@gmail.com"
 _DEMO_REVIEW = {t["id"]: t for t in demo._TOPICS}
 _DEMO_CLAIM = {c["id"]: c for c in demo._CLAIMS}
 _DEMO_CLAIM_BY_TEXT = {verify.normalize(c["claim"]): c for c in demo._CLAIMS}
+_DEMO_CLAIM_BY_TEXT.update({          # question phrasings used by the Console resolve offline too
+    verify.normalize("Do SGLT2 inhibitors reduce heart-failure hospitalization"): _DEMO_CLAIM["clm-sglt2-hf"],
+    verify.normalize("Does metformin reduce cardiovascular mortality in type 2 diabetes"): _DEMO_CLAIM["clm-metformin-cvd"],
+    verify.normalize("Does vitamin D supplementation reduce acute respiratory infections"): _DEMO_CLAIM["clm-vitd-ari"],
+    verify.normalize("Does intermittent fasting reduce cardiovascular mortality"): _DEMO_CLAIM["clm-fasting-cvd"],
+})
 
 
 def _tenant() -> str:

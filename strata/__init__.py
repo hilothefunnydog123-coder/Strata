@@ -21,7 +21,7 @@ from . import (anatomy, cohort, keys, llm, models, monitor, pipeline, review,
                sources, store, verify)
 from .verify import verify_claim, compare_claims
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 __all__ = ["ask", "Result", "Evidence", "rank", "grade", "summarize_body",
            "Article", "search_articles", "Grade", "BodyAssessment",
            "verify", "verify_claim", "compare_claims", "Receipt", "monitor", "review",
