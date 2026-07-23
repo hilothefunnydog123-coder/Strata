@@ -36,15 +36,42 @@ Most "medical AI" is a chatbot that will answer anything, confidently, from a bl
 - **Graded, not just cited.** A citation isn't evidence — a *good* citation is. Strata classifies each paper's study design and assigns it a level on the evidence pyramid, so a single case report never gets to sound like settled science.
 - **Honest about strength.** Every answer carries a computed verdict — *strong / moderate / weak / very weak* — from the quality, quantity, size, and recency of what it found. If the literature doesn't answer the question, it says so.
 
-## Web app
+## Living reviews — the Console
+
+A one-off answer is stale the moment it prints. A **living review** is a standing
+question with a protocol: define it once, and Strata keeps its evidence base fresh —
+searching, grading and re-grading on every *sync*, and telling you what **changed**
+since last time (a new trial landed, certainty moved from weak to moderate).
 
 ```bash
-strata serve      # opens a clean search page at http://127.0.0.1:8600
+strata review create --title "Vitamin D & respiratory infection" \
+    --question "Does vitamin D supplementation prevent respiratory infections?" --levels 1,2,3
+strata review sync   <id>     # re-run; reports what changed
+strata review show   <id>     # current state, graded, strongest first
+strata review list
 ```
 
-Ask a question in the browser and Strata renders the strength verdict, a visual
-**evidence pyramid** (how many papers landed at each level), and the graded,
-linked sources — strongest first. Standard library only; nothing is stored.
+```bash
+strata serve                  # opens the web app (Console + Lite)
+```
+
+`strata serve` opens two surfaces (standard library only; live PubMed, or seeded demo
+data offline):
+
+- **Strata Console** (`/`) — the operator's dashboard for a clinical evidence team: a
+  live **3-D anatomical model** pinpointing where a body of evidence acts, a **forest
+  plot**, a **living-evidence accumulation curve**, a **PRISMA flow**, a GRADE-style
+  **certainty gauge**, an **evidence pyramid**, and a **surveillance timeline** of what
+  changed across syncs. A plain-language toggle switches every readout to lay terms.
+- **Strata Lite** (`/lite`) — the simple "ask one question, get the honest answer" page.
+
+```bash
+strata demo                   # seed three reproducible reviews, then `strata serve`
+```
+
+> The anatomical view maps where a body of **evidence** concentrates — never a patient.
+> Strata grades published literature for decision support: no medical device, no patient
+> data, no diagnosis. See [`docs/console.md`](docs/console.md).
 
 ## Behind a school or corporate network?
 

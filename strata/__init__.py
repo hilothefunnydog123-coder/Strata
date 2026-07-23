@@ -16,7 +16,9 @@ narrative from those same papers and nothing else.
 from .evidence import BodyAssessment, Grade, grade, summarize_body
 from .pubmed import Article, search_articles
 from .query import Evidence, Result, ask, rank
+from . import anatomy, review, store
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = ["ask", "Result", "Evidence", "rank", "grade", "summarize_body",
-           "Article", "search_articles", "Grade", "BodyAssessment"]
+           "Article", "search_articles", "Grade", "BodyAssessment",
+           "review", "anatomy", "store"]
