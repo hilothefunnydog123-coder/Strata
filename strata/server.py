@@ -28,14 +28,14 @@ import re
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import cohort, demo, keys, monitor, review, sources, verify
+from . import cohort, demo, keys, models, monitor, pipeline, review, sources, verify
 from .pages import CONSOLE_HTML, LITE_HTML
 from .pages_web import LANDING_HTML, PLATFORM_HTML, VERIFY_DEMO_HTML
 from .query import ask
 from .receipt import seal_svg
 
 _LEVEL_COLOR = {1: "#16a34a", 2: "#22a06b", 3: "#d97706", 4: "#ea580c", 5: "#dc2626", 6: "#9ca3af"}
-_VERSION = "0.4.0"
+_VERSION = "0.5.0"
 _DEMO_EMAIL = "dlake003@gmail.com"
 _DEMO_REVIEW = {t["id"]: t for t in demo._TOPICS}
 _DEMO_CLAIM = {c["id"]: c for c in demo._CLAIMS}
@@ -78,13 +78,18 @@ def _check_claim(cid: str):
     return monitor.check(cid)
 
 
-def _verify_claim(claim: str, context=None):
-    """Seeded example claims verify offline; everything else hits the live multi-source search."""
+def _demo_search(claim: str):
+    """Return an offline search fn + fixed year for a seeded claim, else (None, None) for live."""
     c = _DEMO_CLAIM_BY_TEXT.get(verify.normalize(claim))
     if c is not None:
-        return verify.verify_claim(claim, current_year=2026, context=context,
-                                   _search=lambda q, retmax=40, _d=c["data"]: list(_d))
-    return verify.verify_claim(claim, context=context)
+        return (lambda q, retmax=40, _d=c["data"]: list(_d)), 2026
+    return None, None
+
+
+def _verify_claim(claim: str, context=None, pico=None):
+    """Seeded example claims verify offline; everything else hits the live multi-source search."""
+    search, yr = _demo_search(claim)
+    return verify.verify_claim(claim, context=context, pico=pico, current_year=yr, _search=search)
 
 
 def _compare(claim_a: str, claim_b: str) -> dict:
@@ -135,6 +140,21 @@ def store_home():
     return store.home()
 
 
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_DEMO_FIELDS = ("name", "email", "organization", "role", "company_size", "use_case")
+
+
+def _validate_demo(b: dict) -> str | None:
+    if not (b.get("name") or "").strip():
+        return "name is required"
+    email = (b.get("email") or "").strip()
+    if not _EMAIL_RE.match(email):
+        return "a valid work email is required"
+    if not (b.get("organization") or "").strip():
+        return "organization is required"
+    return None
+
+
 def _handler():
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -155,6 +175,25 @@ def _handler():
 
         def _html(self, s):
             self._send(s.encode(), "text/html; charset=utf-8")
+
+        def _stream_verify(self, claim, ctx, pico):
+            """Stream the pipeline stage-by-stage as newline-delimited JSON."""
+            search, yr = _demo_search(claim)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/x-ndjson")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            try:
+                for ev in pipeline.stream(claim, context=ctx, pico=pico, current_year=yr, _search=search):
+                    out = {k: v for k, v in ev.items() if k != "_receipt"}
+                    self.wfile.write((json.dumps(out) + "\n").encode())
+                    self.wfile.flush()
+            except Exception as exc:
+                try:
+                    self.wfile.write((json.dumps({"type": "error", "error": str(exc)}) + "\n").encode())
+                except Exception:
+                    pass
 
         def _body(self) -> dict:
             n = int(self.headers.get("Content-Length") or 0)
@@ -209,11 +248,13 @@ def _handler():
                 if path == "/v1/health":
                     return self._json({"status": "ok", "version": _VERSION,
                                        "sources": sources.enabled_sources(),
-                                       "ai": __import__("strata").llm.available(),
+                                       "ai": models.available(),
                                        "auth": bool(os.environ.get("STRATA_API_KEYS"))})
                 if path == "/v1/sources":
                     return self._json({"enabled": sources.enabled_sources(),
                                        "available": list(sources._SOURCES.keys())})
+                if path == "/v1/models":
+                    return self._json(models.status())
                 m = re.match(r"^/v1/seal/([A-Za-z0-9\-_]+?)(?:\.svg)?$", path)
                 seal_id = m.group(1) if m else ((q.get("id") or [None])[0] if path == "/v1/seal" else None)
                 if seal_id:
@@ -223,9 +264,11 @@ def _handler():
                     return self._send(seal_svg(r).encode(), "image/svg+xml")
                 if path == "/v1/demo-request":
                     b = self._body()
-                    if not (b.get("email") or b.get("name")):
-                        return self._json({"error": "email or name required"}, 400)
-                    emailed = _email_demo_request(b)
+                    err = _validate_demo(b)
+                    if err:
+                        return self._json({"error": err}, 400)
+                    emailed = _email_demo_request({k: b.get(k) for k in _DEMO_FIELDS if b.get(k)}
+                                                  | {"source": b.get("source", "web")})
                     return self._json({"ok": True, "emailed": emailed, "to": _DEMO_EMAIL})
 
                 # ---- key creation (admin-gated if STRATA_ADMIN_KEY set) ----
@@ -262,24 +305,47 @@ def _handler():
                     review.sync(p.id)
                     return self._json(review.view(p.id))
 
-                # ---- gated Verify API ----
-                if not self._authorized(q):
-                    return self._json({"error": "unauthorized. Generate a key at /app or set one via STRATA_API_KEYS."}, 401)
+                # ---- gated Verify API (authenticate -> rate limit -> log) ----
+                _key = self._provided_key(q)
+                _rec = keys.validate(_key) if _key else None
+                _configured = set(filter(None, (os.environ.get("STRATA_API_KEYS", "")).split(",")))
+                if _configured and _rec is None and _key not in _configured:
+                    return self._json({"error": "unauthorized. Generate a key at /app or set STRATA_API_KEYS."}, 401)
+                if _rec is not None:
+                    _ok, _retry = keys.check_rate(_rec)
+                    if not _ok:
+                        return self._json({"error": "rate limit exceeded", "retry_after": _retry}, 429)
+                    keys.log_request(_rec["id"], path, 200)
 
                 if path == "/v1/keys":                       # GET list
                     return self._json({"keys": keys.list_keys()})
                 if path == "/v1/keys/revoke":
-                    ok = keys.revoke((q.get("id") or [""])[0])
-                    return self._json({"revoked": ok})
+                    return self._json({"revoked": keys.revoke((q.get("id") or [""])[0])})
+                if path == "/v1/keys/rotate":
+                    raw, rec = keys.rotate((q.get("id") or [""])[0])
+                    return self._json({"key": raw, **(rec or {})}) if raw else self._json({"error": "no such key"}, 404)
+                if path == "/v1/keys/logs":
+                    return self._json({"logs": keys.get_logs((q.get("id") or [""])[0])})
 
-                if path == "/v1/verify":
+                if path in ("/v1/verify", "/v1/verify/stream"):
                     b = self._body() if self.command == "POST" else {}
                     claim = (b.get("claim") or (q.get("claim") or [""])[0]).strip()
                     if not claim:
                         return self._json({"error": "missing 'claim'"}, 400)
                     cid = b.get("cohort") or (q.get("cohort") or [None])[0]
                     ctx = (cohort.get(cid) or {}).get("profile") if cid else None
-                    return self._json(_verify_claim(claim, context=ctx).to_dict())
+                    pico = {k: b.get(k) for k in ("population", "intervention", "comparator", "outcome") if b.get(k)}
+                    if path.endswith("/stream"):
+                        return self._stream_verify(claim, ctx, pico or None)
+                    return self._json(_verify_claim(claim, context=ctx, pico=pico or None).to_dict())
+                if path == "/v1/verify/batch":
+                    b = self._body()
+                    claims = b.get("claims") or []
+                    if not isinstance(claims, list) or not claims:
+                        return self._json({"error": "provide 'claims' (a list)"}, 400)
+                    if len(claims) > 25:
+                        return self._json({"error": "batch limited to 25 claims"}, 400)
+                    return self._json({"results": [_verify_claim(str(c)).to_dict() for c in claims]})
 
                 if path == "/v1/compare":
                     b = self._body() if self.command == "POST" else {}

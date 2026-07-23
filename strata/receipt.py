@@ -27,6 +27,12 @@ STATUS_BLURB = {
     "Unsupported": "No directional evidence was found for this exact claim.",
 }
 
+# the enterprise-facing enum returned as `claim_status`
+CLAIM_STATUS = {
+    "Supported": "SUPPORTED", "Mixed": "PARTIALLY_SUPPORTED",
+    "Contradicted": "CONTRADICTED", "Insufficient": "INSUFFICIENT", "Unsupported": "UNSUPPORTED",
+}
+
 
 @dataclass
 class Receipt:
@@ -48,6 +54,15 @@ class Receipt:
     sources: dict = field(default_factory=dict)     # {source_name: count} across the databases searched
     population_note: str | None = None              # generalizability to an imported cohort (local only)
     synthesis: str | None = None                    # optional plain-language AI summary of the evidence
+    # --- structured / enterprise fields ---
+    claim_status: str = ""                          # SUPPORTED | PARTIALLY_SUPPORTED | CONTRADICTED | INSUFFICIENT | UNSUPPORTED
+    confidence: float = 0.0                         # 0..1, calibrated from quantity + quality + agreement
+    pico: dict = field(default_factory=dict)        # {population, intervention, comparator, outcome, direction}
+    effect_estimates: list = field(default_factory=list)  # extracted measures with CIs
+    population_limitations: list = field(default_factory=list)
+    audit_trail: list = field(default_factory=list)  # per-stage record, every conclusion traceable
+    models_used: list = field(default_factory=list)  # which models ran, if any
+    elapsed_ms: int = 0
     disclaimer: str = DISCLAIMER
 
     def to_dict(self) -> dict:

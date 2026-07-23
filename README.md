@@ -91,6 +91,13 @@ Optional AI (`strata.llm`) sharpens borderline stance calls using any OpenAI-com
 free tier (Groq, Gemini); it only ever sees public abstracts and is never the source of a
 fact. Without it, the transparent heuristic still runs.
 
+Every verification runs an explicit, auditable **pipeline** — understand → expand → retrieve
+→ dedup → rank → classify → extract → contradiction → grade → synthesize → audit — routed
+through a per-task **model-abstraction layer** (strong tier for reasoning, cheap tier for
+mechanical steps, free/local fallback). Each receipt carries a **PICO** breakdown, a
+calibrated **confidence** (0–1), **effect estimates**, and a full **audit trail**. Stream it
+stage-by-stage with `POST /v1/verify/stream` (newline-delimited JSON) for a progressive UI.
+
 ## The killer feature: *what changed*
 
 Medical evidence is never final. A monitored claim is re-checked on a schedule and every

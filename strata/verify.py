@@ -140,67 +140,13 @@ def _cap(strength: str, ceiling: str) -> str:
 
 def verify_claim(claim: str, *, current_year: Optional[int] = None, retmax: int = 40,
                  consider: int = 18, now: Optional[str] = None, context: Optional[dict] = None,
-                 use_llm: Optional[bool] = None, _search: Optional[Callable] = None) -> Receipt:
-    if current_year is None:
-        current_year = _dt.date.today().year
-    now = now or _now()
-    search = _search or sources.search_all
-    claim_dir = _claim_direction(claim)
-    query = _query(claim)
-
-    articles = search(query, retmax=retmax)
-    source_counts = sources.source_breakdown(articles)
-    graded = [(a, grade(a, current_year)) for a in articles]
-    ranked = rank([a for a, _ in graded], [g for _, g in graded], current_year)[:consider]
-
-    ai = llm.available() if use_llm is None else use_llm
-    items, by_stance = [], {"support": [], "contradict": [], "neutral": []}
-    sup_w = con_w = 0.0
-    ai_calls = 0
-    for e in ranked:
-        a, g = e.article, e.grade
-        eff = _extract_effect(f"{a.title}. {a.abstract}")
-        st = _stance(eff, claim_dir, f"{a.title}. {a.abstract}")
-        # let the AI resolve the borderline (heuristic-neutral) cases, when configured
-        if ai and st == "neutral" and a.abstract and ai_calls < 8:
-            ai_calls += 1
-            verdict = llm.classify_stance(claim, a.title, a.abstract)
-            if verdict and verdict["confidence"] >= 0.6 and verdict["stance"] != "neutral":
-                st = verdict["stance"]
-        by_stance[st].append(g)
-        w = _weight(g.level, eff, a.cited_by)
-        if st == "support":
-            sup_w += w
-        elif st == "contradict":
-            con_w += w
-        items.append((a, g, st, eff))
-
-    sup, con, neu = (len(by_stance["support"]), len(by_stance["contradict"]), len(by_stance["neutral"]))
-    status, strength = _status_and_strength(sup_w, con_w, sup, con, by_stance, len(items))
-
-    aligned = [it for it in items if it[2] == ("contradict" if status == "Contradicted" else "support")]
-    top = min(aligned or items, key=lambda it: it[1].level, default=None) if items else None
-    highest = None
-    if top:
-        a, g = top[0], top[1]
-        highest = {"pmid": a.pmid, "title": a.title, "year": a.year, "url": a.url,
-                   "label": g.label, "level": g.level, "strength": g.strength, "source": a.source}
-
-    citations = [{
-        "n": i, "pmid": a.pmid, "title": a.title, "year": a.year, "url": a.url,
-        "level": g.level, "label": g.label, "strength": g.strength, "stance": st,
-        "source": a.source, "cited_by": a.cited_by, "doi": a.doi,
-        "snippet": _first_sentences(a.abstract) or "(no abstract)", "effect": eff,
-    } for i, (a, g, st, eff) in enumerate(items[:10], 1)]
-
-    pop_note = _cohort.population_note(context, citations) if context else None
-
-    return Receipt(
-        receipt_id=receipt_id(claim), claim=claim.strip(), status=status, strength=strength,
-        supporting=sup, contradicting=con, neutral=neu, total=len(items), checked=now,
-        highest_evidence=highest, key_limitation=_limitation(items, status),
-        citations=citations, query=query, sources=source_counts, population_note=pop_note,
-    )
+                 use_llm: Optional[bool] = None, pico: Optional[dict] = None,
+                 _search: Optional[Callable] = None) -> Receipt:
+    """Verify a claim through the full staged pipeline (understand -> ... -> audit)."""
+    from . import pipeline           # lazy import: pipeline imports verify for its helpers
+    return pipeline.run(claim, pico=pico, context=context, current_year=current_year,
+                        retmax=retmax, consider=consider, now=now, use_llm=use_llm,
+                        _search=_search)
 
 
 # ------------------------------------------------------------------- comparison

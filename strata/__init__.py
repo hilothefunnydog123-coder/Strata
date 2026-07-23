@@ -17,11 +17,12 @@ from .evidence import BodyAssessment, Grade, grade, summarize_body
 from .pubmed import Article, search_articles
 from .query import Evidence, Result, ask, rank
 from .receipt import Receipt
-from . import anatomy, cohort, keys, llm, monitor, review, sources, store, verify
+from . import (anatomy, cohort, keys, llm, models, monitor, pipeline, review,
+               sources, store, verify)
 from .verify import verify_claim, compare_claims
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __all__ = ["ask", "Result", "Evidence", "rank", "grade", "summarize_body",
            "Article", "search_articles", "Grade", "BodyAssessment",
            "verify", "verify_claim", "compare_claims", "Receipt", "monitor", "review",
-           "anatomy", "store", "sources", "keys", "cohort", "llm"]
+           "anatomy", "store", "sources", "keys", "cohort", "llm", "models", "pipeline"]

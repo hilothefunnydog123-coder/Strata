@@ -101,6 +101,14 @@ Version, enabled sources, whether AI + auth are configured.
   "status": "Supported",            // Supported | Mixed | Contradicted | Insufficient | Unsupported
   "strength": "moderate",           // high | moderate | low | very low | none
   "supporting": 5, "contradicting": 0, "neutral": 1, "total": 6,
+  "claim_status": "SUPPORTED",      // SUPPORTED | PARTIALLY_SUPPORTED | CONTRADICTED | INSUFFICIENT | UNSUPPORTED
+  "confidence": 0.82,               // 0..1, calibrated from quantity + quality + agreement + recency
+  "pico": {"population":"adults over 65","intervention":"Drug X","comparator":"standard care",
+           "outcome":"hospitalization","direction":"reduces"},
+  "effect_estimates": [ {"measure":"HR","value":0.70,"ci_low":0.62,"ci_high":0.79,"significant":true,"year":2023} ],
+  "population_limitations": ["45% of your population is 80+, where evidence is thinnest."],
+  "audit_trail": [ {"stage":"retrieve","detail":"Retrieved 40 records across 4 sources.","ms":180} ],
+  "models_used": [], "elapsed_ms": 420,
   "checked": "2026-07-23T09:00:00+00:00",
   "highest_evidence": { "label": "Systematic review / meta-analysis", "level": 1,
                         "year": 2020, "url": "...", "source": "europepmc" },
@@ -122,6 +130,72 @@ Version, enabled sources, whether AI + auth are configured.
   "disclaimer": "Heuristic appraisal of public literature ..."
 }
 ```
+
+## The pipeline
+
+Every verification runs an explicit, auditable pipeline. Each stage is recorded in
+`audit_trail` with the time it took, so every conclusion is traceable:
+
+```
+understand -> expand -> retrieve -> dedup -> rank -> classify ->
+extract -> contradiction -> grade -> synthesize -> audit
+```
+
+AI is optional and routed per task through a model-abstraction layer (`GET /v1/models`): hard
+reasoning (extraction, contradiction, synthesis) uses the strong tier; mechanical steps
+(classification, expansion) use a cheap tier; both fall back to free/local models and finally
+to the transparent heuristic. Nothing fabricates precision: an effect estimate appears only
+when a real one is in the text.
+
+## Streaming
+
+`POST /v1/verify/stream` returns **newline-delimited JSON** (`application/x-ndjson`), one
+object per stage as it completes, ending with `{"type":"done","receipt":{...}}`. Ideal for a
+progressive UI (initial sources in ~1s, full synthesis after).
+
+```bash
+curl -N -X POST $STRATA/v1/verify/stream -H "Authorization: Bearer $KEY" \
+  -d '{"claim":"SGLT2 inhibitors reduce heart-failure hospitalization"}'
+# {"type":"stage","stage":"retrieve","detail":"Retrieved 40 records...","ms":180}
+# ... {"type":"done","receipt":{...}}
+```
+
+## Batch
+
+`POST /v1/verify/batch` with `{"claims":[...]}` (max 25) returns `{"results":[receipt,...]}`.
+
+## Key management
+
+| Endpoint | Does |
+|---|---|
+| `POST /v1/keys` | issue a key (returned once); optional `label`, `rate_limit`, `scopes` |
+| `GET /v1/keys` | list keys (redacted) with usage + last-used |
+| `GET /v1/keys/rotate?id=` | issue a new secret for a key id (old secret stops working) |
+| `GET /v1/keys/logs?id=` | recent request log for a key |
+| `GET /v1/keys/revoke?id=` | revoke a key |
+
+Keys carry a per-minute **rate limit** (default 60); exceeding it returns **429** with
+`retry_after`. Creation can be gated with `STRATA_ADMIN_KEY` (`X-Admin-Key`).
+
+## Errors
+
+| Code | Meaning |
+|---|---|
+| 400 | bad request (missing `claim`, invalid batch, invalid demo form) |
+| 401 | missing / invalid API key |
+| 404 | unknown id (receipt, claim, key) |
+| 429 | rate limit exceeded (`retry_after` seconds in the body) |
+| 500 | internal error; sources fail soft individually, so a single source outage does not 500 |
+
+Failures are never hidden: an unreachable source is simply absent from `sources`, a
+heuristic effect extraction is labelled, and insufficient evidence returns
+`INSUFFICIENT` rather than a confident guess.
+
+## Webhooks (roadmap)
+
+Monitored-claim change events (`upgraded`, `downgraded`, `conflict`, `new_study`) are
+available today by polling `GET /v1/monitor/check`. Push delivery to a registered URL is on
+the roadmap; the event shape is already stable (`change.events[]`).
 
 ## SDKs
 

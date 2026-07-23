@@ -364,6 +364,40 @@ nav .sp{flex:1}nav a.lk{font-weight:600;color:#fff;opacity:.7}nav a.lk:hover{opa
 .cmpwrap{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media(max-width:760px){.cmpwrap{grid-template-columns:1fr}}
 .winner{text-align:center;background:rgba(56,230,166,.08);border:1px solid rgba(56,230,166,.3);border-radius:14px;padding:16px 18px;margin-bottom:16px;font-size:16px;font-weight:700}
+.cstat{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.05em;padding:5px 10px;border-radius:7px}
+.conf{display:flex;align-items:center;gap:12px;margin:16px 0 4px}
+.conf .lbl{font-family:var(--mono);font-size:11px;font-weight:700;color:#8ea0a0;letter-spacing:.08em}
+.conf .track{flex:1;height:9px;border-radius:6px;background:#101922;overflow:hidden}
+.conf .fill{height:100%;background:linear-gradient(90deg,#ff5d73,#ffc24b,#38e6a6)}
+.conf .val{font-family:var(--mono);font-weight:800;font-size:15px}
+.pico{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 4px}
+.pico .p{font-size:13px;font-weight:600;border:1px solid var(--line);border-radius:20px;padding:6px 12px;color:#fff}
+.pico .p b{color:var(--green);font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-right:7px}
+details.audit{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
+details.audit summary{cursor:pointer;font-family:var(--mono);font-size:12px;color:#8ea0a0;font-weight:700;list-style:none}
+details.audit summary::-webkit-details-marker{display:none}
+details.audit summary::before{content:"▸ ";color:var(--green)}
+details.audit[open] summary::before{content:"▾ "}
+.aud{display:grid;grid-template-columns:110px 1fr auto;gap:12px;font-size:12.5px;padding:8px 0;border-bottom:1px solid var(--line);align-items:baseline}
+.aud .s{font-family:var(--mono);color:var(--green);font-weight:700;text-transform:uppercase;font-size:10px}
+.aud .d{color:#fff;opacity:.82}.aud .ms{font-family:var(--mono);color:#7c8a90}
+.livestage{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+.livestage .ls{display:grid;grid-template-columns:20px 110px 1fr auto;gap:10px;align-items:center;font-size:13px;padding:5px 0;opacity:.4;transition:opacity .2s}
+.livestage .ls.on{opacity:1}.livestage .ls.done .tick{color:var(--green)}
+.livestage .tick{font-family:var(--mono);font-weight:800}
+.livestage .nm{font-family:var(--mono);font-size:11px;text-transform:uppercase;color:var(--green);letter-spacing:.06em}
+.livestage .dt{color:#fff;opacity:.8}.livestage .ms{font-family:var(--mono);color:#7c8a90;font-size:11px}
+.modal{position:fixed;inset:0;background:rgba(2,4,8,.78);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal.show{display:flex}
+.modal .box{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:28px;max-width:470px;width:100%;max-height:90vh;overflow-y:auto}
+.modal h3{font-size:24px;font-weight:800;margin-bottom:6px}
+.modal .msub{font-size:14px;opacity:.7;margin-bottom:18px}
+.modal label{display:block;font-family:var(--mono);font-size:11px;color:#8ea0a0;letter-spacing:.06em;text-transform:uppercase;margin:0 0 5px}
+.modal input,.modal select,.modal textarea{width:100%;background:#03140d;border:1px solid var(--line);border-radius:10px;padding:11px 13px;color:#fff;font-size:14px;margin-bottom:12px;font-family:inherit}
+.modal .merr{color:#ff9aa8;font-size:13px;margin-bottom:10px;font-weight:600}
+.modal .mrow{display:flex;gap:14px;margin-top:4px}
+.modal button{flex:1;border:0;border-radius:11px;padding:13px;font-weight:800;font-size:14px;cursor:pointer}
+.modal .mgo{background:var(--green);color:#03140d}.modal .mcx{background:transparent;color:#fff;border:1px solid var(--line)}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.001s!important}}
 </style></head><body>
 <nav><div class="wrap"><a class="logo" href="/"><span class="g">S</span> Strata <span class="k">Verify</span></a>
@@ -391,6 +425,18 @@ nav .sp{flex:1}nav a.lk{font-weight:600;color:#fff;opacity:.7}nav a.lk:hover{opa
   </div>
   <div class="foot">Strata verifies published literature for decision support. Not a medical device. No patient data. No diagnosis.</div>
 </div>
+<div class="modal" id="demoModal"><div class="box">
+  <h3>Request a demo</h3>
+  <div class="msub">See Strata on your own evidence base. We will reach out to schedule.</div>
+  <div class="merr" id="dm_err"></div>
+  <label>Name</label><input id="dm_name" placeholder="Jane Okafor"/>
+  <label>Work email</label><input id="dm_email" type="email" placeholder="jane@hospital.org"/>
+  <label>Organization</label><input id="dm_org" placeholder="Mercy Health"/>
+  <label>Role</label><input id="dm_role" placeholder="Medical Director"/>
+  <label>Company size</label><select id="dm_size"><option value="">Select...</option><option>1-50</option><option>51-200</option><option>201-1000</option><option>1000-5000</option><option>5000+</option></select>
+  <label>What do you want to use Strata for?</label><textarea id="dm_use" rows="3" placeholder="e.g. monitoring the evidence behind our drug efficacy claims"></textarea>
+  <div class="mrow"><button class="mcx" onclick="closeDemo()">Cancel</button><button class="mgo" onclick="submitDemo()">Send request</button></div>
+</div></div>
 
 <script>
 const $=(s,r=document)=>r.querySelector(s);
@@ -421,6 +467,7 @@ async function verifyOne(){
   const claim=$('#q').value.trim();if(!claim)return;
   $('#go').disabled=true;$('#go').innerHTML='<span class="spin"></span>';
   try{
+    if(!window.EMBED){ await streamVerify(claim); return; }
     const r=await getReceipt(claim);
     if(r==='nomatch'){$('#stage').innerHTML='<div class="err">This demo has live receipts for the example claims below. Free-text verification runs against the API with your key. Try an example, or run Strata locally.</div>';return;}
     if(!r){$('#stage').innerHTML='<div class="err">Could not verify. The evidence source may be unreachable.</div>';return;}
@@ -461,6 +508,32 @@ async function doCompare(){
   }catch(e){$('#stage').innerHTML=`<div class="err">${esc(e.message||e)}</div>`;}
   finally{$('#go').disabled=false;$('#go').textContent='Compare';}
 }
+async function streamVerify(claim){
+  $('#stage').innerHTML='<div class="scan"><div class="top"><span class="sp"></span> Running the evidence pipeline</div><div class="livestage" id="live"></div></div>';
+  const live=$('#live');
+  let res;
+  try{res=await fetch('/v1/verify/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({claim:claim})});}
+  catch(e){$('#stage').innerHTML='<div class="err">Could not reach the pipeline.</div>';return;}
+  if(!res.body||!res.body.getReader){
+    const r=await (await fetch('/v1/verify?claim='+encodeURIComponent(claim))).json();
+    if(r.error){$('#stage').innerHTML=`<div class="err">${esc(r.error)}</div>`;return;} renderVerdict(r);return;}
+  const reader=res.body.getReader(),dec=new TextDecoder();let buf='',receipt=null;
+  while(true){const {done,value}=await reader.read();if(done)break;
+    buf+=dec.decode(value,{stream:true});let i;
+    while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);if(!line.trim())continue;
+      let ev;try{ev=JSON.parse(line);}catch(e){continue;}
+      if(ev.type==='stage')addStage(live,ev);
+      else if(ev.type==='done')receipt=ev.receipt;
+      else if(ev.type==='error'){$('#stage').innerHTML=`<div class="err">${esc(ev.error)}</div>`;return;}}}
+  if(receipt){renderVerdict(receipt);window.scrollTo({top:0,behavior:'smooth'});}
+  else $('#stage').innerHTML='<div class="err">No result returned.</div>';
+}
+function addStage(live,ev){
+  [...live.children].forEach(c=>{c.classList.add('done');const t=c.querySelector('.tick');if(t)t.textContent='✓';});
+  const d=document.createElement('div');d.className='ls on';
+  d.innerHTML=`<span class="tick">◌</span><span class="nm">${esc(ev.stage)}</span><span class="dt">${esc(ev.detail)}</span><span class="ms">${ev.ms}ms</span>`;
+  live.appendChild(d);
+}
 function hex(n){let s='';for(let i=0;i<n;i++)s+='0123456789abcdef'[Math.floor(Math.random()*16)];return s;}
 async function generateKey(){
   let out;
@@ -477,11 +550,21 @@ async function generateKey(){
     ${out.demo?'<div class="note">Demo key. Run Strata (pip install strata-evidence; strata serve) to issue real, working keys.</div>':'<div class="note" style="color:#8ff3d0">This key works now, against this server.</div>'}</div>`;
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function requestDemo(){
-  const email=prompt("Your email (we'll reach out to schedule):");if(!email)return;
-  const org=prompt('Organization (optional):')||'';
-  if(!window.EMBED){fetch('/v1/demo-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,org:org,source:'verify-demo'})}).catch(()=>{});}
-  window.location.href='mailto:dlake003@gmail.com?subject='+encodeURIComponent('Strata demo request')+'&body='+encodeURIComponent('Email: '+email+'\nOrg: '+org+'\n\nI would like a demo of Strata.');
+function requestDemo(){document.getElementById('demoModal').classList.add('show');}
+function closeDemo(){document.getElementById('demoModal').classList.remove('show');}
+async function submitDemo(){
+  const g=id=>document.getElementById(id).value.trim();
+  const name=g('dm_name'),email=g('dm_email'),org=g('dm_org'),role=g('dm_role'),size=g('dm_size'),use=g('dm_use');
+  const err=document.getElementById('dm_err');
+  if(!name){err.textContent='Name is required.';return;}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){err.textContent='A valid work email is required.';return;}
+  if(!org){err.textContent='Organization is required.';return;}
+  err.textContent='';
+  const payload={name:name,email:email,organization:org,role:role,company_size:size,use_case:use,source:'verify-demo'};
+  if(!window.EMBED){try{await fetch('/v1/demo-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}catch(e){}}
+  const body='Name: '+name+'%0AEmail: '+email+'%0AOrganization: '+encodeURIComponent(org)+'%0ARole: '+encodeURIComponent(role)+'%0ACompany size: '+encodeURIComponent(size)+'%0AUse case: '+encodeURIComponent(use);
+  window.location.href='mailto:dlake003@gmail.com?subject='+encodeURIComponent('Strata demo request - '+org)+'&body='+body;
+  closeDemo();
 }
 
 async function animate(r){
@@ -518,6 +601,15 @@ function srcBar(sources){
   return `<div class="srcbar"><span class="lbl">Sourced from ${total} records across</span>`+
     ents.map(([k,v])=>`<span class="schip">${esc(SRC[k]||k)} <b>${v}</b></span>`).join('')+`</div>`;
 }
+function confBlock(r){if(r.confidence==null)return '';const p=Math.round(r.confidence*100);
+  return `<div class="conf"><span class="lbl">CONFIDENCE</span><span class="track"><span class="fill" style="width:${p}%"></span></span><span class="val">${p}%</span></div>`;}
+function picoBlock(r){const p=r.pico||{};
+  const items=[['Population',p.population],['Intervention',p.intervention],['Comparator',p.comparator],['Outcome',p.outcome]].filter(x=>x[1]);
+  return items.length?`<div class="pico">`+items.map(x=>`<span class="p"><b>${x[0]}</b>${esc(x[1])}</span>`).join('')+`</div>`:'';}
+function auditBlock(r){const a=r.audit_trail||[];if(!a.length)return '';
+  const ai=(r.models_used&&r.models_used.length)?('AI on '+r.models_used.length+' tasks'):'heuristics only';
+  return `<details class="audit"><summary>Audit trail · ${a.length} stages · ${r.elapsed_ms||0} ms · ${ai}</summary>`+
+    a.map(s=>`<div class="aud"><span class="s">${esc(s.stage)}</span><span class="d">${esc(s.detail)}</span><span class="ms">${s.ms}ms</span></div>`).join('')+`</details>`;}
 function receiptHTML(r,extra){
   const col=SC[r.status]||'#7c8a90';const t=Math.max(1,r.supporting+r.contradicting+r.neutral);
   const w=n=>Math.round(100*n/t);
@@ -537,14 +629,16 @@ function receiptHTML(r,extra){
     <div class="rh"><span>Strata Evidence Receipt</span><span>${esc(r.receipt_id||'')}</span></div>
     <div class="claim">"${esc(r.claim)}"</div>
     <div class="bigv"><span class="status" style="color:${col}">${esc((r.status||'').toUpperCase())}</span>
-      <span class="cert">${esc((r.strength||'').toUpperCase())} CERTAINTY</span></div>
+      <span class="cert">${esc((r.strength||'').toUpperCase())} CERTAINTY</span>
+      ${r.claim_status?`<span class="cstat" style="background:${col};color:#03140d">${esc(r.claim_status)}</span>`:''}</div>
     <div class="blurb">${esc(BLURB[r.status]||'')}</div>
+    ${confBlock(r)}
     <div class="split"><span class="s" style="width:${w(r.supporting)}%"></span>
       <span class="c" style="width:${w(r.contradicting)}%"></span><span class="n" style="width:${w(r.neutral)}%"></span></div>
     <div class="slabels"><span class="s">${r.supporting} supporting</span>
       <span class="c">${r.contradicting} contradicting</span><span class="n">${r.neutral} neutral</span></div>
-    ${srcBar(r.sources)}${strong}${lim}${pop}${extra||''}
-    <div class="cites">${cites}</div></div>`;
+    ${picoBlock(r)}${srcBar(r.sources)}${strong}${lim}${pop}${extra||''}
+    <div class="cites">${cites}</div>${auditBlock(r)}</div>`;
 }
 function renderVerdict(r,extra){$('#stage').innerHTML=receiptHTML(r,extra);}
 
