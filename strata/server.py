@@ -30,6 +30,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import cohort, demo, entities, keys, models, monitor, pipeline, review, sources, store, verify
 from .console_page import CONSOLE_HTML
+from .dashboard_page import DASHBOARD_HTML
 from .pages import LITE_HTML
 from .pages_web import LANDING_HTML, PLATFORM_HTML, VERIFY_DEMO_HTML
 from .query import ask
@@ -278,6 +279,8 @@ def _handler():
                 if path == "/platform":
                     return self._html(PLATFORM_HTML)
                 if path == "/console":
+                    return self._html(DASHBOARD_HTML)
+                if path in ("/search", "/console/search"):
                     return self._html(CONSOLE_HTML)
                 if path == "/lite":
                     return self._html(LITE_HTML)
