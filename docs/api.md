@@ -76,7 +76,45 @@ Pass the returned id as `cohort` to `/v1/verify` to get a population-specific
 
 ### `GET /v1/monitor` · `/register?claim=` · `/check?id=` · `/get?id=`
 Continuous claim watching. `register` and `check` return `{id, receipt, change}`, where
-`change` is the "what changed" feed.
+`change` is the "what changed" feed. `register` accepts `alert_conditions` (see below) and
+flows through the claim model.
+
+## Claim-centered API
+
+Strata treats a claim as a first-class, versioned object. These endpoints power the Console.
+
+### `POST /v1/claims` · `GET /v1/claims`
+Create a monitored claim (and run a baseline verification), or list claims.
+
+```bash
+curl -X POST $STRATA/v1/claims -H "Authorization: Bearer $KEY" \
+  -d '{"claim":"Drug X reduces hospitalization in heart failure",
+       "area_id":"area-cardiology",
+       "alert_rules":{"new_rct":true,"safety_signal":true,"effect_change":true}}'
+# -> { "id": "...", "claim": {...}, "receipt": {...}, "alerts": [...], "version": 1 }
+```
+
+**Alert rules** (all on by default; set any `false` to mute): `new_meta_analysis`, `new_rct`,
+`new_contradiction`, `strength_change`, `status_change`, `safety_signal`, `effect_change`.
+
+### `GET /v1/claims/<id>` · `POST /v1/claims/<id>/recheck` · `GET /v1/claims/<id>/history`
+The full dossier (protocol, version **timeline**, latest receipt, alerts); re-verify now
+(versions the claim and raises alerts if the evidence moved); or just the timeline.
+
+### `GET /v1/changes` · `GET /v1/console/summary`
+`/changes` is the newest-first evidence-change **alert feed** across the whole evidence base
+(`?workspace=`, `?limit=`). `/console/summary` is the **Evidence-Health** rollup:
+`{claims_monitored, strengthened, weakened, newly_contradicted, new_studies, open_alerts,
+by_area, by_status, attention, recent_alerts}`.
+
+### `GET /v1/evidence/<id>`
+Resolve one study (PMID or DOI) across the monitored set: the study record plus which claims
+cite it and whether each cites it as supporting or contradicting.
+
+### `GET /v1/alerts` · `POST /v1/alerts/<id>/ack` · `GET/POST /v1/webhooks`
+List/acknowledge alerts; register an endpoint for `evidence.changed` events. Every webhook
+delivery is signed: header `X-Strata-Signature: sha256=<hmac>` over the raw body using the
+per-endpoint secret returned at registration.
 
 ### `GET /v1/receipt/<id>` — a monitored claim's latest receipt
 
@@ -106,6 +144,19 @@ Version, enabled sources, whether AI + auth are configured.
   "pico": {"population":"adults over 65","intervention":"Drug X","comparator":"standard care",
            "outcome":"hospitalization","direction":"reduces"},
   "effect_estimates": [ {"measure":"HR","value":0.70,"ci_low":0.62,"ci_high":0.79,"significant":true,"year":2023} ],
+  "strength_rationale": {           // the inspectable GRADE — why this strength
+    "grade": "moderate",
+    "summary": "Moderate-quality evidence — 1 meta-analysis, 1 RCT; limited by 1 contradicting study.",
+    "dimensions": {"study_design":"high","consistency":"moderate","directness":"high",
+                   "precision":"high","recency":"high","replication":"moderate","quantity":2},
+    "factors":     [ {"sign":"+","domain":"study_design","text":"1 randomized controlled trial(s)"} ],
+    "limitations": [ {"sign":"-","domain":"consistency","text":"1 contradicting study in the retrieved set"} ]
+  },
+  "contradiction": {                // why supporting & contradicting studies disagree (never averaged away)
+    "disagreement": true, "supporting": 2, "contradicting": 1,
+    "reasons": [ {"factor":"population","title":"Different populations or disease severity",
+                  "explanation":"...","support_example":{...},"contradict_example":{...}} ]
+  },
   "population_limitations": ["45% of your population is 80+, where evidence is thinnest."],
   "audit_trail": [ {"stage":"retrieve","detail":"Retrieved 40 records across 4 sources.","ms":180} ],
   "models_used": [], "elapsed_ms": 420,

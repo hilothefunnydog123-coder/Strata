@@ -20,6 +20,7 @@ import os
 import re
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 from .pubmed import Article, UA, _ssl_context, search_articles
 
@@ -209,17 +210,33 @@ def enabled_sources() -> list[str]:
 
 
 def search_all(query: str, retmax: int = 40, *, sources=None, per_source=None,
-               _fetchers=None) -> list[Article]:
-    """Query every enabled source, merge, and rank. Fails soft per source."""
+               _fetchers=None, timeout: int = 25) -> list[Article]:
+    """Query every enabled source in parallel, merge, and rank. Fails soft per source.
+
+    Retrieval is I/O-bound (each source is an independent HTTP call), so the sources are
+    fetched concurrently on a small thread pool — total latency is the slowest single source,
+    not the sum. Results are collected in fetcher order, so the merge and ranking are
+    deterministic regardless of which source returns first. A source that errors or times out
+    simply contributes nothing; it never breaks or stalls the search.
+    """
     srcs = sources or enabled_sources()
     per = per_source or max(10, (retmax // max(len(srcs), 1)) + 4)
     fetchers = _fetchers if _fetchers is not None else [_SOURCES[s] for s in srcs]
     gathered: list[Article] = []
-    for f in fetchers:
-        try:
-            gathered += f(query, per) or []
-        except Exception:
-            continue
+    if len(fetchers) <= 1:
+        for f in fetchers:
+            try:
+                gathered += f(query, per) or []
+            except Exception:
+                continue
+    else:
+        with ThreadPoolExecutor(max_workers=min(len(fetchers), 6)) as ex:
+            futures = [ex.submit(f, query, per) for f in fetchers]
+            for fut in futures:                      # submission order -> deterministic merge
+                try:
+                    gathered += fut.result(timeout=timeout) or []
+                except Exception:
+                    continue
     merged = dedupe(gathered)
     merged.sort(key=lambda a: (-(1 if a.abstract else 0), -(a.cited_by or 0), -(a.year or 0)))
     return merged[:retmax]
