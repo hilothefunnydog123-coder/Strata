@@ -133,9 +133,10 @@ footer .disc{font-size:14px;font-weight:500;color:#fff;opacity:.55;max-width:60c
   <a class="logo" href="#top"><span class="g">S</span> Strata</a>
   <span class="sp"></span>
   <a class="lk hide" href="#how">How it works</a>
-  <a class="lk hide" href="#data">Data</a>
-  <a class="lk hide" href="#developers">Developers</a>
-  <a class="lk hide" href="/platform">Platform</a>
+  <a class="lk hide" href="/why">Why Strata</a>
+  <a class="lk hide" href="/console">Console</a>
+  <a class="lk hide" href="/pricing">Pricing</a>
+  <a class="lk hide" href="/docs">Docs</a>
   <a class="btn p" href="/app" style="padding:10px 18px;font-size:14px">Try it live</a>
 </div></nav>
 
@@ -144,18 +145,19 @@ footer .disc{font-size:14px;font-weight:500;color:#fff;opacity:.55;max-width:60c
     <span style="height:2px;width:55%;background:var(--green);display:block"></span>
     <span style="height:2px;width:80%;background:var(--amber);display:block"></span>
     <span style="height:2px;width:100%;background:var(--red);display:block"></span></span>
-    Verification for medical AI</div>
-  <h1>Every medical AI makes claims. <span class="go">Strata checks them.</span></h1>
-  <p>One API call traces any medical claim to the research, grades the evidence, and flags what contradicts it.</p>
-  <div class="cta"><a class="btn p" href="/app">Verify a claim</a><a class="btn g" href="#developers">Read the docs</a></div>
+    Continuous evidence intelligence</div>
+  <h1>Medical evidence changes every day. <span class="go">Strata tells you when it matters.</span></h1>
+  <p>Strata continuously monitors the evidence behind the medical claims your organization relies on, detecting new research, contradictions, and changes in evidence strength before they become expensive mistakes.</p>
+  <div class="cta"><a class="btn p" href="/app">Verify a claim</a><a class="btn g" href="/why">Why Strata</a></div>
 
   <div class="verdict">
-    <div class="rh"><span class="live"><i></i> Strata Verify</span><span>STR-8F42A1C9</span></div>
-    <div class="claim">"Drug X reduces hospitalization in patients with heart failure."</div>
-    <div class="big"><span class="status">SUPPORTED</span><span class="cert">MODERATE CERTAINTY</span></div>
+    <div class="rh"><span class="live"><i></i> Monitored claim · v4</span><span>STR-8F42A1C9</span></div>
+    <div class="claim">"Treatment X reduces hospitalization in elderly patients with heart failure."</div>
+    <div class="big"><span class="status">PARTIALLY SUPPORTED</span><span class="cert" style="border-color:rgba(255,194,75,.5);color:var(--amber)">↓ WEAKENING</span></div>
     <div class="splitbar"><span class="s"></span><span class="c"></span></div>
     <div class="legend"><span class="s">12 supporting</span><span class="c">3 contradicting</span></div>
-    <div class="src">Backed by a meta-analysis of 20 randomized trials. Weaker in patients over 80.</div>
+    <div class="src" style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px;opacity:1">
+      <span style="color:var(--amber);font-weight:700">● What changed:</span> a new RCT found a smaller treatment effect than previous studies. Certainty moved <span class="mono">high → moderate</span>.</div>
   </div>
 </div></header>
 
@@ -174,12 +176,27 @@ footer .disc{font-size:14px;font-weight:500;color:#fff;opacity:.55;max-width:60c
 </div></section>
 
 <section id="products"><div class="wrap">
-  <div class="big-statement reveal">Three products.<br>One evidence engine.</div>
+  <div class="big-statement reveal">One evidence engine.<br>Three ways to use it.</div>
   <div class="prod reveal">
-    <div class="prow"><div class="nm">Verify<small>API</small></div><p>Send a claim, get an Evidence Receipt. A software API, priced by usage. The margin engine.</p></div>
-    <div class="prow"><div class="nm">Monitor<small>Dashboard</small></div><p>Watch every claim about your products. Strata tells you the moment the evidence changes.</p></div>
-    <div class="prow"><div class="nm">Seal<small>Trust mark</small></div><p>An "Evidence Verified" badge you can show. Like SSL, for medical claims.</p></div>
+    <a class="prow" href="/app"><div class="nm">Verify<small>API + demo</small></div><p>Send a claim, get an Evidence Receipt — status, strength, the studies for and against, and why. Priced by usage.</p></a>
+    <a class="prow" href="/console"><div class="nm">Console<small>Enterprise monitoring</small></div><p>Watch every claim your organization relies on. Strata versions each one and tells you the moment the evidence turns.</p></a>
+    <a class="prow" href="/docs"><div class="nm">API<small>Infrastructure</small></div><p>The independent evidence layer for medical AI. One call verifies a generated claim; webhooks push every change.</p></a>
   </div>
+</div></section>
+
+<section id="who"><div class="wrap">
+  <div class="big-statement reveal">Built for who stakes <span class="go">decisions on evidence.</span></div>
+  <div class="steps reveal" style="margin-top:44px">
+    <div class="step"><div class="n">PHARMA</div><h3>Medical affairs</h3><p>Know when a new trial weakens the evidence behind a label or efficacy claim.</p></div>
+    <div class="step"><div class="n">HOSPITALS</div><h3>Clinical policy</h3><p>Flag protocols whose evidence has quietly gone stale, before it reaches the bedside.</p></div>
+    <div class="step"><div class="n">MEDICAL AI</div><h3>Verification layer</h3><p>Gate an AI answer the moment a new RCT contradicts it, with a citation trail attached.</p></div>
+  </div>
+  <div style="margin-top:36px" class="reveal"><a class="btn g" href="/why">See who uses Strata →</a></div>
+</div></section>
+
+<section id="vs"><div class="wrap reveal">
+  <div class="big-statement">Search finds papers.<br><span class="go">Strata tells you what to believe now.</span></div>
+  <div class="lead">Search answers "what exists?" A chatbot answers "what does it seem to say?" A systematic review answers "what did a months-long review conclude?" — and is stale within a year. Strata answers the only question that keeps changing: <b style="color:#fff">has the evidence behind this specific claim changed, and what does it support today?</b></div>
 </div></section>
 
 <section id="changed"><div class="wrap reveal">
@@ -219,10 +236,11 @@ curl -X POST https://api.strata.health/v1/verify \
   <div class="big-statement reveal">A systematic review costs <span class="go">$200,000</span> and is stale within a year.</div>
   <div class="lead reveal">Strata watches your entire evidence base continuously, for every claim, at software cost.</div>
   <div class="price reveal">
-    <div class="tier"><div class="nm">Verify</div><h3>Usage based</h3><div class="who">For AI products, priced per claim.</div></div>
-    <div class="tier hot"><div class="nm">Monitor</div><h3>Enterprise</h3><div class="who">For pharma, hospitals, and payers.</div></div>
-    <div class="tier"><div class="nm">Platform</div><h3>Custom</h3><div class="who">Org-wide evidence infrastructure.</div></div>
+    <a class="tier" href="/pricing"><div class="nm">Verify</div><h3>Free beta</h3><div class="who">Individual evidence verification.</div></a>
+    <a class="tier hot" href="/pricing"><div class="nm">Enterprise</div><h3>$100k–$300k+</h3><div class="who">Pharma, hospitals, and medical AI.</div></a>
+    <a class="tier" href="/docs"><div class="nm">API</div><h3>Usage based</h3><div class="who">Verification-as-infrastructure.</div></a>
   </div>
+  <div class="reveal" style="margin-top:28px"><a class="btn g" href="/pricing">See full pricing →</a></div>
 </div></section>
 
 <div class="cta-final"><div class="wrap reveal">
@@ -236,18 +254,46 @@ curl -X POST https://api.strata.health/v1/verify \
 <footer><div class="wrap">
   <div style="display:flex;justify-content:space-between;width:100%;gap:20px;flex-wrap:wrap">
     <a class="logo" href="#top"><span class="g">S</span> Strata</a>
-    <div style="display:flex;gap:22px;font-weight:600"><a href="/app">Demo</a><a href="/platform">Platform</a><a href="/console">Console</a><a href="#developers">API</a></div>
+    <div style="display:flex;gap:20px;font-weight:600;flex-wrap:wrap"><a href="/app">Verify</a><a href="/console">Console</a><a href="/why">Why</a><a href="/pricing">Pricing</a><a href="/docs">Docs</a><a href="/trust">Trust</a><a href="/platform">Platform</a></div>
   </div>
   <div class="disc">Strata appraises published literature for decision support. It is not a medical device, handles no patient data, and does not diagnose, treat, advise, or determine truth. Every claim links to its sources.</div>
 </div></footer>
 
+<div id="dmodal" style="position:fixed;inset:0;background:rgba(2,4,8,.82);display:none;align-items:center;justify-content:center;z-index:100;padding:20px">
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:20px;padding:28px;max-width:470px;width:100%;max-height:92vh;overflow-y:auto">
+    <div id="dform">
+      <div style="font-size:24px;font-weight:800;margin-bottom:4px">Book a demo</div>
+      <div style="font-size:14px;opacity:.7;margin-bottom:18px">See Strata on the claims you rely on. We reach out within one business day.</div>
+      <div id="derr" style="color:#ff9aa8;font-size:13px;margin-bottom:10px;font-weight:600"></div>
+      <input id="d_name" placeholder="Full name" style="width:100%;background:#03140d;border:1px solid var(--line);border-radius:10px;padding:11px 13px;color:#fff;font-size:14px;margin-bottom:10px"/>
+      <input id="d_email" type="email" placeholder="Work email" style="width:100%;background:#03140d;border:1px solid var(--line);border-radius:10px;padding:11px 13px;color:#fff;font-size:14px;margin-bottom:10px"/>
+      <input id="d_org" placeholder="Organization" style="width:100%;background:#03140d;border:1px solid var(--line);border-radius:10px;padding:11px 13px;color:#fff;font-size:14px;margin-bottom:10px"/>
+      <select id="d_use" style="width:100%;background:#03140d;border:1px solid var(--line);border-radius:10px;padding:11px 13px;color:#fff;font-size:14px;margin-bottom:14px">
+        <option value="">Primary use case…</option><option>Medical AI verification</option><option>Pharma evidence monitoring</option><option>Hospital evidence intelligence</option><option>Research automation</option><option>Other</option></select>
+      <div style="display:flex;gap:12px"><button onclick="closeDemo()" style="flex:1;border:1px solid var(--line);background:transparent;color:#fff;border-radius:11px;padding:13px;font-weight:800;cursor:pointer">Cancel</button>
+        <button onclick="sendDemo()" style="flex:1;border:0;background:var(--green);color:#03140d;border-radius:11px;padding:13px;font-weight:800;cursor:pointer">Send request</button></div>
+    </div>
+    <div id="ddone" style="display:none;text-align:center;padding:12px 0">
+      <div style="font-size:40px">✓</div><div style="font-size:22px;font-weight:800;margin-top:8px">Request received</div>
+      <div style="font-size:14px;opacity:.8;margin:12px 0 20px;line-height:1.5">We'll email you within one business day. Meanwhile, try <a href="/app" style="color:var(--green)">Strata Verify</a>.</div>
+      <button onclick="closeDemo()" style="border:0;background:var(--green);color:#03140d;border-radius:11px;padding:12px 26px;font-weight:800;cursor:pointer">Done</button>
+    </div>
+  </div></div>
 <script>
 const io=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:.15});
 document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
-function requestDemo(){var email=prompt("Your email (we'll reach out to schedule):");if(!email)return;
-  var org=prompt('Organization (optional):')||'';
-  fetch('/v1/demo-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,org:org,source:'landing'})}).catch(function(){});
-  window.location.href='mailto:dlake003@gmail.com?subject='+encodeURIComponent('Strata demo request')+'&body='+encodeURIComponent('Email: '+email+'\nOrg: '+org+'\n\nI would like a demo of Strata.');}
+function requestDemo(){document.getElementById('dmodal').style.display='flex';}
+function closeDemo(){document.getElementById('dmodal').style.display='none';document.getElementById('dform').style.display='block';document.getElementById('ddone').style.display='none';}
+async function sendDemo(){
+  const g=id=>(document.getElementById(id).value||'').trim();
+  const name=g('d_name'),email=g('d_email'),org=g('d_org'),err=document.getElementById('derr');
+  if(!name){err.textContent='Full name is required.';return;}
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){err.textContent='A valid work email is required.';return;}
+  if(!org){err.textContent='Organization is required.';return;}
+  err.textContent='';
+  try{await fetch('/v1/demo-request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,organization:org,use_case:g('d_use'),source:'landing'})});}catch(e){}
+  document.getElementById('dform').style.display='none';document.getElementById('ddone').style.display='block';
+}
 var _db=document.getElementById('demoBtn');if(_db)_db.onclick=requestDemo;
 </script></body></html>"""
 

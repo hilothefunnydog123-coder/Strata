@@ -31,7 +31,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from . import cohort, demo, entities, keys, models, monitor, pipeline, review, sources, store, verify
 from .console_page import CONSOLE_HTML
 from .dashboard_page import DASHBOARD_HTML
+from .docs_page import DOCS_HTML
 from .pages import LITE_HTML
+from .pages_site import PRICING_HTML, SECURITY_HTML, TRUST_HTML, WHY_HTML
 from .pages_web import LANDING_HTML, PLATFORM_HTML, VERIFY_DEMO_HTML
 from .query import ask
 from .receipt import seal_svg
@@ -180,7 +182,8 @@ def store_home():
 
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-_DEMO_FIELDS = ("name", "email", "organization", "role", "company_size", "use_case")
+_DEMO_FIELDS = ("name", "email", "organization", "role", "company_type", "company_size",
+                "use_case", "message")
 
 
 def _validate_demo(b: dict) -> str | None:
@@ -284,6 +287,16 @@ def _handler():
                     return self._html(CONSOLE_HTML)
                 if path == "/lite":
                     return self._html(LITE_HTML)
+                if path == "/why":
+                    return self._html(WHY_HTML)
+                if path == "/pricing":
+                    return self._html(PRICING_HTML)
+                if path == "/trust":
+                    return self._html(TRUST_HTML)
+                if path == "/security":
+                    return self._html(SECURITY_HTML)
+                if path in ("/docs", "/api", "/developers"):
+                    return self._html(DOCS_HTML)
 
                 # ---- public API ----
                 if path == "/v1/health":
