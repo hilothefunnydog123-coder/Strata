@@ -29,7 +29,8 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import demo, monitor, review, verify
-from .pages import CONSOLE_HTML, LANDING_HTML, LITE_HTML, VERIFY_DEMO_HTML
+from .pages import CONSOLE_HTML, LITE_HTML
+from .pages_web import LANDING_HTML, VERIFY_DEMO_HTML
 from .query import ask
 from .receipt import Receipt, seal_svg
 
