@@ -28,6 +28,7 @@ Homepage = "https://github.com/hilothefunnydog123-coder/strata"
 
 [project.scripts]
 strata = "strata.cli:main"
+strata-desktop = "strata.desktop:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["strata"]

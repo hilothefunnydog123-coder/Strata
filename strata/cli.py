@@ -5,6 +5,9 @@
     strata monitor list | check <id> | show <id> | delete <id>
     strata console                             the Evidence-Health rollup (what changed)
     strata changes [--limit N]                 the recent evidence-change alert feed
+    strata graph                               the Evidence-Graph rollup (cross-claim intel)
+    strata eval [--json]                       measure engine accuracy on the gold set
+    strata desktop                             launch the native desktop workstation
     strata serve [--host 0.0.0.0] [--port 8600]   run the web app + Console + Verify API
     strata demo [--force]                      seed reproducible reviews + claims
 
@@ -161,6 +164,11 @@ def cmd_serve(args) -> int:
     return 0
 
 
+def cmd_desktop(args) -> int:
+    from . import desktop
+    return desktop.main()
+
+
 def cmd_console(args) -> int:
     """Print the Evidence-Health rollup — what changed across the monitored evidence base."""
     from . import demo, entities
@@ -276,6 +284,9 @@ def main(argv=None) -> int:
     s.add_argument("--host", default="127.0.0.1", help="bind host (0.0.0.0 in a container)")
     s.add_argument("--no-demo", action="store_true", help="don't seed demo data on an empty store")
     s.set_defaults(fn=cmd_serve)
+
+    dk = sub.add_parser("desktop", help="launch the native desktop workstation")
+    dk.set_defaults(fn=cmd_desktop)
 
     a = sub.add_parser("ask", help="one-shot graded answer (Lite engine)")
     a.add_argument("question")

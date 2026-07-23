@@ -46,7 +46,7 @@ from .query import ask
 from .receipt import seal_svg
 
 _LEVEL_COLOR = {1: "#16a34a", 2: "#22a06b", 3: "#d97706", 4: "#ea580c", 5: "#dc2626", 6: "#9ca3af"}
-_VERSION = "0.6.0"
+_VERSION = "0.8.0"
 _DEMO_EMAIL = "dlake003@gmail.com"
 _DEMO_REVIEW = {t["id"]: t for t in demo._TOPICS}
 _DEMO_CLAIM = {c["id"]: c for c in demo._CLAIMS}
