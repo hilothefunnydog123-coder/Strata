@@ -73,6 +73,27 @@ knowledge* — and the accumulating evidence-change history is the long-term dat
 | **Strata Console** · Evidence Health | *What changed in our evidence base?* — versioned claims, alerts, timelines, per-area rollups. | For pharma, hospitals, payers, AI companies. |
 | **Strata API** · infrastructure | Verify + monitor from code; signed change webhooks; an embeddable **Seal** trust badge. | The independent evidence layer for medical AI. |
 
+## The moat: the Evidence Graph
+
+Anyone can search PubMed. The moat is what accumulates *on top of* the search. Strata links
+every monitored claim to the graded studies behind it and computes intelligence a single query
+never can — **hub studies** (the trials that underpin many claims), **contested studies**
+(cited as support by one claim, contradict by another), **unstable claims** (high
+version/status churn), **evidence gaps** (where the evidence is thin), **shared-evidence
+links** (which claims move together), and a compounding per-study **reliability** score. It
+gets richer with every claim monitored. Explore it at **`/graph`** · API at
+`GET /v1/graph/{summary,view,hubs,contested,unstable,gaps,study/:id,claim/:id/related}` · CLI
+`strata graph`.
+
+## We measure ourselves
+
+A company selling *evidence trust* has to prove it is accurate. Strata ships an **open,
+labelled calibration set** and scores the transparent (no-model) path against it — per-class
+precision/recall/F1 and status accuracy — as a regression test that fails the build if the
+number drops. Run `strata eval` or `GET /v1/eval`; honest numbers, framed as an offline floor
+on clear-cut cases, not a claim of perfection. (Building it caught and fixed a real bug —
+thin all-neutral evidence now reads *Insufficient*, not *Unsupported*.)
+
 ## The API
 
 Generate a working key, then verify anything:

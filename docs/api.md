@@ -116,6 +116,28 @@ List/acknowledge alerts; register an endpoint for `evidence.changed` events. Eve
 delivery is signed: header `X-Strata-Signature: sha256=<hmac>` over the raw body using the
 per-endpoint secret returned at registration.
 
+## Evidence Graph (the compounding asset)
+
+Cross-claim intelligence computed from the accumulated evidence base — signals a single
+query cannot produce.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /v1/graph/summary` | size + shape: claims, studies, edges, hub/contested/unstable counts, avg reliability, density |
+| `GET /v1/graph/view` | node-link view (`claims`, `studies`, `links`) for the explorer at `/graph` |
+| `GET /v1/graph/hubs` | studies that underpin the most claims |
+| `GET /v1/graph/contested` | studies cited as support by one claim and contradict by another |
+| `GET /v1/graph/unstable` | claims with the most version/status churn |
+| `GET /v1/graph/gaps` | claims where the evidence is thin |
+| `GET /v1/graph/study/<id>` | one study: reliability + every claim that leans on it and how |
+| `GET /v1/graph/claim/<id>/related` | claims that share graded evidence with this one |
+
+## Calibration (`GET /v1/eval`)
+
+The engine scored against an open, labelled gold set (transparent no-model path): per-class
+stance precision/recall/F1 and status accuracy. Honest numbers on clear-cut cases — an
+offline floor, not a claim of perfection. Also `strata eval`.
+
 ### `GET /v1/receipt/<id>` — a monitored claim's latest receipt
 
 ### `GET /v1/seal/<id>.svg` — public "Evidence Verified" badge
