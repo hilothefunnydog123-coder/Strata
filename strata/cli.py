@@ -182,6 +182,22 @@ def cmd_console(args) -> int:
     return 0
 
 
+def cmd_eval(args) -> int:
+    """Measure the engine against the open calibration gold set — honestly."""
+    from . import evaluation
+    r = evaluation.run(verbose=True)
+    print("STRATA CALIBRATION  (transparent heuristic path — the offline floor)\n")
+    print(f"  gold set:        {r['gold_claims']} claims, {r['gold_stance_labels']} labelled studies")
+    print(f"  stance accuracy: {r['stance_accuracy']*100:.1f}%   (macro-F1 {r['stance_macro_f1']})")
+    print(f"  status accuracy: {r['status_accuracy']*100:.1f}%\n")
+    print("  per-class stance:")
+    for c, m in r["per_class"].items():
+        print(f"    {c:<11} P={m['precision']:.2f}  R={m['recall']:.2f}  F1={m['f1']:.2f}  (n={m['support']})")
+    if args.json:
+        print("\n" + json.dumps(r, indent=2))
+    return 0
+
+
 def cmd_graph(args) -> int:
     """Print the Evidence-Graph rollup — the cross-claim intelligence layer."""
     from . import demo, graph
@@ -292,6 +308,10 @@ def main(argv=None) -> int:
     gr = sub.add_parser("graph", help="print the Evidence-Graph rollup (cross-claim intelligence)")
     gr.add_argument("--workspace", default=None)
     gr.set_defaults(fn=cmd_graph)
+
+    ev = sub.add_parser("eval", help="measure engine accuracy on the open calibration gold set")
+    ev.add_argument("--json", action="store_true")
+    ev.set_defaults(fn=cmd_eval)
 
     d = sub.add_parser("demo", help="seed reproducible reviews + monitored claims")
     d.add_argument("--force", action="store_true")

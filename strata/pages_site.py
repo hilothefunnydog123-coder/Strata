@@ -389,6 +389,27 @@ _TRUST_BODY = r"""
   </div>
   <div class="note"><b>What we do not claim.</b> Strata is not a medical device and has no FDA clearance. It is not SOC 2 certified, not HIPAA-certified, and not GxP-validated today. It does not determine truth. These are stated deliberately: an evidence-trust company that overstates its own compliance has already failed at its one job.</div>
 </div></section>
+<section><div class="wrap">
+  <div class="kicker">We measure ourselves</div>
+  <div class="h2">Accuracy, on an <span class="go">open gold set.</span></div>
+  <div class="lead">Trust infrastructure has to prove it is trustworthy. Strata ships a public, labelled calibration set and scores itself against it — the transparent, zero-cost heuristic path, with no model in the loop. Run it yourself: <span class="mono" style="color:var(--green)">strata eval</span> or <span class="mono" style="color:var(--green)">GET /v1/eval</span>.</div>
+  <div id="calib" class="grid g3" style="margin-top:38px">
+    <div class="card"><div class="n">STANCE</div><h3 id="cal_stance">—</h3><p>Classifying a study as supporting, contradicting, or neutral toward a claim.</p></div>
+    <div class="card"><div class="n">STATUS</div><h3 id="cal_status">—</h3><p>Aggregating the studies into the claim's overall status.</p></div>
+    <div class="card"><div class="n">GOLD SET</div><h3 id="cal_n">—</h3><p>Labelled cases, open and versioned in the repo for anyone to audit.</p></div>
+  </div>
+  <div class="note warn"><b>Read this honestly.</b> These are clear-cut, textbook cases — real-world abstracts are messier and the number there will be lower. This is a <b>floor we hold ourselves to</b> (a regression test fails the build if it drops), not a claim of perfection. The optional AI layer only sharpens borderline calls; the figure above is what runs with no model at all.</div>
+</div></section>
+<script>
+fetch('/v1/eval').then(r=>r.json()).then(d=>{
+  var g=function(id,v){var e=document.getElementById(id);if(e)e.textContent=v;};
+  g('cal_stance',Math.round(d.stance_accuracy*100)+'%');
+  g('cal_status',Math.round(d.status_accuracy*100)+'%');
+  g('cal_n',d.gold_stance_labels+' studies');
+}).catch(function(){
+  ['cal_stance','cal_status','cal_n'].forEach(function(id){var e=document.getElementById(id);if(e)e.textContent='run strata eval';});
+});
+</script>
 <div class="cta-final"><div class="wrap">
   <h2>Bring your security team.</h2>
   <div class="cta" style="justify-content:center"><a class="btn p" onclick="openDemo()" style="font-size:17px;padding:16px 28px">Book a demo</a>

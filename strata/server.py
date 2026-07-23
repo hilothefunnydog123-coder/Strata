@@ -318,6 +318,9 @@ def _handler():
                                        "available": list(sources._SOURCES.keys())})
                 if path == "/v1/models":
                     return self._json(models.status())
+                if path == "/v1/eval":
+                    from . import evaluation
+                    return self._json(evaluation.run(verbose=(q.get("verbose") or ["0"])[0] in ("1", "true")))
                 m = re.match(r"^/v1/seal/([A-Za-z0-9\-_]+?)(?:\.svg)?$", path)
                 seal_id = m.group(1) if m else ((q.get("id") or [None])[0] if path == "/v1/seal" else None)
                 if seal_id:

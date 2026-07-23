@@ -17,8 +17,8 @@ from .evidence import BodyAssessment, Grade, grade, summarize_body
 from .pubmed import Article, search_articles
 from .query import Evidence, Result, ask, rank
 from .receipt import Receipt
-from . import (anatomy, assessment, cohort, entities, graph, keys, llm, models,
-               monitor, pipeline, review, sources, store, verify)
+from . import (anatomy, assessment, cohort, entities, evaluation, graph, keys, llm,
+               models, monitor, pipeline, review, sources, store, verify)
 from .verify import verify_claim, compare_claims
 
 __version__ = "0.7.0"

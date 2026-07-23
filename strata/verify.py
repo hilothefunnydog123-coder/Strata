@@ -124,6 +124,11 @@ def _status_and_strength(sup_w, con_w, sup, con, grades_by_stance, total):
     if total < 2 or (strong_total == 0 and total < 4):
         return "Insufficient", _cap(summarize_body(sum(grades_by_stance.values(), [])).overall_strength, "low")
     if sup_w == 0 and con_w == 0:
+        # "Unsupported" is a null result — we looked at a real evidence base and found no
+        # directional signal. Thin, all-neutral evidence has not earned that verdict; it is
+        # Insufficient. (This distinction was surfaced by the calibration gold set.)
+        if total < 4:
+            return "Insufficient", _cap(summarize_body(sum(grades_by_stance.values(), [])).overall_strength, "low")
         return "Unsupported", "none"
     if sup_w >= 2.2 * con_w and sup > 0:
         return "Supported", summarize_body(grades_by_stance["support"]).overall_strength
