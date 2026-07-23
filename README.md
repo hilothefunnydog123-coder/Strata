@@ -92,6 +92,18 @@ A small study or a stale one is knocked down a peg; a lone strong study counts f
 
 Strata reads the public [NCBI E-utilities](https://www.ncbi.nlm.nih.gov/books/NBK25501/) API — open bibliographic data. It handles **no patient data**, stores nothing, and needs no key (set `NCBI_API_KEY` to raise the rate limit). It is a research and reference tool for professionals; it does not diagnose, treat, or give personalised medical advice.
 
+## Where this is going
+
+Strata is an open-source engine and the seed of a company. The bet: in medicine the scarce
+thing isn't another answer, it's a *trustable* one — grounded, graded, and honest about its
+own strength. That's the wedge into life-sciences evidence, medical affairs, and payer work,
+and eventually the grounding-and-grading layer other health AI is built on.
+
+- [`docs/vision.md`](docs/vision.md) — the full company strategy: market, wedge, moat,
+  regulatory path, milestones, and the honest risks.
+- [`docs/pitch.md`](docs/pitch.md) — the description at every length: one-liner, elevator
+  pitch, positioning, and narrative.
+
 ## License
 
 MIT © 2026 Neil Gilani
