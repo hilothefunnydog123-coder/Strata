@@ -4,13 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "strata-evidence"
-version = "0.1.0"
-description = "A medical evidence engine that answers clinical questions from real PubMed literature and grades how strong the evidence actually is."
+version = "0.2.0"
+description = "Continuous Evidence Intelligence: verify whether medical claims are supported by the literature, and monitor when that evidence changes."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 authors = [{ name = "Neil Gilani" }]
-keywords = ["medicine", "evidence-based-medicine", "pubmed", "clinical", "research", "rag", "citations", "healthcare"]
+keywords = ["medicine", "evidence-based-medicine", "pubmed", "europepmc", "openalex",
+            "clinical", "GRADE", "evidence-monitoring", "claim-verification", "rag",
+            "citations", "healthcare", "medical-affairs", "pharmacovigilance"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Healthcare Industry",

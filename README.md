@@ -1,96 +1,160 @@
 # Strata
 
-**A medical evidence engine that grades the strength of its own answers.**
+**Continuous Evidence Intelligence for medicine.**
 
-Ask a clinical question. Strata searches real PubMed literature, places every source on the evidence pyramid — meta-analysis → RCT → cohort → case report — and gives you an answer with an honest verdict on how strong the backing actually is. The thing that makes AI dangerous in medicine is confident hallucination; Strata is built to be the opposite. It never invents a fact: the answer comes only from retrieved papers, and it tells you plainly when the evidence is weak or absent.
+Strata doesn't just tell you what the evidence says. It tells you whether the
+medical claims you rely on are *still supported* by the evidence — and alerts you
+the moment that changes.
+
+The core object in Strata is not the paper. It is the **claim**.
+
+```
+CLAIM
+  → relevant evidence → supporting studies → contradicting studies
+  → study quality → population / context → evidence strength
+  → change over time → auditable conclusion
+```
 
 ```bash
 pip install strata-evidence
-strata ask "Does vitamin D supplementation prevent respiratory infections?"
+
+strata verify "Does Treatment X reduce hospitalization in elderly heart failure?"
+strata serve      # web app + API + Console at http://127.0.0.1:8600
 ```
 
+## What it does
+
+Ask whether a claim holds, and Strata runs a transparent pipeline:
+
+1. **Structures** the question into PICO (population, intervention, comparator, outcome).
+2. **Searches** biomedical literature across sources (PubMed, Europe PMC, OpenAlex) in parallel.
+3. **De-duplicates** by DOI / PMID / title and records PRISMA counts.
+4. **Extracts** structured evidence from each study — design, sample size, effect
+   estimate + CI, p-value, follow-up, population, funding, conflicts — with a
+   `provenance` tag on every field (`reported` / `heuristic` / `inferred`).
+5. **Grades** each study on the evidence pyramid.
+6. **Separates** the studies that *support* the claim from the ones that
+   *contradict* it — and attributes *why* they disagree (population, dose,
+   outcome, design, statistical uncertainty, or genuine scientific conflict).
+7. **Assesses** overall strength transparently, GRADE-style, with inspectable
+   `+ reasons` and `- limitations`.
+8. Returns an **auditable verdict** — every step is in the trail.
+
 ```
-Q  Does vitamin D supplementation prevent respiratory infections?
-[MODERATE EVIDENCE]
+CLAIM  Does Treatment X reduce hospitalization in elderly heart failure?
+[PARTIALLY SUPPORTED]  MODERATE CERTAINTY
 
-Evidence verdict: moderate-quality evidence — the strongest available is a
-systematic review / meta-analysis (1× meta-analysis, 1× RCT, 1× case report).
+The claim is partially supported — moderate certainty. 2 supporting vs 1
+contradicting study(ies); strongest design is a systematic review / meta-analysis.
 
-[1] Systematic review / meta-analysis · high evidence · 2021
-    Vitamin D and respiratory infection: a meta-analysis of RCTs
-    In 25 trials (n = 11,321), supplementation reduced infection risk.
-    https://pubmed.ncbi.nlm.nih.gov/…
+Why this grade:
+  + Strongest supporting evidence is a systematic review / meta-analysis
+  + Direct evidence in the claim's population
+  - 1 comparable-quality study(ies) contradict the claim
 
-[2] Randomized controlled trial · high evidence · 2023
-    ...
-
-This is a grounded digest of the strongest retrieved evidence, not medical
-advice. Read the primary sources before acting.
+▲ supports     Meta-analysis · 2021   Treatment X reduces hospitalization…
+▼ contradicts  RCT · 2025             Large trial finds no reduction…  (genuine disagreement)
 ```
 
-## Why it's different
+## Version control for medical knowledge
 
-Most "medical AI" is a chatbot that will answer anything, confidently, from a blur of training data. Strata inverts that:
+Register a claim for monitoring and Strata watches the literature. When a new
+study lands, it re-verifies, diffs against the stored evidence base, and — if the
+evidence changed materially — writes a new claim version, records a change event,
+and raises an alert with a recommended action.
 
-- **Real sources only.** Every answer is anchored to specific PubMed papers, with PMIDs and links. No paper, no claim.
-- **Graded, not just cited.** A citation isn't evidence — a *good* citation is. Strata classifies each paper's study design and assigns it a level on the evidence pyramid, so a single case report never gets to sound like settled science.
-- **Honest about strength.** Every answer carries a computed verdict — *strong / moderate / weak / very weak* — from the quality, quantity, size, and recency of what it found. If the literature doesn't answer the question, it says so.
+```
+CLAIM      Treatment X reduces hospitalization in elderly heart failure
+STATUS     PARTIALLY SUPPORTED        (was: SUPPORTED)
+STRENGTH   MODERATE                   (was: HIGH)
+TREND      ↓ WEAKENING
+WHAT CHANGED   A new randomized controlled trial found no reduction.
+SUPPORTING 2 studies   CONTRADICTING 1 study
+ACTION     Review the claim and affected materials.
+```
 
-## Web app
+Every conclusion stays auditable, and the versioned history — *what the evidence
+said, and when it changed* — accrues as a durable data asset.
+
+## The Console
+
+`strata serve` opens a dashboard built for teams: what changed this week, which
+claims strengthened, which weakened, which are newly contradicted, filtered by
+therapeutic area, status, strength, and change type. The demo workspace is
+clearly-labelled synthetic data run through the real engine.
+
+## The API
+
+The same engine behind real, hashed API keys — for medical-AI companies verifying
+generated claims, and for teams wiring monitoring into their systems.
 
 ```bash
-strata serve      # opens a clean search page at http://127.0.0.1:8600
+curl https://your-host/v1/verify -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"claim": "Treatment X reduces hospitalization", "population": "Adults over 65"}'
 ```
 
-Ask a question in the browser and Strata renders the strength verdict, a visual
-**evidence pyramid** (how many papers landed at each level), and the graded,
-linked sources — strongest first. Standard library only; nothing is stored.
+```
+POST /v1/verify   POST /v1/search   POST /v1/compare   POST /v1/monitor
+GET  /v1/claims/:id   GET /v1/changes
+```
 
-## Behind a school or corporate network?
+See `/docs` when the server is running, or [`docs/API.md`](docs/API.md).
 
-If you see `CERTIFICATE_VERIFY_FAILED`, your network is intercepting HTTPS with
-its own certificate (common on managed devices). Strata already trusts the
-operating-system certificate store, which usually fixes it. If it persists:
+## Honest by design
 
-- run it on a normal network (home Wi-Fi or a phone hotspot), **or**
-- point it at your network's certificate: `set STRATA_CA_BUNDLE=C:\path\to\ca.pem`, **or**
-- as a last resort on a network you trust, `set STRATA_INSECURE=1` to skip the
-  check (only reads public data — but off by default for a reason).
+The thing that makes AI dangerous in medicine is confident fabrication. Strata is
+built to be the opposite, and the honesty is enforced in code, not promised in prose:
 
-## Two modes
+- **Real sources only.** Every claim is anchored to specific retrieved papers.
+- **Provenance on every extracted field.** Reported vs. heuristically-inferred vs.
+  model-inferred are never silently mixed; a field the text doesn't contain is
+  "not reported", never guessed.
+- **Abstract-level is labelled as such.** Strata never claims to have read full
+  text it didn't retrieve.
+- **Absence is stated, not filled.** No retrieved studies → it says so.
+- **The grade is inspectable.** Strength comes from transparent domains you can open.
+- **Graceful degradation.** If a source is unreachable it's reported, not hidden.
 
-**Grounded digest (no model, no API key).** The default. A structured summary of the strongest retrieved papers — verdict, then each source with its grade and key finding. Facts come only from the abstracts.
+Strata is decision support from public literature — **not medical advice**, and
+not a substitute for reading the primary sources.
 
-**Synthesised narrative (bring your own model).** Pass any text-in/text-out function as `generate`. Strata builds a prompt containing *only* the retrieved, graded abstracts and instructs the model to cite them inline and admit uncertainty — so the model summarises, it is never the source of a fact.
+## Bring your own model (optional)
+
+Strata is stdlib-only and runs with no model at all — the default output is a
+grounded, deterministic digest. Register any `str -> str` callable per task
+(`expand`, `classify`, `extract`, `contradict`, `synthesize`) to add a narrative
+layer; the model only ever restructures retrieved text, and the system falls back
+to deterministic heuristics if it's absent or errors.
 
 ```python
-from strata import ask
-
-r = ask("Does metformin reduce cardiovascular mortality in type 2 diabetes?")
-print(r.body.overall_strength)   # "moderate"
-print(r.answer)                  # grounded, cited digest
-
-r = ask("...", generate=my_model)   # cited narrative, anchored to the same papers
+from strata import ROUTER, verify
+ROUTER.register("synthesize", my_llm)     # any text-in/text-out function
+v = verify("Does metformin reduce cardiovascular mortality in type 2 diabetes?")
+print(v.status, v.evidence_strength)
 ```
 
-## How the grading works
+## CLI
 
-Levels follow the standard hierarchy (Oxford CEBM / GRADE, simplified), read from each paper's PubMed publication types and title, then adjusted for sample size and recency:
+```bash
+strata verify "<claim>"              # full evidence trail (--json for structured)
+strata serve                         # web app + API + Console
+strata seed                          # populate a synthetic demo evidence base
+strata claim add "<claim>" --monitor # track a claim
+strata monitor run --claim <id>      # re-verify; detect and alert on change
+strata apikey create --org "Acme"    # mint an API key (shown once)
+```
 
-| Level | Study design | Base strength |
-|--:|---|---|
-| 1 | Systematic review / meta-analysis | high |
-| 2 | Randomized controlled trial | high |
-| 3 | Cohort / prospective study | moderate |
-| 4 | Case-control / cross-sectional / observational | low |
-| 5 | Case report / series | very low |
-| 6 | Narrative review / editorial / opinion | very low |
+## Data, privacy, scope
 
-A small study or a stale one is knocked down a peg; a lone strong study counts for less than several. It's a transparent heuristic — **decision support, not a substitute for reading the papers, and not medical advice** — and the tool says so on every answer.
+Strata reads open bibliographic data (NCBI E-utilities, Europe PMC, OpenAlex). It
+handles **no patient data**, needs no key to run (set `NCBI_API_KEY` /
+`STRATA_CONTACT_EMAIL` to raise rate limits). Persistence is a single SQLite file.
+Behind a school or corporate network that intercepts HTTPS, Strata already trusts
+the OS certificate store; set `STRATA_CA_BUNDLE` to a PEM if needed.
 
-## Data & privacy
-
-Strata reads the public [NCBI E-utilities](https://www.ncbi.nlm.nih.gov/books/NBK25501/) API — open bibliographic data. It handles **no patient data**, stores nothing, and needs no key (set `NCBI_API_KEY` to raise the rate limit). It is a research and reference tool for professionals; it does not diagnose, treat, or give personalised medical advice.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the system design and
+[`docs/ROADMAP.md`](docs/ROADMAP.md) for where this is going.
 
 ## License
 

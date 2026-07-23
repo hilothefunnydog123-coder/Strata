@@ -4,3 +4,8 @@ dist/
 build/
 *.egg-info/
 .pytest_cache/
+# Strata runtime database (created by `strata serve` / CLI)
+*.db
+*.db-wal
+*.db-shm
+strata.db
