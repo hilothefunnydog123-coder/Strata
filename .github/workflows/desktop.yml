@@ -1,16 +1,25 @@
 name: Build Strata Desktop
 
-# Produces the downloadable desktop binaries. PyInstaller builds for the OS it runs on, so we
-# fan out across Windows / macOS / Linux runners and upload each artifact. On a version tag
-# (v*), the binaries are also attached to the GitHub Release — that is the "download" link.
+# Produces the downloadable desktop binaries and publishes them to a GitHub Release.
+# Two ways to run it:
+#   * push a version tag  (git push origin v0.8.0)         -> release named for the tag
+#   * "Run workflow" / API dispatch with a `tag` input      -> release created at the current
+#     commit by the runner itself (no local tag push needed)
+# The runner has contents:write, so it creates the tag + release even when a local tag push
+# is blocked. The download buttons on /download point at /releases/latest/download/<asset>.
 
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (e.g. v0.8.0)"
+        default: "v0.8.0"
+        required: true
 
 permissions:
-  contents: write        # needed to attach artifacts to a Release on tag
+  contents: write        # create the tag + release and attach the binaries
 
 jobs:
   build:
@@ -50,7 +59,7 @@ jobs:
       - name: Build
         run: python -m PyInstaller --noconfirm packaging/strata_desktop.spec
 
-      - name: Rename artifact
+      - name: Stage artifact
         shell: bash
         run: |
           mkdir -p out
@@ -62,8 +71,22 @@ jobs:
           name: ${{ matrix.artifact }}
           path: out/${{ matrix.artifact }}
 
-      - name: Attach to Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/v')
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Publish release with the binaries
         uses: softprops/action-gh-release@v2
         with:
-          files: out/${{ matrix.artifact }}
+          tag_name: ${{ inputs.tag != '' && inputs.tag || github.ref_name }}
+          name: Strata Desktop ${{ inputs.tag != '' && inputs.tag || github.ref_name }}
+          make_latest: true
+          body: |
+            Strata Desktop — native, offline evidence-intelligence workstation.
+            Download for your OS below; on macOS/Linux run `chmod +x` then launch.
+            Not a medical device — decision support only.
+          files: dist/**/*
