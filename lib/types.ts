@@ -69,6 +69,9 @@ export interface MetricStat {
   thresholdLabel?: string;
   status: MetricStatus;
   format?: "pct" | "pct1" | "int" | "ms" | "float2" | "float3" | "currency" | "x";
+  /** True when no telemetry has been ingested for this metric yet. The UI
+   *  renders a dash instead of a fabricated value. */
+  noData?: boolean;
 }
 
 export interface TimePoint {

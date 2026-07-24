@@ -5,11 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { ControlCenter } from "./ControlCenter";
 import { WardMark } from "@/components/shell/Brand";
 import { ButtonLink } from "@/components/ui/Button";
-import { alerts, auditForSystem, incidents } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
 export function SystemDetailClient({ id }: { id: string }) {
-  const { getSystem, ready } = useStore();
+  const { getSystem, ready, incidents, alerts, audit } = useStore();
   const params = useSearchParams();
   const system = getSystem(id);
 
@@ -42,7 +41,7 @@ export function SystemDetailClient({ id }: { id: string }) {
   }
 
   const systemIncidents = incidents.filter((i) => i.systemId === system.id);
-  const systemAudit = auditForSystem(system.id);
+  const systemAudit = audit.filter((e) => e.systemId === system.id);
   const systemAlerts = alerts.filter(
     (a) => a.systemId === system.id && !["Resolved", "Muted"].includes(a.status),
   );

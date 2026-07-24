@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -8,8 +10,7 @@ import {
   SlidersHorizontal,
   UserCheck,
 } from "lucide-react";
-import { cn } from "@/lib/cn";
-import { auditEvents } from "@/lib/data";
+import { useStore } from "@/lib/store";
 import { relativeTime } from "@/lib/format";
 import type { AuditCategory } from "@/lib/types";
 
@@ -25,7 +26,18 @@ const ICON: Record<AuditCategory, React.ReactNode> = {
 };
 
 export function RecentActivity({ limit = 8 }: { limit?: number }) {
-  const events = auditEvents.slice(0, limit);
+  const { audit } = useStore();
+  const events = audit.slice(0, limit);
+
+  if (events.length === 0) {
+    return (
+      <p className="py-2 text-sm font-medium text-fg-muted">
+        No activity yet. Registrations, approvals, and incidents appear here as your team
+        works in the console.
+      </p>
+    );
+  }
+
   return (
     <div className="relative">
       <div className="absolute bottom-2 left-[15px] top-2 w-px bg-edge" />

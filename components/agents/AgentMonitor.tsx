@@ -11,12 +11,7 @@ import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
 import { Badge } from "@/components/ui/Badge";
 import { Callout } from "@/components/ui/Feedback";
 import { ActionTimeline } from "./ActionTimeline";
-import {
-  agentActionsBySession,
-  agentPolicies,
-  agentSessions,
-  agentStats,
-} from "@/lib/data";
+import { useStore } from "@/lib/store";
 import { relativeTime } from "@/lib/format";
 import type { AgentSession, MetricStatus } from "@/lib/types";
 
@@ -36,6 +31,13 @@ const DETECTIONS = [
   { label: "Sensitive data access", triggered: false },
 ];
 
+type ToolPolicy = {
+  tool: string;
+  scope: string;
+  requiresApproval: boolean;
+  status: "Within policy" | "Elevated" | "Violation";
+};
+
 function Stat({ label, value, tone }: { label: string; value: React.ReactNode; tone?: string }) {
   return (
     <div className="rounded-lg border border-edge bg-raised px-3 py-2.5">
@@ -48,10 +50,9 @@ function Stat({ label, value, tone }: { label: string; value: React.ReactNode; t
 }
 
 export function AgentMonitor({ systemId = "prior-auth-agent" }: { systemId?: string }) {
-  const sessions = agentSessions.filter((s) => s.systemId === systemId);
-  const [selected, setSelected] = useState(sessions[0]?.id ?? "");
-  const actions = agentActionsBySession[selected] ?? [];
-  const anomalySession = sessions.find((s) => s.anomalyScore >= 0.8);
+  const { agents } = useStore();
+  const [selected, setSelected] = useState<string>("");
+  const sessions = agents.sessions.filter((s) => s.systemId === systemId);
 
   if (sessions.length === 0) {
     return (
@@ -62,16 +63,57 @@ export function AgentMonitor({ systemId = "prior-auth-agent" }: { systemId?: str
     );
   }
 
+  const activeId = selected || sessions[0]?.id || "";
+  const actions = agents.actions[activeId] ?? [];
+  const anomalySession = sessions.find((s) => s.anomalyScore >= 0.8);
+
+  // Derive the fleet stats and per-tool policy summary from this agent's real sessions/actions.
+  const systemActions = sessions.flatMap((s) => agents.actions[s.id] ?? []);
+  const activeSessions = sessions.filter(
+    (s) => s.status === "In progress" || s.status === "Awaiting approval",
+  ).length;
+  const actions24h = sessions.reduce((sum, s) => sum + s.actionCount, 0);
+  const humanApprovals24h = systemActions.filter(
+    (a) => a.status === "approved" || a.kind === "approval",
+  ).length;
+  const blockedActions24h = systemActions.filter((a) => a.status === "blocked").length;
+
+  const toolMap = new Map<
+    string,
+    { count: number; blocked: number; flagged: number; approvals: number }
+  >();
+  systemActions.forEach((a) => {
+    if (!a.tool) return;
+    const cur = toolMap.get(a.tool) ?? { count: 0, blocked: 0, flagged: 0, approvals: 0 };
+    cur.count += 1;
+    if (a.status === "blocked") cur.blocked += 1;
+    if (a.status === "flagged") cur.flagged += 1;
+    if (a.status === "approved" || a.status === "pending") cur.approvals += 1;
+    toolMap.set(a.tool, cur);
+  });
+  const policies: ToolPolicy[] = [...toolMap.entries()]
+    .map(([tool, s]) => ({
+      tool,
+      scope: `${s.count} call${s.count === 1 ? "" : "s"} in session trace`,
+      requiresApproval: s.approvals > 0,
+      status: (s.blocked > 0
+        ? "Violation"
+        : s.flagged > 0
+          ? "Elevated"
+          : "Within policy") as ToolPolicy["status"],
+    }))
+    .sort((a, b) => a.tool.localeCompare(b.tool));
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <Stat label="Active sessions" value={agentStats.activeSessions} />
-        <Stat label="Actions · 24h" value={agentStats.actions24h.toLocaleString()} />
-        <Stat label="Human approvals · 24h" value={agentStats.humanApprovals24h} />
+        <Stat label="Active sessions" value={activeSessions} />
+        <Stat label="Actions · 24h" value={actions24h.toLocaleString()} />
+        <Stat label="Human approvals · 24h" value={humanApprovals24h} />
         <Stat
           label="Blocked actions · 24h"
-          value={agentStats.blockedActions24h}
-          tone={agentStats.blockedActions24h > 0 ? "text-warning" : "text-fg"}
+          value={blockedActions24h}
+          tone={blockedActions24h > 0 ? "text-warning" : "text-fg"}
         />
       </div>
 
@@ -98,7 +140,7 @@ export function AgentMonitor({ systemId = "prior-auth-agent" }: { systemId?: str
                   onClick={() => setSelected(s.id)}
                   className={cn(
                     "flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors",
-                    s.id === selected ? "bg-accent-soft" : "hover:bg-hover",
+                    s.id === activeId ? "bg-accent-soft" : "hover:bg-hover",
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -140,37 +182,43 @@ export function AgentMonitor({ systemId = "prior-auth-agent" }: { systemId?: str
           </Panel>
 
           <Panel className="mt-4">
-            <PanelHeader title="Tool & Permission Scope" description="Per-tool policy and 24h usage." />
+            <PanelHeader title="Tool & Permission Scope" description="Per-tool policy and session usage." />
             <PanelBody className="p-0">
-              <div className="divide-y divide-edge">
-                {agentPolicies.map((p) => (
-                  <div key={p.tool} className="flex items-center justify-between gap-2 px-4 py-2">
-                    <div className="min-w-0">
-                      <div className="truncate font-mono text-2xs text-fg">{p.tool}</div>
-                      <div className="truncate text-2xs text-fg-dim">{p.scope}</div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {p.requiresApproval && (
-                        <span className="rounded bg-warning/10 px-1 py-px text-[0.6rem] font-medium text-warning">
-                          Approval
-                        </span>
-                      )}
-                      <span
-                        className={cn(
-                          "text-2xs font-medium",
-                          p.status === "Violation"
-                            ? "text-critical"
-                            : p.status === "Elevated"
-                              ? "text-warning"
-                              : "text-fg-dim",
+              {policies.length > 0 ? (
+                <div className="divide-y divide-edge">
+                  {policies.map((p) => (
+                    <div key={p.tool} className="flex items-center justify-between gap-2 px-4 py-2">
+                      <div className="min-w-0">
+                        <div className="truncate font-mono text-2xs text-fg">{p.tool}</div>
+                        <div className="truncate text-2xs text-fg-dim">{p.scope}</div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {p.requiresApproval && (
+                          <span className="rounded bg-warning/10 px-1 py-px text-[0.6rem] font-medium text-warning">
+                            Approval
+                          </span>
                         )}
-                      >
-                        {p.status}
-                      </span>
+                        <span
+                          className={cn(
+                            "text-2xs font-medium",
+                            p.status === "Violation"
+                              ? "text-critical"
+                              : p.status === "Elevated"
+                                ? "text-warning"
+                                : "text-fg-dim",
+                          )}
+                        >
+                          {p.status}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="px-4 py-6 text-sm text-fg-muted">
+                  No tool activity has been recorded for this agent yet.
+                </div>
+              )}
             </PanelBody>
           </Panel>
         </div>
@@ -179,9 +227,9 @@ export function AgentMonitor({ systemId = "prior-auth-agent" }: { systemId?: str
           <Panel>
             <PanelHeader
               title="Session Timeline"
-              description={sessions.find((s) => s.id === selected)?.subject}
+              description={sessions.find((s) => s.id === activeId)?.subject}
               actions={
-                <span className="font-mono text-2xs text-fg-dim">{selected}</span>
+                <span className="font-mono text-2xs text-fg-dim">{activeId}</span>
               }
             />
             <PanelBody>

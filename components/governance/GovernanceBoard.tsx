@@ -43,8 +43,18 @@ const WF_TONE: Record<GovernanceWorkflow["status"], MetricStatus> = {
 };
 
 export function GovernanceBoard({ workflows }: { workflows: GovernanceWorkflow[] }) {
-  const [selectedId, setSelectedId] = useState(workflows[0].id);
-  const wf = workflows.find((w) => w.id === selectedId)!;
+  const [selectedId, setSelectedId] = useState<string | null>(workflows[0]?.id ?? null);
+
+  if (workflows.length === 0) {
+    return (
+      <div className="rounded-xl border border-edge bg-panel p-8">
+        <div className="text-lg font-semibold text-fg">Nothing in the governance pipeline yet</div>
+        <p className="mt-1 text-fg-muted">Submit a system for review to start an approval workflow.</p>
+      </div>
+    );
+  }
+
+  const wf = workflows.find((w) => w.id === selectedId) ?? workflows[0];
   const completed = wf.steps.filter((s) => s.status === "Complete").length;
 
   return (

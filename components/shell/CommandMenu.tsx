@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CornerDownLeft, Search } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { systems } from "@/lib/data";
+import { useStore } from "@/lib/store";
 import { RISK_TEXT } from "@/lib/constants";
 import { allNavItems } from "./nav";
 
@@ -25,6 +25,7 @@ export function CommandMenu({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { systems } = useStore();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -46,7 +47,7 @@ export function CommandMenu({
       risk: s.riskLevel,
     }));
     return [...nav, ...sys];
-  }, []);
+  }, [systems]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

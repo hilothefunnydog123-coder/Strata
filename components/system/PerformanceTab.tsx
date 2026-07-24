@@ -31,6 +31,27 @@ export function PerformanceTab({ system }: { system: AISystem }) {
       .map((s) => ({ ...s, points: s.points.slice(-days) }));
   }, [system, days, hidden]);
 
+  if (system.performance.series.length === 0) {
+    return (
+      <Panel>
+        <PanelHeader
+          title="Performance Over Time"
+          description="Accuracy, precision, recall, F1, and AUROC."
+        />
+        <PanelBody>
+          <div className="py-10 text-center">
+            <h3 className="text-lg font-semibold text-fg">No performance telemetry yet</h3>
+            <p className="mx-auto mt-2 max-w-md text-sm font-medium leading-relaxed text-fg-muted">
+              Stream accuracy, AUROC, precision, recall, and F1 to the Ward ingestion API for{" "}
+              <span className="font-semibold text-fg">{system.name}</span> and this chart fills in
+              automatically. Create an ingestion key in Settings.
+            </p>
+          </div>
+        </PanelBody>
+      </Panel>
+    );
+  }
+
   const cutoff = system.performance.series[0].points.slice(-days)[0]?.t;
   const events = system.performance.events.filter(
     (e) => !cutoff || new Date(e.t) >= new Date(cutoff),

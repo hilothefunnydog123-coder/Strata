@@ -1,13 +1,12 @@
-import type { Metadata } from "next";
+"use client";
+
 import { Bot } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
 import { AgentFleet } from "@/components/agents/AgentFleet";
 import { AgentMonitor } from "@/components/agents/AgentMonitor";
-import { agentStats, systems } from "@/lib/data";
+import { useStore } from "@/lib/store";
 import { fmtNumber } from "@/lib/format";
-
-export const metadata: Metadata = { title: "Agent Monitoring" };
 
 function Stat({ label, value, tone }: { label: string; value: React.ReactNode; tone?: string }) {
   return (
@@ -21,7 +20,15 @@ function Stat({ label, value, tone }: { label: string; value: React.ReactNode; t
 }
 
 export default function AgentsPage() {
-  const agents = systems.filter((s) => s.isAgent);
+  const { systems, agents, ready } = useStore();
+  const agentSystems = systems.filter((s) => s.isAgent);
+
+  const allActions = Object.values(agents.actions).flat();
+  const sessions24h = agents.sessions.length;
+  const actions24h = agents.sessions.reduce((sum, s) => sum + s.actionCount, 0);
+  const toolCalls24h = agents.sessions.reduce((sum, s) => sum + s.toolCalls, 0);
+  const blockedActions24h = allActions.filter((a) => a.status === "blocked").length;
+  const anomaliesFlagged24h = agents.sessions.filter((s) => s.anomalyScore >= 0.8).length;
 
   return (
     <div>
@@ -31,41 +38,53 @@ export default function AgentsPage() {
         breadcrumb={[{ label: "Operate" }, { label: "Agent Monitoring" }]}
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
-        <Stat label="Agents in production" value={agents.filter((a) => a.environment === "Production").length} />
-        <Stat label="Sessions · 24h" value={fmtNumber(agentStats.sessions24h)} />
-        <Stat label="Actions · 24h" value={fmtNumber(agentStats.actions24h)} />
-        <Stat label="Tool calls · 24h" value={fmtNumber(agentStats.toolCalls24h)} />
-        <Stat
-          label="Blocked actions"
-          value={agentStats.blockedActions24h}
-          tone={agentStats.blockedActions24h > 0 ? "text-warning" : "text-fg"}
-        />
-        <Stat
-          label="Anomalies flagged"
-          value={agentStats.anomaliesFlagged24h}
-          tone={agentStats.anomaliesFlagged24h > 0 ? "text-critical" : "text-fg"}
-        />
-      </div>
+      {!ready ? null : agentSystems.length === 0 ? (
+        <div className="rounded-xl border border-edge bg-surface p-8">
+          <h3 className="text-lg font-semibold text-fg">No agents registered yet</h3>
+          <p className="mt-1 text-fg-muted">
+            Register an autonomous AI system to monitor its actions, tool calls, data access, and
+            human approvals here.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
+            <Stat label="Agents in production" value={agentSystems.filter((a) => a.environment === "Production").length} />
+            <Stat label="Sessions · 24h" value={fmtNumber(sessions24h)} />
+            <Stat label="Actions · 24h" value={fmtNumber(actions24h)} />
+            <Stat label="Tool calls · 24h" value={fmtNumber(toolCalls24h)} />
+            <Stat
+              label="Blocked actions"
+              value={blockedActions24h}
+              tone={blockedActions24h > 0 ? "text-warning" : "text-fg"}
+            />
+            <Stat
+              label="Anomalies flagged"
+              value={anomaliesFlagged24h}
+              tone={anomaliesFlagged24h > 0 ? "text-critical" : "text-fg"}
+            />
+          </div>
 
-      <Panel className="mb-4">
-        <PanelHeader
-          icon={<Bot className="h-4 w-4" />}
-          title="Agent Fleet"
-          description="All autonomous agents with live action volume, human-approval rate, and behavior status."
-        />
-        <AgentFleet agents={agents} />
-      </Panel>
+          <Panel className="mb-4">
+            <PanelHeader
+              icon={<Bot className="h-4 w-4" />}
+              title="Agent Fleet"
+              description="All autonomous agents with live action volume, human-approval rate, and behavior status."
+            />
+            <AgentFleet agents={agentSystems} />
+          </Panel>
 
-      <Panel>
-        <PanelHeader
-          title="Prior Authorization Agent — Session Trace"
-          description="The most heavily instrumented agent. Every action is recorded and scored for anomalous behavior."
-        />
-        <PanelBody>
-          <AgentMonitor systemId="prior-auth-agent" />
-        </PanelBody>
-      </Panel>
+          <Panel>
+            <PanelHeader
+              title="Prior Authorization Agent — Session Trace"
+              description="The most heavily instrumented agent. Every action is recorded and scored for anomalous behavior."
+            />
+            <PanelBody>
+              <AgentMonitor systemId="prior-auth-agent" />
+            </PanelBody>
+          </Panel>
+        </>
+      )}
     </div>
   );
 }

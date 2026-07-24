@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/Button";
 import { RiskBadge, StatusBadge } from "@/components/ui/Badge";
 import { Sparkline } from "@/components/charts/Sparkline";
 import { RegisterSystemModal } from "./RegisterSystemModal";
-import { incidents } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import {
   fmtCurrency,
@@ -32,14 +31,6 @@ function domainOf(s: AISystem): "Clinical" | "Administrative" {
   if (s.isAgent && ADMIN_AGENTS.has(s.id)) return "Administrative";
   return "Clinical";
 }
-
-const lastIncidentMap = new Map<string, { at: string; severity: string }>();
-incidents.forEach((inc) => {
-  const cur = lastIncidentMap.get(inc.systemId);
-  if (!cur || new Date(inc.openedAt) > new Date(cur.at)) {
-    lastIncidentMap.set(inc.systemId, { at: inc.openedAt, severity: inc.severity });
-  }
-});
 
 const RISK_RANK = { Critical: 0, High: 1, Moderate: 2, Low: 3 };
 const STATUS_RANK = { Critical: 0, Degraded: 1, Warning: 2, Operational: 3, Offline: 4 };
@@ -68,7 +59,17 @@ const FILTERS: FilterDef[] = [
 ];
 
 export function RegistryTable({ initialRegisterOpen = false }: { initialRegisterOpen?: boolean }) {
-  const { systems } = useStore();
+  const { systems, incidents } = useStore();
+  const lastIncidentMap = useMemo(() => {
+    const m = new Map<string, { at: string; severity: string }>();
+    incidents.forEach((inc) => {
+      const cur = m.get(inc.systemId);
+      if (!cur || new Date(inc.openedAt) > new Date(cur.at)) {
+        m.set(inc.systemId, { at: inc.openedAt, severity: inc.severity });
+      }
+    });
+    return m;
+  }, [incidents]);
   const [q, setQ] = useState("");
   const [active, setActive] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RegistryTable } from "@/components/registry/RegistryTable";
-import { estate } from "@/lib/data";
 
 export const metadata: Metadata = { title: "AI Registry" };
 

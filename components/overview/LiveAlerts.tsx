@@ -37,9 +37,13 @@ export function LiveAlerts({ base, limit = 5 }: { base: Alert[]; limit?: number 
         }
       />
       <div className="divide-y divide-edge">
-        {shown.map((a) => (
-          <AlertCard key={a.id} alert={a} />
-        ))}
+        {shown.length === 0 ? (
+          <p className="px-4 py-6 text-sm font-medium text-fg-muted">
+            No open alerts. Every system is operating within its thresholds.
+          </p>
+        ) : (
+          shown.map((a) => <AlertCard key={a.id} alert={a} />)
+        )}
       </div>
     </Panel>
   );

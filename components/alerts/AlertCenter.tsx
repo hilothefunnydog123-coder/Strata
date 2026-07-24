@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/Button";
 import { ALERT_CATEGORY_ORDER, SEVERITY_META, toneToClasses } from "@/lib/constants";
 import { relativeTime } from "@/lib/format";
 import { useSimulation } from "@/lib/simulation";
+import { useStore } from "@/lib/store";
 import type { Alert, AlertStatus, MetricStatus } from "@/lib/types";
 
 const STATUS_TONE: Record<AlertStatus, MetricStatus> = {
@@ -120,15 +121,28 @@ function AlertRow({
   );
 }
 
-export function AlertCenter({ base }: { base: Alert[] }) {
+export function AlertCenter() {
+  const { alerts, ready } = useStore();
   const { injectedAlerts } = useSimulation();
   const [overrides, setOverrides] = useState<Record<string, AlertStatus>>({});
   const [category, setCategory] = useState<string>("All");
   const [showResolved, setShowResolved] = useState(false);
 
-  const all = useMemo(() => [...injectedAlerts, ...base], [injectedAlerts, base]);
+  const all = useMemo(() => [...injectedAlerts, ...alerts], [injectedAlerts, alerts]);
 
   const statusOf = (a: Alert): AlertStatus => overrides[a.id] ?? a.status;
+
+  if (ready && all.length === 0) {
+    return (
+      <div className="rounded-xl border border-edge bg-surface p-8">
+        <h3 className="text-lg font-semibold text-fg">No alerts yet</h3>
+        <p className="mt-1 text-fg-muted">
+          Alerts appear here automatically when a monitoring rule fires on one of your systems
+          across performance, drift, fairness, agent behavior, security, or compliance.
+        </p>
+      </div>
+    );
+  }
 
   const filtered = all
     .filter((a) => category === "All" || a.category === category)

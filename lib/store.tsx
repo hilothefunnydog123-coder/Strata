@@ -8,20 +8,33 @@ import {
   useMemo,
   useState,
 } from "react";
-import { systems as baseSystems } from "./data/systems";
 import { useAuth } from "./auth";
 import {
   baseDocsForSystem,
-  buildFromInput,
   type CustomSystemInput,
   type DocType,
   type SystemDoc,
 } from "./systemInput";
-import type { AISystem } from "./types";
+import type {
+  AgentAction,
+  AgentSession,
+  AISystem,
+  Alert,
+  AuditEvent,
+  EstateStats,
+  GovernanceWorkflow,
+  Incident,
+  ValidationRun,
+} from "./types";
 
 export type { CustomSystemInput, DocType, SystemDoc } from "./systemInput";
 
 export type RegisterInput = Omit<CustomSystemInput, "id" | "createdAt" | "registeredBy">;
+
+interface AgentData {
+  sessions: AgentSession[];
+  actions: Record<string, AgentAction[]>;
+}
 
 interface StoreValue {
   systems: AISystem[];
@@ -34,6 +47,16 @@ interface StoreValue {
     doc: { name: string; type: DocType; note?: string },
   ) => Promise<void>;
   removeDocument: (id: string) => Promise<void>;
+  // Real org-wide operational data (from /api/estate)
+  estate: EstateStats | null;
+  alerts: Alert[];
+  incidents: Incident[];
+  getIncident: (id: string) => Incident | undefined;
+  audit: AuditEvent[];
+  agents: AgentData;
+  validations: ValidationRun[];
+  governance: GovernanceWorkflow[];
+  isDemo: boolean;
   stats: {
     total: number;
     production: number;
@@ -47,58 +70,82 @@ interface StoreValue {
   refresh: () => Promise<void>;
 }
 
+const EMPTY_AGENTS: AgentData = { sessions: [], actions: {} };
 const StoreContext = createContext<StoreValue | null>(null);
-const baseIds = new Set(baseSystems.map((s) => s.id));
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
-  const [registered, setRegistered] = useState<CustomSystemInput[]>([]);
+  const [systems, setSystems] = useState<AISystem[]>([]);
+  const [estate, setEstate] = useState<EstateStats | null>(null);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [audit, setAudit] = useState<AuditEvent[]>([]);
+  const [agents, setAgents] = useState<AgentData>(EMPTY_AGENTS);
+  const [validations, setValidations] = useState<ValidationRun[]>([]);
+  const [governance, setGovernance] = useState<GovernanceWorkflow[]>([]);
   const [isDemo, setIsDemo] = useState(false);
   const [docs, setDocs] = useState<SystemDoc[]>([]);
   const [ready, setReady] = useState(false);
 
+  const clear = useCallback(() => {
+    setSystems([]);
+    setEstate(null);
+    setAlerts([]);
+    setIncidents([]);
+    setAudit([]);
+    setAgents(EMPTY_AGENTS);
+    setValidations([]);
+    setGovernance([]);
+    setIsDemo(false);
+    setDocs([]);
+  }, []);
+
   const refresh = useCallback(async () => {
     if (!session) {
-      setRegistered([]);
-      setIsDemo(false);
-      setDocs([]);
+      clear();
       setReady(true);
       return;
     }
     try {
-      const [sysRes, docRes] = await Promise.all([
-        fetch("/api/systems", { cache: "no-store" }),
+      const [estateRes, docRes] = await Promise.all([
+        fetch("/api/estate", { cache: "no-store" }),
         fetch("/api/systems/documents", { cache: "no-store" }),
       ]);
-      const sysData = sysRes.ok ? await sysRes.json() : { registered: [], isDemo: false };
+      const data = estateRes.ok ? await estateRes.json() : {};
       const docData = docRes.ok ? await docRes.json() : { docs: [] };
-      setRegistered(sysData.registered ?? []);
-      setIsDemo(!!sysData.isDemo);
+      setSystems(data.systems ?? []);
+      setEstate(data.stats ?? null);
+      setAlerts(data.alerts ?? []);
+      setIncidents(data.incidents ?? []);
+      setAudit(data.audit ?? []);
+      setAgents(data.agents ?? EMPTY_AGENTS);
+      setValidations(data.validations ?? []);
+      setGovernance(data.governance ?? []);
+      setIsDemo(!!data.isDemo);
       setDocs(docData.docs ?? []);
     } catch {
-      setRegistered([]);
-      setIsDemo(false);
-      setDocs([]);
+      clear();
     } finally {
       setReady(true);
     }
-  }, [session]);
+  }, [session, clear]);
 
   useEffect(() => {
     setReady(false);
     refresh();
   }, [refresh]);
 
-  const systems = useMemo(() => {
-    const built = registered.map(buildFromInput);
-    return isDemo ? [...built, ...baseSystems] : built;
-  }, [registered, isDemo]);
-
   const byId = useMemo(() => {
     const m: Record<string, AISystem> = {};
     systems.forEach((s) => (m[s.id] = s));
     return m;
   }, [systems]);
+
+  const incidentById = useMemo(() => {
+    const m: Record<string, Incident> = {};
+    incidents.forEach((i) => (m[i.id] = i));
+    return m;
+  }, [incidents]);
 
   const addSystem = useCallback(
     async (input: RegisterInput): Promise<string | null> => {
@@ -118,7 +165,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const documentsFor = useCallback(
     (systemId: string): SystemDoc[] => {
       const sys = byId[systemId];
-      const base = sys && baseIds.has(systemId) ? baseDocsForSystem(sys) : [];
+      const base = sys ? baseDocsForSystem(sys) : [];
       const mine = docs.filter((d) => d.systemId === systemId);
       return [...mine, ...base].sort((a, b) => b.addedAt - a.addedAt);
     },
@@ -149,12 +196,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       total: systems.length,
       production: systems.filter((s) => s.environment === "Production").length,
       needsAttention: systems.filter((s) => s.flags.needsAttention).length,
-      activeIncidents: systems.filter((s) => s.flags.activeIncident).length,
+      activeIncidents: incidents.filter((i) =>
+        ["Investigating", "Contained", "Monitoring"].includes(i.status),
+      ).length,
       overdueValidation: systems.filter((s) => s.flags.overdueValidation).length,
       awaitingApproval: systems.filter((s) => s.flags.awaitingApproval).length,
       agents: systems.filter((s) => s.isAgent).length,
     }),
-    [systems],
+    [systems, incidents],
   );
 
   const value: StoreValue = useMemo(
@@ -162,15 +211,43 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       systems,
       getSystem: (id) => byId[id],
       addSystem,
-      customCount: registered.length,
+      customCount: systems.length,
       documentsFor,
       addDocument,
       removeDocument,
+      estate,
+      alerts,
+      incidents,
+      getIncident: (id) => incidentById[id],
+      audit,
+      agents,
+      validations,
+      governance,
+      isDemo,
       stats,
       ready,
       refresh,
     }),
-    [systems, byId, addSystem, registered.length, documentsFor, addDocument, removeDocument, stats, ready, refresh],
+    [
+      systems,
+      byId,
+      addSystem,
+      documentsFor,
+      addDocument,
+      removeDocument,
+      estate,
+      alerts,
+      incidents,
+      incidentById,
+      audit,
+      agents,
+      validations,
+      governance,
+      isDemo,
+      stats,
+      ready,
+      refresh,
+    ],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
@@ -187,6 +264,15 @@ export function useStore(): StoreValue {
       documentsFor: () => [],
       addDocument: async () => {},
       removeDocument: async () => {},
+      estate: null,
+      alerts: [],
+      incidents: [],
+      getIncident: () => undefined,
+      audit: [],
+      agents: EMPTY_AGENTS,
+      validations: [],
+      governance: [],
+      isDemo: false,
       stats: { total: 0, production: 0, needsAttention: 0, activeIncidents: 0, overdueValidation: 0, awaitingApproval: 0, agents: 0 },
       ready: false,
       refresh: async () => {},

@@ -1,9 +1,8 @@
-import type { Metadata } from "next";
+"use client";
+
 import { PageHeader } from "@/components/ui/PageHeader";
 import { GovernanceBoard } from "@/components/governance/GovernanceBoard";
-import { governanceWorkflows } from "@/lib/data";
-
-export const metadata: Metadata = { title: "Governance" };
+import { useStore } from "@/lib/store";
 
 function Stat({ label, value, tone }: { label: string; value: React.ReactNode; tone?: string }) {
   return (
@@ -17,8 +16,9 @@ function Stat({ label, value, tone }: { label: string; value: React.ReactNode; t
 }
 
 export default function GovernancePage() {
-  const inReview = governanceWorkflows.filter((w) => w.status === "In review").length;
-  const blocked = governanceWorkflows.filter((w) => w.status === "Blocked").length;
+  const { governance } = useStore();
+  const inReview = governance.filter((w) => w.status === "In review").length;
+  const blocked = governance.filter((w) => w.status === "Blocked").length;
 
   return (
     <div>
@@ -29,13 +29,13 @@ export default function GovernancePage() {
       />
 
       <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <Stat label="In pipeline" value={governanceWorkflows.length} />
+        <Stat label="In pipeline" value={governance.length} />
         <Stat label="In review" value={inReview} tone="text-warning" />
         <Stat label="Blocked" value={blocked} tone={blocked > 0 ? "text-critical" : "text-fg"} />
         <Stat label="Avg cycle time" value="21 days" />
       </div>
 
-      <GovernanceBoard workflows={governanceWorkflows} />
+      <GovernanceBoard workflows={governance} />
     </div>
   );
 }

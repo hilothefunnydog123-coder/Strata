@@ -6,7 +6,7 @@ import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
 import { LineChart } from "@/components/charts/LineChart";
 import { HBarList } from "@/components/charts/Bars";
 import { CHART } from "@/lib/constants";
-import { estate, systems } from "@/lib/data";
+import { useStore } from "@/lib/store";
 import { fmtCurrency } from "@/lib/format";
 import type { AICategory } from "@/lib/types";
 
@@ -33,6 +33,17 @@ function BigStat({
 }
 
 export function RoiDashboard() {
+  const { estate, systems } = useStore();
+
+  if (!estate || systems.length === 0) {
+    return (
+      <div className="rounded-xl border border-edge bg-panel p-8">
+        <div className="text-lg font-semibold text-fg">No ROI data yet</div>
+        <p className="mt-1 text-fg-muted">ROI populates as you record impact for your systems.</p>
+      </div>
+    );
+  }
+
   const totalImplementation = systems.reduce((s, x) => s + x.roi.implementationCost, 0);
   const totalOperating = systems.reduce((s, x) => s + x.roi.operatingCost, 0);
   const portfolioRoi = Math.round(

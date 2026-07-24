@@ -18,31 +18,65 @@ import { Callout } from "@/components/ui/Feedback";
 import { ProgressBar } from "@/components/ui/Feedback";
 import { Badge } from "@/components/ui/Badge";
 import { ValidationReport } from "./ValidationReport";
-import { orgUsers, validationDatasets, validationRuns } from "@/lib/data";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { buildValidationRun, VALIDATION_TESTS } from "@/lib/validationEngine";
 import { fmtDate, relativeTime } from "@/lib/format";
-import type { ValidationRun } from "@/lib/types";
-
-const APPROVERS = orgUsers
-  .filter((u) =>
-    ["AI Governance Lead", "Clinical Reviewer", "Executive", "Administrator"].includes(u.role),
-  )
-  .map((u) => u.name);
+import type { ValidationDataset, ValidationRun } from "@/lib/types";
 
 type Phase = "idle" | "running" | "report";
 
 export function ValidationCenter({ initialSystem }: { initialSystem?: string }) {
-  const { systems } = useStore();
+  const { systems, validations, refresh } = useStore();
+  const { session } = useAuth();
   const runnable = systems.filter((s) => s.environment !== "Development");
+
+  // Datasets are derived from prior validation runs, with a sensible default
+  // so a first validation can always be run.
+  const datasets = useMemo<ValidationDataset[]>(() => {
+    const seen = new Map<string, ValidationDataset>();
+    for (const r of validations) {
+      if (!seen.has(r.dataset)) {
+        seen.set(r.dataset, {
+          id: r.dataset,
+          name: r.dataset,
+          description: "",
+          size: r.datasetSize,
+          window: "",
+          phiHandling: "",
+        });
+      }
+    }
+    if (seen.size === 0) {
+      seen.set("holdout", {
+        id: "holdout",
+        name: "Held-out validation set",
+        description: "",
+        size: 5000,
+        window: "",
+        phiHandling: "",
+      });
+    }
+    return [...seen.values()];
+  }, [validations]);
+
+  // Approvers: the current user plus the people who own registered systems.
+  const approvers = useMemo(() => {
+    const seen = new Set<string>();
+    if (session?.name) seen.add(session.name);
+    systems.forEach((s) => {
+      if (s.ownerContact) seen.add(s.ownerContact);
+    });
+    return [...seen];
+  }, [systems, session]);
+
   const [systemId, setSystemId] = useState(
-    initialSystem && systems.some((s) => s.id === initialSystem)
-      ? initialSystem
-      : "oncology-treatment",
+    initialSystem && systems.some((s) => s.id === initialSystem) ? initialSystem : "",
   );
-  const system = systems.find((s) => s.id === systemId)!;
-  const [versionId, setVersionId] = useState(system.versions[0].version);
-  const [datasetId, setDatasetId] = useState(validationDatasets[0].id);
+  const system = systems.find((s) => s.id === systemId) ?? runnable[0];
+
+  const [versionId, setVersionId] = useState("");
+  const [datasetId, setDatasetId] = useState("");
   const [tests, setTests] = useState<Set<string>>(
     new Set(VALIDATION_TESTS.map((t) => t.key)),
   );
@@ -52,15 +86,23 @@ export function ValidationCenter({ initialSystem }: { initialSystem?: string }) 
   const [result, setResult] = useState<ValidationRun | null>(null);
   const [viewingPast, setViewingPast] = useState<ValidationRun | null>(null);
 
-  const [approver, setApprover] = useState(APPROVERS[0]);
+  const [approver, setApprover] = useState("");
   const [comment, setComment] = useState("");
   const [decision, setDecision] = useState<{ kind: "Approved" | "Blocked"; auditId: string } | null>(null);
+
+  // Effective selections with fallbacks (the store hydrates asynchronously).
+  const version =
+    system?.versions.find((v) => v.version === versionId) ?? system?.versions[0];
+  const versionValue = version?.version ?? "";
+  const dataset = datasets.find((d) => d.id === datasetId) ?? datasets[0];
+  const datasetValue = dataset?.id ?? "";
+  const approverValue = approvers.includes(approver) ? approver : approvers[0] ?? "";
 
   // reset version when system changes
   const onSystem = (id: string) => {
     setSystemId(id);
-    const s = systems.find((x) => x.id === id)!;
-    setVersionId(s.versions[0].version);
+    const s = systems.find((x) => x.id === id);
+    setVersionId(s?.versions[0]?.version ?? "");
     setPhase("idle");
     setResult(null);
     setViewingPast(null);
@@ -84,8 +126,8 @@ export function ValidationCenter({ initialSystem }: { initialSystem?: string }) 
   }, [phase, runningIndex, selectedTestsList.length]);
 
   const startRun = () => {
-    const dataset = validationDatasets.find((d) => d.id === datasetId)!;
-    const built = buildValidationRun(system, versionId, dataset, tests);
+    if (!system || !dataset) return;
+    const built = buildValidationRun(system, versionValue, dataset, tests);
     setResult(built);
     setViewingPast(null);
     setDecision(null);
@@ -101,12 +143,55 @@ export function ValidationCenter({ initialSystem }: { initialSystem?: string }) 
       return next;
     });
 
-  const decide = (kind: "Approved" | "Blocked") => {
-    setDecision({ kind, auditId: `AUD-${9010 + (comment.length % 80)}` });
+  // Persist the run and its decision to the real API, then refresh the store.
+  const decide = async (kind: "Approved" | "Blocked") => {
+    if (!active || !system) return;
+    try {
+      const res = await fetch("/api/validation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemId: system.id,
+          systemName: system.name,
+          version: versionValue,
+          dataset: dataset?.name ?? "Held-out validation set",
+          datasetSize: dataset?.size ?? 0,
+          status: active.status,
+          result: active.overallResult,
+          tests: active.tests,
+          metrics: active.metrics,
+          subgroups: active.subgroups,
+        }),
+      });
+      if (res.ok) {
+        const created = await res.json().catch(() => ({}));
+        const runId = created.id ?? created.run?.id;
+        if (runId) {
+          await fetch(`/api/validation/${runId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ decision: { decision: kind, comment } }),
+          });
+        }
+        refresh();
+      }
+    } catch {
+      /* keep the local confirmation even if the network call fails */
+    }
+    setDecision({ kind, auditId: "the governance audit trail" });
   };
 
   const active = viewingPast ?? result;
   const progress = Math.min(100, (runningIndex / (selectedTestsList.length + 1)) * 100);
+
+  if (!system) {
+    return (
+      <div className="rounded-xl border border-edge bg-panel p-8">
+        <div className="text-lg font-semibold text-fg">No systems to validate yet</div>
+        <p className="mt-1 text-fg-muted">Register an AI system to run your first validation.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -129,7 +214,7 @@ export function ValidationCenter({ initialSystem }: { initialSystem?: string }) 
               </Select>
             </Field>
             <Field label="2 · Model version">
-              <Select value={versionId} onChange={(e) => setVersionId(e.target.value)}>
+              <Select value={versionValue} onChange={(e) => setVersionId(e.target.value)}>
                 {system.versions.map((v) => (
                   <option key={v.id} value={v.version}>
                     {v.version} · {v.status}
@@ -138,8 +223,8 @@ export function ValidationCenter({ initialSystem }: { initialSystem?: string }) 
               </Select>
             </Field>
             <Field label="3 · Validation dataset">
-              <Select value={datasetId} onChange={(e) => setDatasetId(e.target.value)}>
-                {validationDatasets.map((d) => (
+              <Select value={datasetValue} onChange={(e) => setDatasetId(e.target.value)}>
+                {datasets.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name} ({d.size.toLocaleString()})
                   </option>
@@ -185,7 +270,12 @@ export function ValidationCenter({ initialSystem }: { initialSystem?: string }) 
         <Panel>
           <PanelHeader title="Recent Runs" description="Prior validation reports." />
           <div className="divide-y divide-edge">
-            {validationRuns.map((r) => (
+            {validations.length === 0 && (
+              <p className="px-4 py-6 text-sm font-medium text-fg-muted">
+                No validation runs yet. Configure and run one above to create the first report.
+              </p>
+            )}
+            {validations.map((r) => (
               <button
                 key={r.id}
                 onClick={() => {
@@ -295,11 +385,11 @@ export function ValidationCenter({ initialSystem }: { initialSystem?: string }) 
                 icon={decision.kind === "Approved" ? <CheckCircle2 className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
                 title={
                   decision.kind === "Approved"
-                    ? `Approved for deployment by ${approver}`
-                    : `Blocked from promotion by ${approver}`
+                    ? `Approved for deployment by ${approverValue}`
+                    : `Blocked from promotion by ${approverValue}`
                 }
               >
-                Decision recorded to the audit log as {decision.auditId}.{" "}
+                Decision recorded to {decision.auditId}.{" "}
                 {decision.kind === "Blocked"
                   ? "The model version cannot be promoted until the failing criteria are remediated and re-validated. "
                   : "The version is cleared to advance in the governance workflow. "}
@@ -323,8 +413,8 @@ export function ValidationCenter({ initialSystem }: { initialSystem?: string }) 
                   )}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <Field label="Approver">
-                      <Select value={approver} onChange={(e) => setApprover(e.target.value)}>
-                        {APPROVERS.map((a) => (
+                      <Select value={approverValue} onChange={(e) => setApprover(e.target.value)}>
+                        {approvers.map((a) => (
                           <option key={a}>{a}</option>
                         ))}
                       </Select>

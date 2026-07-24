@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Bell, LogOut, Menu, Plus, Search, ShieldCheck } from "lucide-react";
 import { ButtonLink } from "@/components/ui/Button";
-import { alerts as staticAlerts } from "@/lib/data";
+import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useSimulation } from "@/lib/simulation";
 import { ThemeToggle } from "./ThemeToggle";
@@ -74,8 +74,9 @@ export function TopBar({
   onOpenMenu: () => void;
 }) {
   const { injectedAlerts, run } = useSimulation();
+  const { alerts } = useStore();
   const openAlerts =
-    staticAlerts.filter((a) => !["Resolved", "Muted"].includes(a.status)).length +
+    alerts.filter((a) => !["Resolved", "Muted"].includes(a.status)).length +
     injectedAlerts.length;
   const simActive = run.running || injectedAlerts.length > 0;
 

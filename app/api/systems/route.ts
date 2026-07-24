@@ -2,31 +2,21 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/server/db";
 import { requireUser } from "@/lib/server/auth";
 import { jsonError } from "@/lib/server/api";
+import { writeAudit } from "@/lib/server/audit";
+import { getOrgSystems } from "@/lib/server/estate";
 import type { CustomSystemInput } from "@/lib/systemInput";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Returns fully-built AISystem objects with real ingested telemetry folded in
+// (honest empty states when nothing has been ingested yet).
 export async function GET() {
   try {
     const user = await requireUser();
-    if (!user.org) {
-      return NextResponse.json({ registered: [], isDemo: false });
-    }
-    const rows = await prisma.registeredSystem.findMany({
-      where: { orgId: user.org.id },
-      orderBy: { createdAt: "desc" },
-    });
-    const registered = rows
-      .map((r) => {
-        try {
-          return JSON.parse(r.data) as CustomSystemInput;
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
-    return NextResponse.json({ registered, isDemo: user.org.seededDemo });
+    if (!user.org) return NextResponse.json({ systems: [], isDemo: false });
+    const systems = await getOrgSystems(user.org.id);
+    return NextResponse.json({ systems, isDemo: user.org.seededDemo });
   } catch (e) {
     return jsonError(e);
   }
@@ -36,7 +26,10 @@ export async function POST(req: Request) {
   try {
     const user = await requireUser();
     if (!user.org) {
-      return NextResponse.json({ error: "Your account is not attached to an organization." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Your account is not attached to an organization." },
+        { status: 400 },
+      );
     }
     const body = await req.json().catch(() => ({}));
     const name = String(body.name ?? "").trim();
@@ -74,6 +67,15 @@ export async function POST(req: Request) {
 
     await prisma.registeredSystem.create({
       data: { id, orgId: user.org.id, data: JSON.stringify(input) },
+    });
+    await writeAudit({
+      orgId: user.org.id,
+      actor: user.name,
+      actorRole: user.role,
+      action: "Registered AI system",
+      object: name,
+      category: "Deployment",
+      systemId: id,
     });
     return NextResponse.json({ id }, { status: 201 });
   } catch (e) {

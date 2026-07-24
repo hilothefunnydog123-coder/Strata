@@ -1,8 +1,15 @@
 import type { MetricStat, MetricStatus, Trend } from "./types";
 
-/** The demo clock. All relative dates in the product derive from this instant,
- *  so the dataset is deterministic regardless of the real wall-clock time. */
-export const NOW = new Date("2026-03-18T09:32:00Z");
+/** The product clock. Anchored to the start of the current hour so real
+ *  telemetry, seeded demo data, and relative timestamps all agree — and so a
+ *  server render and its client hydration compute the same instant. */
+function anchorNow(): Date {
+  const d = new Date();
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours()),
+  );
+}
+export const NOW = anchorNow();
 
 export function daysFromNow(days: number): string {
   const d = new Date(NOW.getTime() + days * 86400000);
@@ -99,6 +106,7 @@ export function fmtSignedPct(n: number, digits = 1): string {
 }
 
 export function fmtMetric(m: MetricStat): string {
+  if (m.noData) return "—";
   const v = m.value;
   switch (m.format) {
     case "pct":

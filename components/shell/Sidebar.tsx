@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { ORG } from "@/lib/constants";
-import { alerts as staticAlerts, incidents } from "@/lib/data";
 import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
 import { useSimulation } from "@/lib/simulation";
@@ -15,14 +14,24 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { injectedAlerts } = useSimulation();
   const { session } = useAuth();
-  const { stats } = useStore();
+  const { stats, alerts, incidents } = useStore();
 
   const openAlerts =
-    staticAlerts.filter((a) => !["Resolved", "Muted"].includes(a.status)).length +
+    alerts.filter((a) => !["Resolved", "Muted"].includes(a.status)).length +
     injectedAlerts.length;
   const openIncidents = incidents.filter((i) =>
     ["Investigating", "Contained", "Monitoring"].includes(i.status),
   ).length;
+
+  const orgName = session?.org?.name ?? ORG.name;
+  const orgInitials =
+    orgName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase() || "OR";
 
   const badgeFor = (item: NavItem): number | undefined => {
     if (item.badgeKey === "alerts") return openAlerts;
@@ -96,12 +105,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="border-t border-edge p-3">
         <div className="flex items-center gap-2.5 rounded-md bg-raised px-2.5 py-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent/15 text-2xs font-bold text-accent">
-            NH
+            {orgInitials}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-semibold text-fg">
-              {session?.org?.name ?? ORG.name}
-            </div>
+            <div className="truncate text-xs font-semibold text-fg">{orgName}</div>
             <div className="truncate text-2xs font-medium text-fg-dim">
               {stats.total} AI system{stats.total === 1 ? "" : "s"} monitored
             </div>
