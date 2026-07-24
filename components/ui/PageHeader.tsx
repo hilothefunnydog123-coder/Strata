@@ -37,11 +37,11 @@ export function PageHeader({
       )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight text-fg sm:text-[1.35rem]">
+          <h1 className="text-xl font-bold tracking-tight text-fg sm:text-[1.4rem]">
             {title}
           </h1>
           {description && (
-            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-fg-muted">
+            <p className="mt-1 max-w-2xl text-sm font-medium leading-relaxed text-fg-muted">
               {description}
             </p>
           )}
@@ -71,10 +71,10 @@ export function SummaryStat({
 }) {
   return (
     <div className={cn("min-w-0", className)}>
-      <div className="text-2xs font-medium uppercase tracking-wider text-fg-dim">
+      <div className="text-2xs font-bold uppercase tracking-wider text-fg-dim">
         {label}
       </div>
-      <div className={cn("mt-1 text-lg font-semibold tracking-tight tnum", tone ?? "text-fg")}>
+      <div className={cn("mt-1 text-lg font-bold tracking-tight tnum", tone ?? "text-fg")}>
         {value}
       </div>
       {hint && <div className="mt-0.5 text-2xs text-fg-dim">{hint}</div>}

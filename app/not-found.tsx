@@ -17,7 +17,7 @@ export default function NotFound() {
         Return to the command center to continue.
       </p>
       <div className="mt-6 flex items-center gap-2">
-        <ButtonLink href="/" variant="primary">
+        <ButtonLink href="/overview" variant="primary">
           Back to Overview
         </ButtonLink>
         <ButtonLink href="/registry" variant="secondary">

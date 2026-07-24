@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { CatalogView } from "@/components/catalog/CatalogView";
-import { systems } from "@/lib/data";
 
 export const metadata: Metadata = { title: "AI Catalog" };
 
@@ -13,7 +12,7 @@ export default function CatalogPage() {
         description="The organization's source of truth for every AI system: purpose, ownership, model type, risk, regulatory classification, and review status."
         breadcrumb={[{ label: "Understand" }, { label: "AI Catalog" }]}
       />
-      <CatalogView systems={systems} />
+      <CatalogView />
     </div>
   );
 }

@@ -18,49 +18,49 @@
 
 :root,
 :root[data-theme="dark"] {
-  --canvas: 9 12 17;
-  --panel: 15 20 28;
-  --raised: 21 27 37;
-  --hover: 27 34 47;
-  --edge: 32 40 53;
-  --edge-strong: 45 56 72;
+  --canvas: 8 11 16;
+  --panel: 16 21 30;
+  --raised: 24 31 43;
+  --hover: 32 41 56;
+  --edge: 40 50 66;
+  --edge-strong: 64 78 98;
 
-  --fg: 233 238 245;
-  --fg-muted: 154 167 184;
-  --fg-dim: 108 120 138;
+  --fg: 245 248 252;
+  --fg-muted: 194 204 218;
+  --fg-dim: 150 163 181;
 
-  --accent: 64 130 245;
-  --accent-soft: 22 40 71;
+  --accent: 74 138 255;
+  --accent-soft: 26 46 82;
   --accent-fg: 255 255 255;
 
-  --positive: 61 210 148;
-  --positive-soft: 16 42 33;
-  --warning: 232 176 72;
-  --warning-soft: 46 37 17;
-  --elevated: 242 138 66;
-  --elevated-soft: 47 32 19;
-  --critical: 242 96 100;
-  --critical-soft: 49 24 27;
-  --info: 82 178 214;
-  --info-soft: 16 38 48;
+  --positive: 61 214 150;
+  --positive-soft: 17 46 36;
+  --warning: 245 186 74;
+  --warning-soft: 51 41 18;
+  --elevated: 250 144 68;
+  --elevated-soft: 52 35 20;
+  --critical: 250 100 104;
+  --critical-soft: 54 26 29;
+  --info: 92 190 226;
+  --info-soft: 17 42 53;
 
   color-scheme: dark;
 }
 
 :root[data-theme="light"] {
-  --canvas: 244 246 249;
+  --canvas: 240 242 246;
   --panel: 255 255 255;
-  --raised: 255 255 255;
-  --hover: 240 243 247;
-  --edge: 225 230 237;
-  --edge-strong: 200 208 219;
+  --raised: 248 250 252;
+  --hover: 237 241 246;
+  --edge: 214 221 230;
+  --edge-strong: 179 189 202;
 
-  --fg: 16 23 36;
-  --fg-muted: 86 98 116;
-  --fg-dim: 128 140 158;
+  --fg: 11 17 28;
+  --fg-muted: 66 78 96;
+  --fg-dim: 100 113 132;
 
-  --accent: 34 92 224;
-  --accent-soft: 229 238 253;
+  --accent: 29 84 214;
+  --accent-soft: 224 234 252;
   --accent-fg: 255 255 255;
 
   --positive: 13 124 87;

@@ -11,9 +11,9 @@ import {
 import { cn } from "@/lib/cn";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
 import { Donut } from "@/components/charts/Donut";
-import { estate } from "@/lib/data";
 import { fmtCurrency, fmtSignedPct } from "@/lib/format";
 import { CHART } from "@/lib/constants";
+import type { EstateStats } from "@/lib/types";
 
 function Tile({
   icon,
@@ -31,12 +31,12 @@ function Tile({
   return (
     <div className="flex flex-col rounded-lg border border-edge bg-raised p-3">
       <div className="flex items-center justify-between">
-        <span className="text-2xs font-medium uppercase tracking-wider text-fg-dim">
+        <span className="text-2xs font-bold uppercase tracking-wider text-fg-dim">
           {label}
         </span>
-        <span className="text-fg-dim">{icon}</span>
+        <span className="text-fg-muted">{icon}</span>
       </div>
-      <div className={cn("mt-2 text-2xl font-semibold tracking-tight tnum", tone ?? "text-fg")}>
+      <div className={cn("mt-2 text-2xl font-bold tracking-tight tnum", tone ?? "text-fg")}>
         {value}
       </div>
       {hint && <div className="mt-1 text-2xs text-fg-dim">{hint}</div>}
@@ -44,7 +44,7 @@ function Tile({
   );
 }
 
-export function EstateHealth() {
+export function EstateHealth({ estate }: { estate: EstateStats }) {
   const s = estate;
   const healthy = s.statusCounts.Operational;
   const healthyPct = Math.round((healthy / s.total) * 100);

@@ -29,7 +29,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-2xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-2xs font-semibold",
         variant === "soft" ? cn(t.bg, t.text, "border-transparent") : cn(t.text, t.border),
         className,
       )}
@@ -75,7 +75,7 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 text-xs font-medium",
+        "inline-flex items-center gap-1.5 text-xs font-semibold",
         toneToClasses(meta.tone).text,
         className,
       )}
@@ -106,7 +106,7 @@ export function RiskBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 text-xs font-medium",
+        "inline-flex items-center gap-1.5 text-xs font-semibold",
         RISK_TEXT[risk],
         className,
       )}
@@ -176,7 +176,7 @@ export function Chip({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md border border-edge bg-raised px-1.5 py-0.5 text-2xs font-medium text-fg-muted",
+        "inline-flex items-center gap-1 rounded-md border border-edge bg-raised px-1.5 py-0.5 text-2xs font-semibold text-fg-muted",
         className,
       )}
     >

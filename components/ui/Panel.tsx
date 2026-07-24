@@ -44,9 +44,9 @@ export function PanelHeader({
       <div className="flex min-w-0 items-start gap-2.5">
         {icon && <span className="mt-0.5 text-fg-dim">{icon}</span>}
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold tracking-tight text-fg">{title}</h3>
+          <h3 className="text-[0.9rem] font-bold tracking-tight text-fg">{title}</h3>
           {description && (
-            <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">{description}</p>
+            <p className="mt-0.5 text-xs font-medium leading-relaxed text-fg-muted">{description}</p>
           )}
         </div>
       </div>
@@ -76,7 +76,7 @@ export function SectionLabel({
   return (
     <div
       className={cn(
-        "text-2xs font-semibold uppercase tracking-[0.12em] text-fg-dim",
+        "text-2xs font-bold uppercase tracking-[0.12em] text-fg-muted",
         className,
       )}
     >

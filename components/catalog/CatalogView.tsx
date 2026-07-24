@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { RiskBadge, StatusBadge, Chip } from "@/components/ui/Badge";
 import { CATEGORY_ORDER } from "@/lib/constants";
 import { fmtDate } from "@/lib/format";
+import { useStore } from "@/lib/store";
 import type { AISystem } from "@/lib/types";
 
 function ProfileField({ label, value }: { label: string; value: React.ReactNode }) {
@@ -68,7 +69,8 @@ function CatalogCard({ s }: { s: AISystem }) {
   );
 }
 
-export function CatalogView({ systems }: { systems: AISystem[] }) {
+export function CatalogView() {
+  const { systems } = useStore();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<string>("All");
 

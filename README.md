@@ -19,6 +19,21 @@ as a mission-control interface an operator would trust during a high-stakes deci
 This repository is a production-quality **prototype** populated with a realistic synthetic
 health system, **Northstar Health System** (8 hospitals, 33 registered AI systems).
 
+## Two surfaces, one product
+
+- **Marketing website** (`/`) — a public landing page for prospects: what Strata is, the
+  platform, security posture, and a request-a-demo form.
+- **The console** (`/overview` and the rest) — the gated control plane, behind a hospital
+  **sign in** (`/login`). This is also packaged as a native **desktop app** (see
+  [`desktop/`](desktop/)).
+
+Sign in with a demo account (password `strata`): `elena.marsh@northstarhealth.org`,
+`alan.whitmore@northstarhealth.org`, or `james.okonkwo@northstarhealth.org`.
+
+Registering an AI system is real: it persists to the browser, appears across the registry,
+catalog, and overview, gets a full control center, and can be validated. Documentation
+(model cards, validation reports) can be added per system and persists too.
+
 ---
 
 ## The core concept: the AI Registry
@@ -78,30 +93,53 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
+Open `/` for the marketing site, or `/login` to enter the console.
+
 Other scripts:
 
 ```bash
-npm run build      # production build
+npm run build      # production build (also emits the standalone server)
 npm run start      # serve the production build
 npm run typecheck  # tsc --noEmit
 npm run lint       # next lint
 ```
 
+## Desktop app
+
+The full console ships as a native desktop app (Electron), isolated in
+[`desktop/`](desktop/) so the web app stays lightweight.
+
+```bash
+# terminal 1
+npm run dev
+# terminal 2
+cd desktop && npm install && npm run dev   # opens the Strata desktop window
+```
+
+See [`desktop/README.md`](desktop/README.md) for the production build and installer steps.
+
 ## Project structure
 
 ```
-app/                     Routes (Overview, Registry, Control Center, Validation, …)
+app/
+  page.tsx               Marketing landing page (public)
+  login/                 Sign in (public)
+  overview/ registry/ …  The gated console routes
 components/
-  shell/                 Sidebar, top bar, command palette, theme
+  marketing/             Landing nav, hero preview, demo form
+  shell/                 Chrome (marketing vs console + auth gate), sidebar, top bar, command palette
   ui/                    Panel, Badge, Metric, Button, Modal, Tabs, Feedback
   charts/                LineChart, Bars, Donut, Sparkline
-  system/                Control Center tabs (health, performance, drift, fairness, …)
+  system/                Control Center tabs (health, performance, drift, fairness, documents, …)
   agents/ alerts/ incidents/ validation/ governance/ catalog/ roi/ settings/ overview/
 lib/
   types.ts               The domain model (AISystem, ModelVersion, Incident, Alert, …)
+  auth.tsx               Hospital sign-in (session in localStorage)
+  store.tsx              Persistent data store (register systems + documentation)
   data/                  Realistic Northstar Health data + generators + scenarios
   simulation.tsx         The simulation engine (React context)
   validationEngine.ts    Validation-run result generation
+desktop/                 Electron desktop app (main process, preload, build config)
 ```
 
 ## Data model

@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { RiskBadge, StatusBadge } from "@/components/ui/Badge";
 import { Sparkline } from "@/components/charts/Sparkline";
 import { RegisterSystemModal } from "./RegisterSystemModal";
-import { incidents, systems } from "@/lib/data";
+import { incidents } from "@/lib/data";
+import { useStore } from "@/lib/store";
 import {
   fmtCurrency,
   fmtMetric,
@@ -67,6 +68,7 @@ const FILTERS: FilterDef[] = [
 ];
 
 export function RegistryTable({ initialRegisterOpen = false }: { initialRegisterOpen?: boolean }) {
+  const { systems } = useStore();
   const [q, setQ] = useState("");
   const [active, setActive] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
@@ -129,7 +131,7 @@ export function RegistryTable({ initialRegisterOpen = false }: { initialRegister
       }
     });
     return list;
-  }, [q, active, sort]);
+  }, [q, active, sort, systems]);
 
   const setSortKey = (key: SortKey) =>
     setSort((prev) =>

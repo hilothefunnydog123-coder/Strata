@@ -10,6 +10,11 @@
 next-env.d.ts
 *.tsbuildinfo
 
+# electron desktop app
+/desktop/node_modules
+/desktop/dist
+/desktop/package-lock.json
+
 # misc
 .DS_Store
 *.pem

@@ -34,7 +34,6 @@ export function Sparkline({
   });
   const line = pts.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const area = `${line} L${pts[pts.length - 1][0].toFixed(1)},${height} L${pts[0][0].toFixed(1)},${height} Z`;
-  const gid = `spark-${Math.round(pts[0][1] * 100)}-${data.length}`;
   return (
     <svg
       width={width}
@@ -44,29 +43,19 @@ export function Sparkline({
       style={{ color: stroke }}
       aria-hidden
     >
-      {fill && (
-        <>
-          <defs>
-            <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="currentColor" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path d={area} fill={`url(#${gid})`} stroke="none" />
-        </>
-      )}
+      {fill && <path d={area} fill="currentColor" fillOpacity={0.1} stroke="none" />}
       <path
         d={line}
         fill="none"
         stroke="currentColor"
-        strokeWidth={strokeWidth}
+        strokeWidth={strokeWidth + 0.5}
         strokeLinejoin="round"
         strokeLinecap="round"
       />
       <circle
         cx={pts[pts.length - 1][0]}
         cy={pts[pts.length - 1][1]}
-        r={1.8}
+        r={2}
         fill="currentColor"
       />
     </svg>

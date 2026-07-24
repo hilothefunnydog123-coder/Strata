@@ -1,11 +1,61 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Menu, Plus, Search } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { Bell, LogOut, Menu, Plus, Search } from "lucide-react";
 import { ButtonLink } from "@/components/ui/Button";
 import { alerts as staticAlerts } from "@/lib/data";
+import { useAuth } from "@/lib/auth";
 import { useSimulation } from "@/lib/simulation";
 import { ThemeToggle } from "./ThemeToggle";
+
+function UserMenu() {
+  const { session, logout } = useAuth();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/20 text-2xs font-bold text-accent ring-1 ring-inset ring-accent/30 hover:bg-accent/30"
+      >
+        {session?.initials ?? "?"}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-10 z-50 w-60 overflow-hidden rounded-lg border border-edge-strong bg-panel shadow-pop animate-fade-in">
+          <div className="border-b border-edge px-3.5 py-3">
+            <div className="text-sm font-bold text-fg">{session?.name}</div>
+            <div className="mt-0.5 text-xs font-medium text-fg-muted">{session?.email}</div>
+            <div className="mt-1.5 inline-flex rounded bg-accent-soft px-1.5 py-0.5 text-2xs font-semibold text-accent">
+              {session?.role}
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              logout();
+              router.push("/login");
+            }}
+            className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm font-medium text-fg-muted hover:bg-hover hover:text-fg"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function TopBar({
   onOpenSearch,
@@ -77,10 +127,8 @@ export function TopBar({
 
         <ThemeToggle />
 
-        <div className="ml-1 hidden items-center gap-2 sm:flex">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 text-2xs font-bold text-accent">
-            EM
-          </div>
+        <div className="ml-1">
+          <UserMenu />
         </div>
       </div>
     </header>

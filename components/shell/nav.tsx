@@ -31,7 +31,7 @@ export const navSections: NavSection[] = [
   {
     title: "Monitor",
     items: [
-      { label: "Overview", href: "/", icon: GaugeCircle, match: (p) => p === "/" },
+      { label: "Overview", href: "/overview", icon: GaugeCircle, match: (p) => p === "/overview" },
       {
         label: "AI Registry",
         href: "/registry",

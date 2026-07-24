@@ -1,0 +1,48 @@
+{
+  "name": "strata-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Strata Console — the healthcare AI control plane as a native desktop app.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "cross-env STRATA_DEV=1 electron .",
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:dir": "electron-builder --dir"
+  },
+  "build": {
+    "appId": "health.strata.console",
+    "productName": "Strata",
+    "asar": true,
+    "files": ["main.js", "preload.js"],
+    "extraResources": [
+      {
+        "from": "../.next/standalone",
+        "to": "app/standalone"
+      },
+      {
+        "from": "../.next/static",
+        "to": "app/standalone/.next/static"
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.medical",
+      "target": ["dmg"]
+    },
+    "win": {
+      "target": ["nsis"]
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Utility"
+    }
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^33.0.2",
+    "electron-builder": "^25.1.8"
+  }
+}

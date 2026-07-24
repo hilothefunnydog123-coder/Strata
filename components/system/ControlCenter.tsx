@@ -15,6 +15,7 @@ import { FairnessTab } from "./FairnessTab";
 import { BehaviorTab } from "./BehaviorTab";
 import { VersionsTab } from "./VersionsTab";
 import { LineageTab } from "./LineageTab";
+import { DocumentsTab } from "./DocumentsTab";
 import { IncidentsTab, AuditTab } from "./HistoryTabs";
 import { AgentMonitor } from "@/components/agents/AgentMonitor";
 import { fmtDate, relativeTime } from "@/lib/format";
@@ -50,6 +51,7 @@ export function ControlCenter({
     { key: "behavior", label: "Human Behavior" },
     { key: "versions", label: "Versions" },
     { key: "lineage", label: "Data Lineage" },
+    { key: "docs", label: "Documents" },
     ...(system.isAgent ? [{ key: "agent", label: "Agent Activity" } as TabDef] : []),
     {
       key: "incidents",
@@ -172,6 +174,7 @@ export function ControlCenter({
           {tab === "behavior" && <BehaviorTab system={system} />}
           {tab === "versions" && <VersionsTab system={system} />}
           {tab === "lineage" && <LineageTab system={system} />}
+          {tab === "docs" && <DocumentsTab systemId={system.id} />}
           {tab === "agent" && <AgentMonitor systemId={system.id} />}
           {tab === "incidents" && <IncidentsTab incidents={incidents} />}
           {tab === "audit" && <AuditTab events={auditEvents} />}

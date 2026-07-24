@@ -1,12 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { AppShell } from "@/components/shell/AppShell";
+import { Chrome } from "@/components/shell/Chrome";
 import { themeInitScript } from "@/components/shell/ThemeToggle";
+import { AuthProvider } from "@/lib/auth";
+import { StoreProvider } from "@/lib/store";
 import { SimulationProvider } from "@/lib/simulation";
 
 export const metadata: Metadata = {
   title: {
-    default: "Strata — Healthcare AI Control Plane",
+    default: "Strata · Healthcare AI Control Plane",
     template: "%s · Strata",
   },
   description:
@@ -30,9 +32,13 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-screen bg-canvas font-sans text-fg antialiased">
-        <SimulationProvider>
-          <AppShell>{children}</AppShell>
-        </SimulationProvider>
+        <AuthProvider>
+          <StoreProvider>
+            <SimulationProvider>
+              <Chrome>{children}</Chrome>
+            </SimulationProvider>
+          </StoreProvider>
+        </AuthProvider>
       </body>
     </html>
   );

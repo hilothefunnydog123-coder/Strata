@@ -54,13 +54,13 @@ export function MetricTile({
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-xs font-medium text-fg-muted">{metric.label}</span>
+        <span className="text-xs font-semibold text-fg-muted">{metric.label}</span>
         {tone !== "neutral" && (
           <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", t.dot)} />
         )}
       </div>
       <div className="mt-2 flex items-baseline gap-2">
-        <span className="text-[1.65rem] font-semibold leading-none tracking-tight text-fg tnum">
+        <span className="text-[1.7rem] font-bold leading-none tracking-tight text-fg tnum">
           {fmtMetric(metric)}
         </span>
         <DeltaBadge metric={metric} />
@@ -92,9 +92,9 @@ export function MetricRow({
 }) {
   return (
     <div className={cn("flex items-center justify-between gap-3 py-2", className)}>
-      <span className="text-sm text-fg-muted">{metric.label}</span>
+      <span className="text-sm font-medium text-fg-muted">{metric.label}</span>
       <div className="flex items-center gap-3">
-        <span className={cn("text-sm font-semibold tnum", statusColor[metric.status])}>
+        <span className={cn("text-sm font-bold tnum", statusColor[metric.status])}>
           {fmtMetric(metric)}
         </span>
         <DeltaBadge metric={metric} className="w-16 justify-end" />
@@ -119,12 +119,12 @@ export function KeyValue({
 }) {
   return (
     <div className={cn("flex flex-col gap-1", className)}>
-      <dt className="text-2xs font-medium uppercase tracking-wider text-fg-dim">
+      <dt className="text-2xs font-bold uppercase tracking-wider text-fg-dim">
         {label}
       </dt>
       <dd
         className={cn(
-          "text-sm font-medium text-fg",
+          "text-sm font-semibold text-fg",
           mono && "font-mono text-[0.8rem]",
           tone && statusColor[tone],
         )}

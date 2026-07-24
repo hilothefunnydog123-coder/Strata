@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { ORG } from "@/lib/constants";
-import { alerts as staticAlerts, estate, incidents } from "@/lib/data";
+import { alerts as staticAlerts, incidents } from "@/lib/data";
+import { useAuth } from "@/lib/auth";
+import { useStore } from "@/lib/store";
 import { useSimulation } from "@/lib/simulation";
 import { Brand } from "./Brand";
 import { navSections, type NavItem } from "./nav";
@@ -12,6 +14,8 @@ import { navSections, type NavItem } from "./nav";
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { injectedAlerts } = useSimulation();
+  const { session } = useAuth();
+  const { stats } = useStore();
 
   const openAlerts =
     staticAlerts.filter((a) => !["Resolved", "Muted"].includes(a.status)).length +
@@ -23,7 +27,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const badgeFor = (item: NavItem): number | undefined => {
     if (item.badgeKey === "alerts") return openAlerts;
     if (item.badgeKey === "incidents") return openIncidents;
-    if (item.badgeKey === "approvals") return estate.awaitingApproval;
+    if (item.badgeKey === "approvals") return stats.awaitingApproval;
     return undefined;
   };
 
@@ -33,7 +37,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <aside className="flex h-full w-full flex-col bg-panel">
       <div className="flex h-14 items-center border-b border-edge px-4">
-        <Link href="/" onClick={onNavigate} className="outline-none">
+        <Link href="/overview" onClick={onNavigate} className="outline-none">
           <Brand />
         </Link>
       </div>
@@ -41,7 +45,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {navSections.map((section) => (
           <div key={section.title} className="mb-5">
-            <div className="mb-1.5 px-2 text-2xs font-semibold uppercase tracking-[0.13em] text-fg-dim">
+            <div className="mb-1.5 px-2 text-2xs font-bold uppercase tracking-[0.13em] text-fg-dim">
               {section.title}
             </div>
             <div className="space-y-0.5">
@@ -55,9 +59,9 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                     href={item.href}
                     onClick={onNavigate}
                     className={cn(
-                      "group flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors",
+                      "group flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors",
                       active
-                        ? "bg-accent-soft font-medium text-fg"
+                        ? "bg-accent-soft font-semibold text-fg"
                         : "text-fg-muted hover:bg-hover hover:text-fg",
                     )}
                   >
@@ -95,9 +99,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             NH
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-xs font-medium text-fg">{ORG.name}</div>
-            <div className="truncate text-2xs text-fg-dim">
-              {ORG.hospitals} hospitals · {estate.total} AI systems
+            <div className="truncate text-xs font-semibold text-fg">
+              {session?.org ?? ORG.name}
+            </div>
+            <div className="truncate text-2xs font-medium text-fg-dim">
+              {ORG.hospitals} hospitals · {stats.total} AI systems
             </div>
           </div>
         </div>

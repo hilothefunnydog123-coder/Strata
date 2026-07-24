@@ -18,12 +18,8 @@ import { Callout } from "@/components/ui/Feedback";
 import { ProgressBar } from "@/components/ui/Feedback";
 import { Badge } from "@/components/ui/Badge";
 import { ValidationReport } from "./ValidationReport";
-import {
-  orgUsers,
-  systems,
-  validationDatasets,
-  validationRuns,
-} from "@/lib/data";
+import { orgUsers, validationDatasets, validationRuns } from "@/lib/data";
+import { useStore } from "@/lib/store";
 import { buildValidationRun, VALIDATION_TESTS } from "@/lib/validationEngine";
 import { fmtDate, relativeTime } from "@/lib/format";
 import type { ValidationRun } from "@/lib/types";
@@ -37,6 +33,7 @@ const APPROVERS = orgUsers
 type Phase = "idle" | "running" | "report";
 
 export function ValidationCenter({ initialSystem }: { initialSystem?: string }) {
+  const { systems } = useStore();
   const runnable = systems.filter((s) => s.environment !== "Development");
   const [systemId, setSystemId] = useState(
     initialSystem && systems.some((s) => s.id === initialSystem)
