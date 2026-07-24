@@ -136,7 +136,7 @@ footer .disc{font-size:14px;font-weight:500;color:#fff;opacity:.55;max-width:60c
   <a class="lk hide" href="/why">Why Strata</a>
   <a class="lk hide" href="/console">Console</a>
   <a class="lk hide" href="/pricing">Pricing</a>
-  <a class="lk hide" href="/docs">Docs</a>
+  <a class="lk hide" href="/download">Download</a>
   <a class="btn p" href="/app" style="padding:10px 18px;font-size:14px">Try it live</a>
 </div></nav>
 
@@ -254,7 +254,7 @@ curl -X POST https://api.strata.health/v1/verify \
 <footer><div class="wrap">
   <div style="display:flex;justify-content:space-between;width:100%;gap:20px;flex-wrap:wrap">
     <a class="logo" href="#top"><span class="g">S</span> Strata</a>
-    <div style="display:flex;gap:20px;font-weight:600;flex-wrap:wrap"><a href="/app">Verify</a><a href="/console">Console</a><a href="/why">Why</a><a href="/pricing">Pricing</a><a href="/docs">Docs</a><a href="/trust">Trust</a><a href="/platform">Platform</a></div>
+    <div style="display:flex;gap:20px;font-weight:600;flex-wrap:wrap"><a href="/app">Verify</a><a href="/console">Console</a><a href="/why">Why</a><a href="/pricing">Pricing</a><a href="/download">Download</a><a href="/docs">Docs</a><a href="/trust">Trust</a></div>
   </div>
   <div class="disc">Strata appraises published literature for decision support. It is not a medical device, handles no patient data, and does not diagnose, treat, advise, or determine truth. Every claim links to its sources.</div>
 </div></footer>

@@ -12,6 +12,9 @@ the copy says exactly that.
 """
 from __future__ import annotations
 
+REPO_URL = "https://github.com/hilothefunnydog123-coder/strata"
+_REL = REPO_URL + "/releases/latest/download/"      # GitHub redirects /latest/download/<asset>
+
 _SITE_CSS = r"""
 :root{
   --bg:#04060a; --bg2:#080d13; --card:#0b1220; --card2:#0e1626; --line:rgba(255,255,255,.09);
@@ -148,7 +151,7 @@ def _nav(active: str = "") -> str:
             + lk("/console", "Console", "console")
             + lk("/pricing", "Pricing", "pricing")
             + lk("/docs", "Docs", "docs")
-            + lk("/trust", "Trust", "trust")
+            + lk("/download", "Download", "download")
             + '<a class="btn g" style="padding:9px 15px;font-size:14px" onclick="openDemo()">Book a demo</a>'
             '<a class="btn p" href="/app" style="padding:9px 16px;font-size:14px">Try Verify</a>'
             '</div></nav>')
@@ -450,3 +453,61 @@ _SECURITY_BODY = r"""
 SECURITY_HTML = _page("Security · Strata",
                       "Strata security architecture: data isolation, hashed API keys with rotation and rate limits, server-side authorization, signed webhooks, self-host with no PHI, and an honest account of current maturity.",
                       _SECURITY_BODY, "trust")
+
+
+# ================================================================================ DOWNLOAD
+_DOWNLOAD_BODY = r"""
+<header class="hero"><div class="wrap">
+  <div class="eyebrow">Strata Desktop</div>
+  <h1 class="big">Evidence intelligence, <span class="go">on your machine.</span></h1>
+  <p class="sub">A native app that runs the whole Strata engine locally — type a claim, get a graded, sourced verdict, no browser and no account. Reads only public literature, so nothing leaves the device. Built for the clinic, the pharmacy, and the locked-down hospital laptop.</p>
+</div></header>
+<section style="border-top:0;padding-top:16px"><div class="wrap">
+  <div id="detect" class="mono" style="text-align:center;color:var(--dim);font-size:13px;margin-bottom:8px"></div>
+  <div class="tiers" style="grid-template-columns:repeat(3,1fr)">
+    <div class="tier" id="os-win"><div class="nm">Windows</div><div class="pr" style="font-size:22px">Strata.exe</div>
+      <div class="who">Windows 10/11, 64-bit. Self-contained — no Python needed.</div>
+      <a class="btn p" href="__REL__Strata-windows.exe">Download for Windows</a></div>
+    <div class="tier" id="os-mac"><div class="nm">macOS</div><div class="pr" style="font-size:22px">Strata</div>
+      <div class="who">macOS 12+. Right-click → Open the first time (unsigned build).</div>
+      <a class="btn p" href="__REL__Strata-macos">Download for macOS</a></div>
+    <div class="tier" id="os-linux"><div class="nm">Linux</div><div class="pr" style="font-size:22px">Strata</div>
+      <div class="who">x86-64. <span class="mono">chmod +x Strata &amp;&amp; ./Strata</span></div>
+      <a class="btn p" href="__REL__Strata-linux">Download for Linux</a></div>
+  </div>
+  <div class="note" id="rel-note">Prebuilt installers are attached to the <a href="__REPO__/releases/latest" style="color:var(--green)">latest GitHub release</a>, built by CI for each OS. If a link 404s, no release has been cut yet — use "Run from source" below, which works today.</div>
+</div></section>
+<section><div class="wrap">
+  <div class="kicker">Prefer source?</div>
+  <div class="h2">Run from source <span class="go">in one line.</span></div>
+  <div class="lead">Any machine with Python 3.9+ and Tk. This always works, no release needed.</div>
+  <div class="card" style="margin-top:28px"><pre class="mono" style="margin:0;white-space:pre-wrap;color:#d6f5ec;font-size:14px;line-height:1.7">git clone __REPO__
+cd strata
+pip install .
+strata desktop            <span style="color:var(--dim)"># native app · or `strata serve` for the web console</span></pre></div>
+  <div class="note">On Linux, Tk ships separately: <span class="mono">sudo apt-get install -y python3-tk</span>. On a headless server there's no display — run <span class="mono">strata serve</span> and open <span class="mono">http://127.0.0.1:8600</span>. Full guide: <a href="__REPO__/blob/main/docs/desktop.md" style="color:var(--green)">docs/desktop.md</a>.</div>
+</div></section>
+<section><div class="wrap">
+  <div class="kicker">Why it's safe on-prem</div>
+  <div class="h2">Nothing leaves the device.</div>
+  <div class="grid g3" style="margin-top:36px">
+    <div class="card"><div class="n">NO PHI</div><h3>No patient data</h3><p>Strata reads only public literature. It never connects to an EHR or pharmacy system, and needs no patient record to work.</p></div>
+    <div class="card"><div class="n">LOCAL</div><h3>Runs on the machine</h3><p>The engine, the Console, and the data all live locally under your control. Literature calls use a claim's keywords only.</p></div>
+    <div class="card"><div class="n">HONEST</div><h3>Decision support</h3><p>Not a medical device, no diagnosis, no determination of truth. Every verdict links to its primary sources. See <a href="/trust" style="color:var(--green)">Trust</a>.</p></div>
+  </div>
+  <div class="cta" style="justify-content:center;margin-top:44px"><a class="btn g" href="/app">Try it in the browser first</a><a class="btn g" onclick="openDemo()">Book a demo</a></div>
+</div></section>
+<script>
+(function(){
+  var p=(navigator.platform||navigator.userAgent||'').toLowerCase(), os='';
+  if(p.indexOf('win')>=0)os='os-win';else if(p.indexOf('mac')>=0)os='os-mac';else if(p.indexOf('linux')>=0)os='os-linux';
+  var names={'os-win':'Windows','os-mac':'macOS','os-linux':'Linux'};
+  if(os){var el=document.getElementById(os);if(el){el.classList.add('hot');
+    document.getElementById('detect').textContent='Detected '+names[os]+' — recommended below';}}
+})();
+</script>
+"""
+DOWNLOAD_HTML = _page(
+    "Download Strata Desktop",
+    "Download Strata Desktop — a native, offline evidence-intelligence workstation for Windows, macOS, and Linux. Runs locally, reads only public literature, no patient data.",
+    _DOWNLOAD_BODY.replace("__REL__", _REL).replace("__REPO__", REPO_URL), "download")

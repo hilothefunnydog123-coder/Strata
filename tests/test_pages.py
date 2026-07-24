@@ -27,6 +27,7 @@ _ROUTES = {
     "/pricing": "300k",
     "/trust": "Not yet audited",
     "/security": "first-class feature",
+    "/download": "on your machine",
     "/docs": "Quickstart",
     "/platform": "inside your walls",
     "/lite": "Strata",

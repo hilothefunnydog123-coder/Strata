@@ -40,7 +40,7 @@ from .dashboard_page import DASHBOARD_HTML
 from .docs_page import DOCS_HTML
 from .graph_page import GRAPH_HTML
 from .pages import LITE_HTML
-from .pages_site import PRICING_HTML, SECURITY_HTML, TRUST_HTML, WHY_HTML
+from .pages_site import DOWNLOAD_HTML, PRICING_HTML, SECURITY_HTML, TRUST_HTML, WHY_HTML
 from .pages_web import LANDING_HTML, PLATFORM_HTML, VERIFY_DEMO_HTML
 from .query import ask
 from .receipt import seal_svg
@@ -304,6 +304,8 @@ def _handler():
                     return self._html(TRUST_HTML)
                 if path == "/security":
                     return self._html(SECURITY_HTML)
+                if path in ("/download", "/desktop", "/downloads"):
+                    return self._html(DOWNLOAD_HTML)
                 if path in ("/docs", "/api", "/developers"):
                     return self._html(DOCS_HTML)
 
