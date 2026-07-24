@@ -1,245 +1,119 @@
 # Strata
 
-**Continuous evidence intelligence — the verification layer for medical AI.**
+**The AI control plane for healthcare enterprises.**
 
-Medical evidence changes every day; the systems that rely on it update periodically. Strata
-closes that gap. Send it a claim, and it traces the claim to the underlying research, grades
-how strong the evidence is *with an inspectable GRADE*, explains why supporting and
-contradicting studies disagree, and then **watches** the claim — versioning it and alerting
-you the moment the evidence materially changes, with a citation trail for every word.
+Hospitals and health systems are deploying AI everywhere: sepsis predictors, radiology
+models, ambient documentation copilots, prior-authorization agents, revenue-cycle coders,
+and dozens of internally built systems. Once an organization runs tens or hundreds of AI
+systems, no one has a single place to answer the questions that matter:
 
-> Stripe processes payments. **Strata processes medical evidence.**
+> What AI is running? What data does it use? Is it still accurate? Is it drifting? Is it
+> failing for certain populations? Are clinicians ignoring it? Are autonomous agents taking
+> actions they should not? Who approved it? Is it actually improving care or saving money?
 
-The future of medicine will run thousands of AI systems — AI doctors, radiologists,
-drug-discovery agents, scribes, patient bots — all generating claims like *"this treatment
-is effective for this population."* Today companies ship **AI → answer**. Medicine needs
-**AI → answer → independent evidence verification.** That layer is the whitespace. Strata
-is built to be it.
+Strata is the **visibility, monitoring, governance, validation, audit, and control layer**
+for healthcare AI. Think Datadog for AI observability, ServiceNow for enterprise AI
+governance, and Cloudflare for AI security, purpose-built for a health system, and rendered
+as a mission-control interface an operator would trust during a high-stakes decision.
 
-```bash
-pip install strata-evidence
+This repository is a production-quality **prototype** populated with a realistic synthetic
+health system, **Northstar Health System** (8 hospitals, 33 registered AI systems).
 
-strata verify "Metformin reduces cardiovascular mortality in type 2 diabetes"
-strata serve       # web app + Verify API on http://127.0.0.1:8600
-```
+---
 
-## The Evidence Receipt
+## The core concept: the AI Registry
 
-Every claim Strata checks produces a standardized, portable **receipt** — simple enough for
-a person, structured enough for a machine to embed:
+Every AI system in the organization is registered and continuously monitored. Each system
+carries its identity, owner, vendor, model version, environments, input and output data,
+risk classification, approval status, validation history, performance, drift, fairness,
+incidents, human-override behavior, ROI, audit trail, and current health, all in one place.
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│ STRATA EVIDENCE RECEIPT                                       │
-│ STR-8F42A1C9                                                  │
-├──────────────────────────────────────────────────────────────┤
-│ Claim: Metformin reduces cardiovascular mortality in type 2… │
-│                                                              │
-│ Evidence: SUPPORTED  ·  MODERATE                             │
-│ 4 supporting   0 contradicting   1 neutral                  │
-│ Strongest: Systematic review / meta-analysis (2020)         │
-│ Limitation: Rests largely on observational and older trials │
-│ Last checked: 2026-07-23   Evidence changed: no             │
-└──────────────────────────────────────────────────────────────┘
-```
+## What's inside
 
-It is a transparent appraisal of **published evidence**, never a claim of absolute truth —
-and the receipt says so.
+| Area | What it answers |
+| --- | --- |
+| **Overview** | Command center: estate health, risk distribution, live alerts, activity, system map. |
+| **AI Registry** | Dense, filterable table of the entire AI estate with live status and financials. |
+| **Control Center** | Per-system deep dive: health, performance-over-time with event causes, drift, fairness, human behavior, versions, data lineage, incidents, audit log. |
+| **Validation Center** | Select system → version → dataset → tests, run validation, then approve or **block** a deployment with an audit record. |
+| **Agent Monitoring** | Cybersecurity-grade oversight of autonomous agents: every action, tool call, data access, and human approval, with anomaly detection. |
+| **Incidents** | Investigate failures: timeline, what changed before onset, affected population, related alerts, remediation. |
+| **Governance** | Staged approval workflows (Security → Clinical → Validation → Approval → Production) showing exactly what is blocking each release. |
+| **Alerts** | Triage across performance, drift, fairness, agent behavior, security, compliance: acknowledge, assign, escalate, mute, resolve. |
+| **AI Catalog** | Searchable source-of-truth profiles for every system. |
+| **ROI & Impact** | Executive view of annual impact, net value, and portfolio ROI. |
+| **Settings** | Users, roles and permissions, risk policies, alert thresholds, integrations. |
+| **Simulation** | Inject realistic failures (EHR schema change, subgroup regression, agent anomaly) and watch Strata detect and respond end to end. |
 
-## The core object: a versioned Claim
+## The demo story
 
-Strata treats every medical claim as a **first-class, versioned object** — not a search query.
-Each claim lives in an object graph and carries its own history:
+The product is built to support one continuous narrative:
 
-```
-Organization → Workspace → Therapeutic Area → Claim → Claim Version
-                                                 ↓         ↓
-                                          Alert Rules   Evidence (graded studies)
-                                                 ↓         ↓
-                                     Evidence Change Event → Alert
-```
+1. Open the **Overview**; systems require attention and incidents are active.
+2. Open the **Sepsis Risk Predictor**; accuracy has dropped 3.2% over 30 days.
+3. The alert explains an **EHR schema change on March 14**.
+4. Inspect **input feature drift** (respiratory rate) and the **performance decline** on the
+   same timeline.
+5. See that the **false negative rate for patients over 65 rose from 7.2% to 11.4%**.
+6. Open the **incident** for the full timeline and what changed before onset.
+7. **Compare** the current model with the previous version.
+8. Start a **validation run**; it **fails for one subgroup**, and you **block** the model
+   from approval, recorded to the audit log.
 
-Every *material* change in a claim's evidence creates a new **version**; version diffs are
-mined into structured **change events**; events that cross a claim's **alert rules** (new
-meta-analysis, new RCT, new contradiction, strength/status change, safety signal, effect
-drift) become **alerts** with signed-webhook delivery. It is *version control for medical
-knowledge* — and the accumulating evidence-change history is the long-term data asset.
+Run **Simulation Mode** to reproduce these dynamics live.
 
-## Three products, one evidence engine
+## Tech stack
 
-| | | |
-|---|---|---|
-| **Strata Verify** · API + demo | Send a claim → get a graded Evidence Receipt. | The high-margin core: a software API, usage-priced. |
-| **Strata Console** · Evidence Health | *What changed in our evidence base?* — versioned claims, alerts, timelines, per-area rollups. | For pharma, hospitals, payers, AI companies. |
-| **Strata API** · infrastructure | Verify + monitor from code; signed change webhooks; an embeddable **Seal** trust badge. | The independent evidence layer for medical AI. |
+- **Next.js 14** (App Router) + **React 18** + **TypeScript** (strict)
+- **Tailwind CSS** with a semantic, theme-aware token system (dark and light)
+- Custom, dependency-free **SVG charts** (line, area, distribution, donut, sparkline)
+- `lucide-react` icons
+- Strongly typed **mock data** structured like a real backend, so it can be swapped for a
+  live API with no shape changes
 
-## The moat: the Evidence Graph
-
-Anyone can search PubMed. The moat is what accumulates *on top of* the search. Strata links
-every monitored claim to the graded studies behind it and computes intelligence a single query
-never can — **hub studies** (the trials that underpin many claims), **contested studies**
-(cited as support by one claim, contradict by another), **unstable claims** (high
-version/status churn), **evidence gaps** (where the evidence is thin), **shared-evidence
-links** (which claims move together), and a compounding per-study **reliability** score. It
-gets richer with every claim monitored. Explore it at **`/graph`** · API at
-`GET /v1/graph/{summary,view,hubs,contested,unstable,gaps,study/:id,claim/:id/related}` · CLI
-`strata graph`.
-
-## We measure ourselves
-
-A company selling *evidence trust* has to prove it is accurate. Strata ships an **open,
-labelled calibration set** and scores the transparent (no-model) path against it — per-class
-precision/recall/F1 and status accuracy — as a regression test that fails the build if the
-number drops. Run `strata eval` or `GET /v1/eval`; honest numbers, framed as an offline floor
-on clear-cut cases, not a claim of perfection. (Building it caught and fixed a real bug —
-thin all-neutral evidence now reads *Insufficient*, not *Unsupported*.)
-
-## The API
-
-Generate a working key, then verify anything:
+## Getting started
 
 ```bash
-curl -X POST http://127.0.0.1:8600/v1/keys -d '{"label":"my app"}'      # -> sk_live_...
-
-curl -X POST http://127.0.0.1:8600/v1/verify \
-  -H "Authorization: Bearer $STRATA_KEY" \
-  -d '{"claim":"SGLT2 inhibitors reduce heart-failure hospitalization"}'
+npm install
+npm run dev        # http://localhost:3000
 ```
 
-Every verification fans out across **PubMed, Europe PMC, ClinicalTrials.gov, OpenAlex, and
-Crossref** (all free, keyless), deduplicated and graded in one pass, with citation counts and
-source provenance on every receipt. `POST /v1/compare` weighs two claims against each other.
-
-```python
-from strata_client import Strata            # clients/python/strata_client.py — zero deps
-strata = Strata(api_key="sk_live_...")
-
-r = strata.verify("SGLT2 inhibitors reduce heart-failure hospitalization")
-if r["status"] in ("Mixed", "Contradicted"):
-    flag_answer(r)                            # gate your AI's response
-
-claim_id = strata.monitor(r["claim"])["id"]   # watch it forever
-for event in strata.check(claim_id)["change"]["events"]:
-    print(event["text"])                      # "Certainty upgraded: moderate → high"
-```
-
-Claim-centered endpoints: `POST/GET /v1/claims` · `GET /v1/claims/<id>(/recheck|/history)` ·
-`GET /v1/changes` (the evidence-change feed) · `GET /v1/evidence/<id>` · `GET /v1/console/summary`
-(Evidence Health) · `GET /v1/alerts(/<id>/ack)` · `GET/POST /v1/webhooks` (signed). Plus
-`POST /v1/verify(/stream|/batch)` · `POST /v1/compare` · `POST /v1/keys` · `POST /v1/cohort` ·
-`GET /v1/seal/<id>.svg` (public badge). Full reference lives at **`/docs`** (a real developer
-platform, served by the app) · schema in **[`docs/api.md`](docs/api.md)** · step-by-step:
-**[`docs/integration.md`](docs/integration.md)**.
-
-Optional AI (`strata.llm`) sharpens borderline stance calls using any OpenAI-compatible
-free tier (Groq, Gemini); it only ever sees public abstracts and is never the source of a
-fact. Without it, the transparent heuristic still runs.
-
-Every verification runs an explicit, auditable **pipeline** — understand → expand → retrieve
-→ dedup → rank → classify → extract → contradiction → grade → synthesize → audit — routed
-through a per-task **model-abstraction layer** (strong tier for reasoning, cheap tier for
-mechanical steps, free/local fallback). Each receipt carries a **PICO** breakdown, a
-calibrated **confidence** (0–1), **effect estimates**, and a full **audit trail**. Stream it
-stage-by-stage with `POST /v1/verify/stream` (newline-delimited JSON) for a progressive UI.
-
-## The killer feature: *what changed*
-
-Medical evidence is never final. A monitored claim is re-checked on a schedule and every
-change is pushed:
-
-- 🟢 **Upgraded** — a new Phase III trial moves certainty *moderate → high*.
-- 🟠 **Conflict** — a new cohort contradicts consensus; status *Supported → Mixed*.
-- 🔴 **Weakening** — new safety data introduces a serious limitation.
-
-This is the difference between a static report and living infrastructure.
-
-## Run it
+Other scripts:
 
 ```bash
-strata demo        # seed reproducible reviews + monitored claims (offline)
-strata serve       # http://127.0.0.1:8600
+npm run build      # production build
+npm run start      # serve the production build
+npm run typecheck  # tsc --noEmit
+npm run lint       # next lint
 ```
 
-Surfaces served: **`/`** landing · **`/app`** the Verify demo (paste a claim, watch the
-pipeline stream) · **`/console`** the **Evidence-Health dashboard** (what changed, per-area
-rollups, filterable claims, per-claim dossiers with the GRADE rationale + contradiction
-analysis) · **`/search`** the live streaming evidence search · **`/why` `/pricing` `/trust`
-`/security`** the company site · **`/docs`** the developer platform · **`/lite`** the simple
-ask-one-question page.
+## Project structure
 
-```bash
-strata console     # the Evidence-Health rollup in your terminal
-strata changes     # the recent evidence-change alert feed
+```
+app/                     Routes (Overview, Registry, Control Center, Validation, …)
+components/
+  shell/                 Sidebar, top bar, command palette, theme
+  ui/                    Panel, Badge, Metric, Button, Modal, Tabs, Feedback
+  charts/                LineChart, Bars, Donut, Sparkline
+  system/                Control Center tabs (health, performance, drift, fairness, …)
+  agents/ alerts/ incidents/ validation/ governance/ catalog/ roi/ settings/ overview/
+lib/
+  types.ts               The domain model (AISystem, ModelVersion, Incident, Alert, …)
+  data/                  Realistic Northstar Health data + generators + scenarios
+  simulation.tsx         The simulation engine (React context)
+  validationEngine.ts    Validation-run result generation
 ```
 
-## Strata Desktop (the downloadable app)
+## Data model
 
-A native, **offline** workstation for the point of decision — a doctor between appointments, a
-pharmacist at the counter, a medical-affairs analyst on a locked-down hospital laptop. It runs
-the whole engine on the machine: type a claim, get a graded, sourced verdict — no browser, no
-account, **no data leaving the device**. Strata reads only public literature and never touches
-a patient record, which is exactly why it's safe to run on-prem.
+The domain is fully typed in [`lib/types.ts`](lib/types.ts). The atom is `AISystem`, which
+embeds `PerformanceSummary`, `DriftSummary`, `FairnessSummary`, `HumanBehaviorSummary`,
+`ROISummary`, `ValidationSummary`, and `ModelVersion[]`. Time series are generated
+deterministically from a seeded PRNG anchored to a fixed demo clock, so the dataset is stable
+across reloads.
 
-```bash
-pip install strata-evidence
-strata desktop          # native control panel: server status, one-click Console/Verify/Graph,
-                        # an inline Verify tab, API-key issuance, optional AI
-```
+## Note
 
-Prebuilt **Windows / macOS / Linux** binaries are produced on every release tag by
-[`.github/workflows/desktop.yml`](.github/workflows/desktop.yml) (PyInstaller) and attached to
-the GitHub Release. Build one yourself with `python packaging/build.py`. Full guide:
-**[`docs/desktop.md`](docs/desktop.md)**. Not a medical device; decision support only.
-
-## Self-host / download (for businesses)
-
-Strata reads only **public literature**, so no patient data (PHI) ever leaves your network —
-it self-hosts cleanly on-prem.
-
-```bash
-STRATA_API_KEYS=sk_live_your_key docker compose up --build   # → http://localhost:8600
-```
-
-Or install the wheel (`pip install strata-evidence`) and run `strata serve --host 0.0.0.0`.
-Set `STRATA_API_KEYS` (comma-separated) to require an API key; leave it unset for an open
-private-network deployment. The self-hosted **platform** (`/platform`) ships with the API
-integrated and lets you **import your population** (ages, medications, conditions) so verdicts
-flag generalizability to *your* patients. Cohort data is aggregated locally and **never
-leaves the box**. Details: **[`docs/self-hosting.md`](docs/self-hosting.md)**.
-SDKs: [`clients/python`](clients/python/strata_client.py) · [`clients/js`](clients/js/strata.js).
-
-## How the grading works
-
-Each retrieved study is placed on the evidence hierarchy (Oxford CEBM / GRADE, simplified) —
-meta-analysis → RCT → cohort → case report — then adjusted for sample size and recency. For
-a claim, each study's extracted effect is classified **supporting / contradicting / neutral**
-relative to what the claim asserts, weighted by evidence strength, and aggregated into a
-status (*Supported / Mixed / Contradicted / Insufficient / Unsupported*) and a certainty.
-
-The certainty is **inspectable**: it breaks into GRADE-style domains (design, consistency,
-directness, precision, recency, replication) rated from the actual studies, with plain-language
-`+` upgrades and `−` limitations. When studies disagree, a **contradiction engine** names the
-likely reason — different populations, doses, follow-up, designs, or plain statistical
-uncertainty — citing the studies that show each difference, and labels a genuinely unexplained
-conflict as unresolved rather than averaging it away. It is a transparent heuristic — decision
-support, not a substitute for reading the papers, and not medical advice.
-
-## Not a medical device
-
-Strata is **medical evidence infrastructure**. It appraises published literature for
-decision support: it is **not a medical device**, handles **no patient data**, and does not
-diagnose, treat, advise, or determine truth. Every claim links to its primary sources for
-independent review. *(Framing, not legal advice.)*
-
-## Docs
-
-- [`docs/api.md`](docs/api.md) — full API reference + Evidence Receipt schema.
-- [`docs/integration.md`](docs/integration.md) — step-by-step: key, verify, gate, monitor, cohort.
-- [`docs/self-hosting.md`](docs/self-hosting.md) — Docker / on-prem / keys / AI / cohort / SMTP.
-- [`docs/strategy.md`](docs/strategy.md) — the verification-layer thesis and the unicorn case.
-- [`docs/console.md`](docs/console.md) — the Monitor console & living-review engine.
-- [`docs/vision.md`](docs/vision.md) · [`docs/pitch.md`](docs/pitch.md) — company strategy & positioning.
-
-## License
-
-MIT © 2026 Neil Gilani
+Strata is a prototype. All patient data is synthetic, all organizations and vendors are
+fictional, and nothing here is a medical device or clinical decision-support tool. It is a
+demonstration of what an AI control plane for a healthcare enterprise looks like.

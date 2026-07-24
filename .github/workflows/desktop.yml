@@ -1,92 +1,14 @@
-name: Build Strata Desktop
+name: Deprecated (Strata Desktop)
 
-# Produces the downloadable desktop binaries and publishes them to a GitHub Release.
-# Two ways to run it:
-#   * push a version tag  (git push origin v0.8.0)         -> release named for the tag
-#   * "Run workflow" / API dispatch with a `tag` input      -> release created at the current
-#     commit by the runner itself (no local tag push needed)
-# The runner has contents:write, so it creates the tag + release even when a local tag push
-# is blocked. The download buttons on /download point at /releases/latest/download/<asset>.
+# The Strata Desktop (Python) build has been retired. Strata is now a Next.js
+# web application; see .github/workflows/ci.yml for the active pipeline.
+# This workflow is manual-only and intentionally does nothing.
 
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Release tag to publish (e.g. v0.8.0)"
-        default: "v0.8.0"
-        required: true
-
-permissions:
-  contents: write        # create the tag + release and attach the binaries
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            artifact: Strata-linux
-            binary: dist/Strata
-          - os: windows-latest
-            artifact: Strata-windows.exe
-            binary: dist/Strata.exe
-          - os: macos-latest
-            artifact: Strata-macos
-            binary: dist/Strata
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Tk (Linux build needs it present)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y python3-tk
-
-      - name: Install PyInstaller
-        run: python -m pip install --upgrade pip pyinstaller
-
-      - name: Sanity — engine tests (headless)
-        run: |
-          python tests/test_desktop.py
-          python tests/test_eval.py
-
-      - name: Build
-        run: python -m PyInstaller --noconfirm packaging/strata_desktop.spec
-
-      - name: Stage artifact
-        shell: bash
-        run: |
-          mkdir -p out
-          cp "${{ matrix.binary }}" "out/${{ matrix.artifact }}"
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: out/${{ matrix.artifact }}
-
-  release:
-    needs: build
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Download all binaries
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
-      - name: Publish release with the binaries
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.tag != '' && inputs.tag || github.ref_name }}
-          name: Strata Desktop ${{ inputs.tag != '' && inputs.tag || github.ref_name }}
-          make_latest: true
-          body: |
-            Strata Desktop — native, offline evidence-intelligence workstation.
-            Download for your OS below; on macOS/Linux run `chmod +x` then launch.
-            Not a medical device — decision support only.
-          files: dist/**/*
+      - run: echo "Strata Desktop has been retired. See ci.yml for the web app pipeline."

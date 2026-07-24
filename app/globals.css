@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Strata design tokens.
+  Dark is the primary "mission control" theme. Light mode is fully supported.
+  Colors are stored as space-separated RGB channels so Tailwind's
+  `rgb(var(--x) / <alpha-value>)` can apply opacity.
+*/
+
+:root {
+  --font-sans: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas,
+    monospace;
+}
+
+:root,
+:root[data-theme="dark"] {
+  --canvas: 9 12 17;
+  --panel: 15 20 28;
+  --raised: 21 27 37;
+  --hover: 27 34 47;
+  --edge: 32 40 53;
+  --edge-strong: 45 56 72;
+
+  --fg: 233 238 245;
+  --fg-muted: 154 167 184;
+  --fg-dim: 108 120 138;
+
+  --accent: 64 130 245;
+  --accent-soft: 22 40 71;
+  --accent-fg: 255 255 255;
+
+  --positive: 61 210 148;
+  --positive-soft: 16 42 33;
+  --warning: 232 176 72;
+  --warning-soft: 46 37 17;
+  --elevated: 242 138 66;
+  --elevated-soft: 47 32 19;
+  --critical: 242 96 100;
+  --critical-soft: 49 24 27;
+  --info: 82 178 214;
+  --info-soft: 16 38 48;
+
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --canvas: 244 246 249;
+  --panel: 255 255 255;
+  --raised: 255 255 255;
+  --hover: 240 243 247;
+  --edge: 225 230 237;
+  --edge-strong: 200 208 219;
+
+  --fg: 16 23 36;
+  --fg-muted: 86 98 116;
+  --fg-dim: 128 140 158;
+
+  --accent: 34 92 224;
+  --accent-soft: 229 238 253;
+  --accent-fg: 255 255 255;
+
+  --positive: 13 124 87;
+  --positive-soft: 224 244 236;
+  --warning: 173 116 6;
+  --warning-soft: 250 240 217;
+  --elevated: 190 74 20;
+  --elevated-soft: 251 235 223;
+  --critical: 205 46 51;
+  --critical-soft: 251 230 231;
+  --info: 21 111 145;
+  --info-soft: 226 240 246;
+
+  color-scheme: light;
+}
+
+* {
+  border-color: rgb(var(--edge));
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: rgb(var(--canvas));
+  color: rgb(var(--fg));
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Tabular, aligned numerals for all data */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "cv01" 1;
+}
+
+/* Thin, unobtrusive scrollbars that match the surface */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--edge-strong));
+  border-radius: 8px;
+  border: 2px solid rgb(var(--canvas));
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--fg-dim));
+}
+
+/* Focus ring for keyboard users */
+:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 1px;
+}
+
+/* Selection */
+::selection {
+  background: rgb(var(--accent) / 0.28);
+}
+
+/* Subtle grid backdrop used behind maps and hero panels */
+.grid-backdrop {
+  background-image:
+    linear-gradient(rgb(var(--edge) / 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--edge) / 0.5) 1px, transparent 1px);
+  background-size: 28px 28px;
+  background-position: -1px -1px;
+}
+
+/* Hairline divider that reads on both themes */
+.hairline {
+  border-color: rgb(var(--edge));
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fade-in 0.22s ease-out both;
+  }
+}
