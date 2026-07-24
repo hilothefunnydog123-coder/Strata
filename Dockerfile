@@ -1,26 +1,34 @@
-# Strata — the verification layer for medical AI.
-# Self-contained: standard-library only, no build deps, no model downloads.
-#
-#   docker build -t strata .
-#   docker run -p 8600:8600 -v strata-data:/data -e STRATA_API_KEYS=sk_live_change_me strata
-#
-# On-prem friendly: Strata reads only public literature, so no patient data (PHI) ever
-# leaves your network. The persistent store lives in the /data volume.
-FROM python:3.12-slim
+# Strata — Healthcare AI Control Plane (Next.js production image).
+# Builds the standalone Next.js server and runs it. Suitable for Render, Fly,
+# Railway, or any container host. Binds 0.0.0.0 and honors $PORT.
 
-LABEL org.opencontainers.image.title="Strata" \
-      org.opencontainers.image.description="The verification layer for medical AI" \
-      org.opencontainers.image.licenses="MIT"
-
+# 1) install dependencies
+FROM node:22-alpine AS deps
 WORKDIR /app
-COPY pyproject.toml README.md LICENSE ./
-COPY strata ./strata
-RUN pip install --no-cache-dir .
+COPY package.json package-lock.json ./
+RUN npm ci
 
-# where living reviews + monitored claims persist
-ENV STRATA_HOME=/data
-VOLUME ["/data"]
+# 2) build the app (emits .next/standalone thanks to output: "standalone")
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
 
-EXPOSE 8600
-# Seed demo data on first boot so the console/demo are populated; drop --no-demo? keep it.
-CMD ["strata", "serve", "--host", "0.0.0.0", "--port", "8600"]
+# 3) minimal runtime
+FROM node:22-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
+
+# standalone server + traced node_modules, then the static assets
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+USER nextjs
+EXPOSE 3000
+CMD ["node", "server.js"]

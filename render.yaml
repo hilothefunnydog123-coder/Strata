@@ -1,0 +1,18 @@
+# Render Blueprint for the Strata Healthcare AI Control Plane.
+# Deploy: New + -> Blueprint -> pick this repo. Or point an existing web
+# service at this file. Builds the Next.js app from the Dockerfile.
+services:
+  - type: web
+    name: strata
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    branch: main
+    region: oregon
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
