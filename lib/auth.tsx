@@ -8,66 +8,31 @@ import {
   useMemo,
   useState,
 } from "react";
-import type { UserRole } from "./types";
-
-export interface Account {
-  id: string;
-  name: string;
-  email: string;
-  password: string;
-  role: UserRole;
-  org: string;
-  initials: string;
-}
 
 export interface Session {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
-  org: string;
+  role: string;
+  isOwner: boolean;
   initials: string;
+  org: { id: string; name: string; slug: string; seededDemo: boolean } | null;
 }
 
-/** Demo hospital accounts. In production these authenticate against the
- *  enterprise identity provider (Okta / Entra) via SSO + SCIM. */
-export const ACCOUNTS: Account[] = [
-  {
-    id: "acc-marsh",
-    name: "Dr. Elena Marsh",
-    email: "elena.marsh@northstarhealth.org",
-    password: "strata",
-    role: "AI Governance Lead",
-    org: "Northstar Health System",
-    initials: "EM",
-  },
-  {
-    id: "acc-whitmore",
-    name: "Dr. Alan Whitmore",
-    email: "alan.whitmore@northstarhealth.org",
-    password: "strata",
-    role: "Executive",
-    org: "Northstar Health System",
-    initials: "AW",
-  },
-  {
-    id: "acc-okonkwo",
-    name: "James Okonkwo",
-    email: "james.okonkwo@northstarhealth.org",
-    password: "strata",
-    role: "Compliance Officer",
-    org: "Northstar Health System",
-    initials: "JO",
-  },
+/** Display-only demo accounts surfaced on the sign-in screen. Real credentials
+ *  live in the database (seeded); password is `strata`. */
+export const DEMO_ACCOUNTS = [
+  { name: "Dr. Elena Marsh", email: "elena.marsh@northstarhealth.org", role: "AI Governance Lead" },
+  { name: "Dr. Alan Whitmore", email: "alan.whitmore@northstarhealth.org", role: "Executive" },
+  { name: "James Okonkwo", email: "james.okonkwo@northstarhealth.org", role: "Compliance Officer" },
 ];
-
-const KEY = "strata-session";
 
 interface AuthContextValue {
   session: Session | null;
   ready: boolean;
-  login: (email: string, password: string) => { ok: boolean; error?: string };
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string; isOwner?: boolean }>;
+  logout: () => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -76,45 +41,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
 
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      const data = await res.json();
+      setSession(data.user ?? null);
+    } catch {
+      setSession(null);
+    }
+  }, []);
+
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) setSession(JSON.parse(raw));
-    } catch {}
-    setReady(true);
-  }, []);
-
-  const login = useCallback((email: string, password: string) => {
-    const acc = ACCOUNTS.find(
-      (a) => a.email.toLowerCase() === email.trim().toLowerCase(),
-    );
-    if (!acc) return { ok: false, error: "No account found for that email." };
-    if (acc.password !== password) return { ok: false, error: "Incorrect password." };
-    const s: Session = {
-      id: acc.id,
-      name: acc.name,
-      email: acc.email,
-      role: acc.role,
-      org: acc.org,
-      initials: acc.initials,
+    let alive = true;
+    (async () => {
+      await refresh();
+      if (alive) setReady(true);
+    })();
+    return () => {
+      alive = false;
     };
-    setSession(s);
-    try {
-      localStorage.setItem(KEY, JSON.stringify(s));
-    } catch {}
-    return { ok: true };
-  }, []);
+  }, [refresh]);
 
-  const logout = useCallback(() => {
-    setSession(null);
+  const login = useCallback(
+    async (email: string, password: string) => {
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) return { ok: false, error: data.error ?? "Sign in failed." };
+        await refresh();
+        return { ok: true, isOwner: data.isOwner };
+      } catch {
+        return { ok: false, error: "Network error. Please try again." };
+      }
+    },
+    [refresh],
+  );
+
+  const logout = useCallback(async () => {
     try {
-      localStorage.removeItem(KEY);
+      await fetch("/api/auth/logout", { method: "POST" });
     } catch {}
+    setSession(null);
   }, []);
 
   const value = useMemo(
-    () => ({ session, ready, login, logout }),
-    [session, ready, login, logout],
+    () => ({ session, ready, login, logout, refresh }),
+    [session, ready, login, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -123,7 +99,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) {
-    return { session: null, ready: true, login: () => ({ ok: false }), logout: () => {} };
+    return {
+      session: null,
+      ready: true,
+      login: async () => ({ ok: false }),
+      logout: async () => {},
+      refresh: async () => {},
+    };
   }
   return ctx;
 }

@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { AppShell } from "./AppShell";
 import { StrataMark } from "./Brand";
 
-const MARKETING = new Set(["/", "/login", "/request-demo"]);
+const MARKETING = new Set(["/", "/login", "/request-demo", "/download"]);
 
 function isMarketing(pathname: string): boolean {
   return MARKETING.has(pathname) || pathname.startsWith("/request-demo");
@@ -37,8 +37,23 @@ function AppGate({ children }: { children: React.ReactNode }) {
   return <AppShell>{children}</AppShell>;
 }
 
+function OwnerGate({ children }: { children: React.ReactNode }) {
+  const { session, ready } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (ready && !session) router.replace("/login?next=/admin");
+    else if (ready && session && !session.isOwner) router.replace("/overview");
+  }, [ready, session, router]);
+
+  if (!ready) return <Splash label="Loading Strata" />;
+  if (!session || !session.isOwner) return <Splash label="Checking access" />;
+  return <>{children}</>;
+}
+
 export function Chrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   if (isMarketing(pathname)) return <>{children}</>;
+  if (pathname.startsWith("/admin")) return <OwnerGate>{children}</OwnerGate>;
   return <AppGate>{children}</AppGate>;
 }

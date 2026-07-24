@@ -1,0 +1,64 @@
+// Strata — production data model. SQLite for a self-contained deploy; switch
+// `provider` to "postgresql" and set DATABASE_URL to scale horizontally.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id         String             @id @default(cuid())
+  name       String
+  slug       String             @unique
+  plan       String             @default("Enterprise")
+  seededDemo Boolean            @default(false)
+  active     Boolean            @default(true)
+  createdAt  DateTime           @default(now())
+  users      User[]
+  systems    RegisteredSystem[]
+  documents  SystemDocument[]
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String
+  name         String
+  role         String        @default("Administrator")
+  isOwner      Boolean       @default(false)
+  active       Boolean       @default(true)
+  orgId        String?
+  org          Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  lastLoginAt  DateTime?
+}
+
+// A customer-registered AI system. `data` holds the registration input as JSON;
+// the full control-center model is rebuilt from it by the same generator that
+// powers the seeded estate.
+model RegisteredSystem {
+  id        String       @id
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  data      String
+  createdAt DateTime     @default(now())
+}
+
+// Documentation attached to any system (seeded or registered), scoped to an org.
+model SystemDocument {
+  id        String       @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  systemId  String
+  name      String
+  type      String
+  status    String       @default("Draft")
+  addedBy   String
+  note      String?
+  createdAt DateTime     @default(now())
+}

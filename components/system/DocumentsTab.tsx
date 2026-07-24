@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/Button";
 import { Field, Select, TextInput } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { fmtDate } from "@/lib/format";
-import { useAuth } from "@/lib/auth";
 import { useStore, type DocType } from "@/lib/store";
 
 const DOC_TYPES: DocType[] = [
@@ -23,7 +22,6 @@ const DOC_TYPES: DocType[] = [
 
 export function DocumentsTab({ systemId }: { systemId: string }) {
   const { documentsFor, addDocument, removeDocument } = useStore();
-  const { session } = useAuth();
   const docs = documentsFor(systemId);
 
   const [adding, setAdding] = useState(false);
@@ -31,13 +29,12 @@ export function DocumentsTab({ systemId }: { systemId: string }) {
   const [type, setType] = useState<DocType>("Model Card");
   const [note, setNote] = useState("");
 
-  const save = () => {
+  const save = async () => {
     if (!name.trim()) return;
-    addDocument(systemId, {
+    await addDocument(systemId, {
       name: name.trim(),
       type,
       note: note.trim() || undefined,
-      addedBy: session?.name ?? "You",
     });
     setName("");
     setNote("");

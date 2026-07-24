@@ -19,20 +19,57 @@ as a mission-control interface an operator would trust during a high-stakes deci
 This repository is a production-quality **prototype** populated with a realistic synthetic
 health system, **Northstar Health System** (8 hospitals, 33 registered AI systems).
 
-## Two surfaces, one product
+## Real, multi-tenant, and account-based
 
-- **Marketing website** (`/`) — a public landing page for prospects: what Strata is, the
-  platform, security posture, and a request-a-demo form.
-- **The console** (`/overview` and the rest) — the gated control plane, behind a hospital
-  **sign in** (`/login`). This is also packaged as a native **desktop app** (see
-  [`desktop/`](desktop/)).
+Strata runs on a real database with real accounts. There is no fake auth.
 
-Sign in with a demo account (password `strata`): `elena.marsh@northstarhealth.org`,
-`alan.whitmore@northstarhealth.org`, or `james.okonkwo@northstarhealth.org`.
+- **Marketing website** (`/`) — public landing page, plus a `/download` page for the desktop
+  app and a request-a-demo form.
+- **The console** (`/overview` and the rest) — the gated control plane, behind hospital
+  **email + password sign in** (`/login`). Passwords are bcrypt-hashed; sessions are signed,
+  httpOnly cookies. Also packaged as a native **desktop app** (see [`desktop/`](desktop/)).
+- **Owner console** (`/admin`) — a superadmin dashboard for the platform owner to **create
+  the organizations you sign, provision their users with emails and passwords, reset
+  passwords, and suspend access.** Data is isolated per organization.
 
-Registering an AI system is real: it persists to the browser, appears across the registry,
-catalog, and overview, gets a full control center, and can be validated. Documentation
-(model cards, validation reports) can be added per system and persists too.
+Everything a user does is real and server-persisted: registering an AI system, attaching
+documentation, and (for the demo org) the full monitored estate. New organizations start
+clean and build up their own registry.
+
+**Demo logins** (seeded, password `strata`): `elena.marsh@northstarhealth.org`,
+`alan.whitmore@northstarhealth.org`, `james.okonkwo@northstarhealth.org`. The platform owner
+is seeded from the `OWNER_EMAIL` / `OWNER_PASSWORD` env vars.
+
+## Local setup
+
+```bash
+npm install
+cp .env.example .env          # then edit the values
+npx prisma migrate dev        # create the SQLite database
+npx prisma db seed            # create the owner + demo org
+npm run dev                   # http://localhost:3000
+```
+
+Sign in at `/login`. The owner account (from `.env`) lands on `/admin`.
+
+## Deploying to production
+
+The app is a full-stack Next.js server (App Router route handlers + Prisma). The included
+`Dockerfile` builds it, runs `prisma migrate deploy` and the seed on boot, then serves it.
+`render.yaml` is a one-click Render blueprint.
+
+Set these environment variables on your host:
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | `file:/data/strata.db` on a persistent disk, or a `postgresql://` URL |
+| `SESSION_SECRET` | long random string for signing session cookies |
+| `OWNER_EMAIL` / `OWNER_PASSWORD` | the platform owner account created on first boot |
+
+On **Render**: New + → Blueprint → this repo. It provisions a Docker web service with a 1 GB
+disk mounted at `/data` (so the SQLite database persists across deploys), generates a
+`SESSION_SECRET`, and prompts for the owner email + password. For higher scale, change the
+Prisma datasource `provider` to `postgresql` and point `DATABASE_URL` at a managed Postgres.
 
 ---
 

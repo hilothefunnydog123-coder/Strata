@@ -97,6 +97,9 @@ export default function LandingPage() {
               <ButtonLink href="/login" variant="outline" size="md" className="h-11 px-5 text-sm">
                 See it live
               </ButtonLink>
+              <Link href="/download" className="text-sm font-semibold text-fg-muted hover:text-fg">
+                Download desktop app
+              </Link>
             </div>
             <div className="mt-8 flex items-center gap-6 text-2xs font-semibold text-fg-dim">
               <span>Trusted by governance teams at</span>

@@ -36,3 +36,9 @@ dist/
 .pytest_cache/
 .strata/
 STRATA_HOME/
+
+# prisma / database
+/prisma/*.db
+/prisma/*.db-journal
+/data
+.env.example.local

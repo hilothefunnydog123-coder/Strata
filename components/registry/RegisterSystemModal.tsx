@@ -57,6 +57,7 @@ export function RegisterSystemModal({
   const { session } = useAuth();
 
   const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [newId, setNewId] = useState("");
 
   const [name, setName] = useState("");
@@ -89,9 +90,10 @@ export function RegisterSystemModal({
     setIntendedUse("");
   };
 
-  const submit = () => {
+  const submit = async () => {
+    setSaving(true);
     const by = session?.name ?? "Registrant";
-    const id = addSystem({
+    const id = await addSystem({
       name: name.trim(),
       description: intendedUse.trim(),
       purpose: intendedUse.trim(),
@@ -112,10 +114,12 @@ export function RegisterSystemModal({
       inputs: [],
       outputs: [],
       tags: ["Newly registered"],
-      registeredBy: by,
     });
-    setNewId(id);
-    setSubmitted(true);
+    setSaving(false);
+    if (id) {
+      setNewId(id);
+      setSubmitted(true);
+    }
   };
 
   const handleClose = () => {
@@ -156,9 +160,9 @@ export function RegisterSystemModal({
             <Button variant="ghost" onClick={handleClose}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={submit} disabled={!name.trim()}>
+            <Button variant="primary" onClick={submit} disabled={!name.trim() || saving}>
               <ShieldCheck className="h-4 w-4" />
-              Register system
+              {saving ? "Registering…" : "Register system"}
             </Button>
           </>
         )

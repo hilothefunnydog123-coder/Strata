@@ -11,7 +11,7 @@ const LINKS = [
   { label: "Platform", href: "#platform" },
   { label: "Registry", href: "#registry" },
   { label: "Security", href: "#security" },
-  { label: "Company", href: "#company" },
+  { label: "Download", href: "/download" },
 ];
 
 export function LandingNav() {

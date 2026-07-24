@@ -14,7 +14,7 @@ export default function RegistryPage({
     <div>
       <PageHeader
         title="AI Registry"
-        description={`The complete AI estate: ${estate.total} registered systems across ${estate.hospitals} hospitals, with live performance, validation, and financial status.`}
+        description="Your organization's registered AI systems, with live performance, drift, validation, and financial status."
         breadcrumb={[{ label: "Monitor" }, { label: "AI Registry" }]}
       />
       <RegistryTable initialRegisterOpen={searchParams.register === "1"} />

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bell, LogOut, Menu, Plus, Search } from "lucide-react";
+import { Bell, LogOut, Menu, Plus, Search, ShieldCheck } from "lucide-react";
 import { ButtonLink } from "@/components/ui/Button";
 import { alerts as staticAlerts } from "@/lib/data";
 import { useAuth } from "@/lib/auth";
@@ -41,9 +41,18 @@ function UserMenu() {
               {session?.role}
             </div>
           </div>
+          {session?.isOwner && (
+            <Link
+              href="/admin"
+              className="flex w-full items-center gap-2 border-b border-edge px-3.5 py-2.5 text-left text-sm font-medium text-fg-muted hover:bg-hover hover:text-fg"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Owner console
+            </Link>
+          )}
           <button
-            onClick={() => {
-              logout();
+            onClick={async () => {
+              await logout();
               router.push("/login");
             }}
             className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-sm font-medium text-fg-muted hover:bg-hover hover:text-fg"

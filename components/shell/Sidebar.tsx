@@ -100,10 +100,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-xs font-semibold text-fg">
-              {session?.org ?? ORG.name}
+              {session?.org?.name ?? ORG.name}
             </div>
             <div className="truncate text-2xs font-medium text-fg-dim">
-              {ORG.hospitals} hospitals · {stats.total} AI systems
+              {stats.total} AI system{stats.total === 1 ? "" : "s"} monitored
             </div>
           </div>
         </div>

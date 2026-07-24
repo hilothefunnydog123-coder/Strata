@@ -1,6 +1,7 @@
-# Render Blueprint for the Strata Healthcare AI Control Plane.
-# Deploy: New + -> Blueprint -> pick this repo. Or point an existing web
-# service at this file. Builds the Next.js app from the Dockerfile.
+# Render Blueprint for Strata (Next.js + Prisma/SQLite).
+# New + -> Blueprint -> pick this repo. SQLite persists on the mounted disk.
+# For scale, switch the datasource to postgresql and set DATABASE_URL to a
+# managed Postgres instead of the disk + file URL below.
 services:
   - type: web
     name: strata
@@ -11,7 +12,21 @@ services:
     region: oregon
     autoDeploy: true
     healthCheckPath: /
+    disk:
+      name: strata-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
+      - key: DATABASE_URL
+        value: file:/data/strata.db
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: OWNER_EMAIL
+        sync: false
+      - key: OWNER_PASSWORD
+        sync: false
+      - key: OWNER_NAME
+        value: Platform Owner
       - key: NODE_ENV
         value: production
       - key: NEXT_TELEMETRY_DISABLED

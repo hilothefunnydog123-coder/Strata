@@ -7,7 +7,11 @@ build
 desktop/node_modules
 desktop/dist
 npm-debug.log*
+# secrets and local database never go in the image
+.env
 .env*.local
+prisma/*.db
+prisma/*.db-journal
 # legacy python artifacts
 __pycache__
 *.pyc

@@ -6,7 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { ArrowRight, Lock, ShieldCheck } from "lucide-react";
 import { Brand } from "@/components/shell/Brand";
 import { Button } from "@/components/ui/Button";
-import { ACCOUNTS, useAuth } from "@/lib/auth";
+import { DEMO_ACCOUNTS, useAuth } from "@/lib/auth";
 
 function LoginForm() {
   const { login, session, ready } = useAuth();
@@ -17,15 +17,19 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (ready && session) router.replace(next);
+    if (ready && session) router.replace(session.isOwner ? "/admin" : next);
   }, [ready, session, next, router]);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = login(email, password);
-    if (res.ok) router.replace(next);
+    setError(null);
+    setBusy(true);
+    const res = await login(email, password);
+    setBusy(false);
+    if (res.ok) router.replace(res.isOwner ? "/admin" : next);
     else setError(res.error ?? "Sign in failed.");
   };
 
@@ -101,9 +105,9 @@ function LoginForm() {
               </div>
             )}
 
-            <Button type="submit" variant="primary" className="h-10 w-full">
-              Sign in
-              <ArrowRight className="h-4 w-4" />
+            <Button type="submit" variant="primary" className="h-10 w-full" disabled={busy}>
+              {busy ? "Signing in…" : "Sign in"}
+              {!busy && <ArrowRight className="h-4 w-4" />}
             </Button>
           </form>
 
@@ -112,9 +116,9 @@ function LoginForm() {
               Demo accounts · password “strata”
             </div>
             <div className="mt-2 space-y-1.5">
-              {ACCOUNTS.map((a) => (
+              {DEMO_ACCOUNTS.map((a) => (
                 <button
-                  key={a.id}
+                  key={a.email}
                   onClick={() => {
                     setEmail(a.email);
                     setPassword("strata");
