@@ -11,7 +11,10 @@ RUN apk add --no-cache openssl libc6-compat
 # Copy source first so postinstall's `prisma generate` finds the schema.
 COPY . .
 
-ENV NEXT_TELEMETRY_DISABLED=1
+# Default DB location (the persistent disk mounts at /data in production).
+# Override DATABASE_URL / SESSION_SECRET / OWNER_* as host env vars.
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    DATABASE_URL="file:/data/strata.db"
 RUN npm ci
 RUN npm run build
 
