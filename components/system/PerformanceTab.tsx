@@ -134,7 +134,7 @@ export function PerformanceTab({ system }: { system: AISystem }) {
             {events.map((e, i) => (
               <div key={i} className={i > 0 ? "mt-2" : undefined}>
                 <span className="font-medium text-fg">
-                  {fmtDate(e.t)} — {e.label}.
+                  {fmtDate(e.t)} · {e.label}.
                 </span>{" "}
                 {e.detail}
               </div>

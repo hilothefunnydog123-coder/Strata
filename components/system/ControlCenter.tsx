@@ -149,7 +149,7 @@ export function ControlCenter({
           <Callout tone="critical" icon={<Siren className="h-4 w-4" />} title={`Active incident · ${openIncident.id}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span>
-                {openIncident.title} — opened {relativeTime(openIncident.openedAt)}, owned by{" "}
+                {openIncident.title} · opened {relativeTime(openIncident.openedAt)}, owned by{" "}
                 {openIncident.owner}.
               </span>
               <Link
