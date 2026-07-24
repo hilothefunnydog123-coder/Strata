@@ -20,7 +20,7 @@ export function DemoForm() {
         <p className="mt-2 max-w-md text-sm font-medium text-fg-muted">
           Thanks{name ? `, ${name.split(" ")[0]}` : ""}. A member of our team will reach out to
           {org ? ` ${org}` : " your organization"} within one business day to schedule your
-          Strata walkthrough.
+          Ward walkthrough.
         </p>
       </div>
     );
@@ -77,7 +77,7 @@ export function DemoForm() {
         <ArrowRight className="h-4 w-4" />
       </Button>
       <p className="mt-3 text-center text-2xs font-medium text-fg-dim">
-        By requesting a demo you agree to be contacted about Strata. We never sell your data.
+        By requesting a demo you agree to be contacted about Ward. We never sell your data.
       </p>
     </form>
   );

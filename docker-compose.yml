@@ -1,25 +1,35 @@
-# Strata — one-command self-host.
+# Ward — one-command self-host (Next.js + Prisma/SQLite).
 #
-#   STRATA_API_KEYS=sk_live_your_key docker compose up --build
+#   SESSION_SECRET=$(openssl rand -hex 32) \
+#   OWNER_EMAIL=owner@yourhospital.org OWNER_PASSWORD=change-me \
+#   docker compose up --build
 #
-# Then open http://localhost:8600/  (landing) · /app (Verify demo) · /console (Monitor)
-# API: POST http://localhost:8600/v1/verify   (Authorization: Bearer <your key>)
+# Then open http://localhost:3000/         (marketing site)
+#            http://localhost:3000/login   (console + owner admin sign-in)
+#
+# On boot the container applies migrations and seeds the owner + demo org
+# (idempotent). SQLite persists on the named volume; for scale, switch the
+# Prisma datasource to postgresql and point DATABASE_URL at managed Postgres.
 services:
-  strata:
+  ward:
     build: .
-    image: strata:latest
+    image: ward:latest
     ports:
-      - "8600:8600"
+      - "3000:3000"
     environment:
-      # Comma-separated API keys. If unset, the API is OPEN (fine for a private network only).
-      STRATA_API_KEYS: ${STRATA_API_KEYS:-}
-      # Display name shown in the console / monitor board.
-      STRATA_TENANT: ${STRATA_TENANT:-Your Health System}
-      # Optional: raise PubMed rate limit.
-      NCBI_API_KEY: ${NCBI_API_KEY:-}
+      # SQLite database file on the persistent volume below.
+      DATABASE_URL: file:/data/ward.db
+      # REQUIRED in production: a long random string signs session cookies.
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET, e.g. openssl rand -hex 32}
+      # Platform owner (superadmin) bootstrapped on first boot.
+      OWNER_EMAIL: ${OWNER_EMAIL:-owner@ward.health}
+      OWNER_PASSWORD: ${OWNER_PASSWORD:-ward-owner}
+      OWNER_NAME: ${OWNER_NAME:-Platform Owner}
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
     volumes:
-      - strata-data:/data
+      - ward-data:/data
     restart: unless-stopped
 
 volumes:
-  strata-data:
+  ward-data:

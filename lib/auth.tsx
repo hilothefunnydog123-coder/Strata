@@ -20,7 +20,7 @@ export interface Session {
 }
 
 /** Display-only demo accounts surfaced on the sign-in screen. Real credentials
- *  live in the database (seeded); password is `strata`. */
+ *  live in the database (seeded); password is `ward-demo`. */
 export const DEMO_ACCOUNTS = [
   { name: "Dr. Elena Marsh", email: "elena.marsh@northstarhealth.org", role: "AI Governance Lead" },
   { name: "Dr. Alan Whitmore", email: "alan.whitmore@northstarhealth.org", role: "Executive" },

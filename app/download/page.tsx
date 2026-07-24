@@ -5,11 +5,11 @@ import { Brand } from "@/components/shell/Brand";
 import { ButtonLink } from "@/components/ui/Button";
 
 export const metadata: Metadata = {
-  title: "Download Strata Desktop",
-  description: "The Strata console as a native desktop application for macOS, Windows, and Linux.",
+  title: "Download Ward Desktop",
+  description: "The Ward console as a native desktop application for macOS, Windows, and Linux.",
 };
 
-const RELEASES = "https://github.com/hilothefunnydog123-coder/Strata/releases/latest";
+const RELEASES = "https://github.com/hilothefunnydog123-coder/Ward/releases/latest";
 
 const PLATFORMS = [
   { icon: Apple, name: "macOS", file: "Apple silicon & Intel · .dmg", href: RELEASES },
@@ -33,7 +33,7 @@ export default function DownloadPage() {
 
       <main className="mx-auto max-w-5xl px-5 py-16">
         <div className="text-center">
-          <div className="text-2xs font-bold uppercase tracking-[0.16em] text-accent">Strata Desktop</div>
+          <div className="text-2xs font-bold uppercase tracking-[0.16em] text-accent">Ward Desktop</div>
           <h1 className="mt-3 text-4xl font-bold tracking-tight text-fg sm:text-5xl">
             The console, on your desktop.
           </h1>
@@ -83,7 +83,7 @@ export default function DownloadPage() {
 npm run dev            # terminal 1
 cd desktop
 npm install
-npm run dev            # terminal 2 -> opens the Strata window`}
+npm run dev            # terminal 2 -> opens the Ward window`}
           </pre>
           <div className="mt-3 space-y-1.5">
             {[
@@ -101,7 +101,7 @@ npm run dev            # terminal 2 -> opens the Strata window`}
 
         <p className="mt-8 text-center text-xs font-medium text-fg-dim">
           <Link href="/" className="text-accent hover:underline">
-            Back to strata.health
+            Back to ward.health
           </Link>
         </p>
       </main>

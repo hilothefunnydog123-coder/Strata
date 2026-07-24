@@ -1,6 +1,6 @@
 import { Activity, Bell, Boxes, GaugeCircle, ShieldCheck } from "lucide-react";
 
-/** A self-contained, stylized preview of the Strata console for the hero. */
+/** A self-contained, stylized preview of the Ward console for the hero. */
 export function HeroPreview() {
   return (
     <div className="overflow-hidden rounded-xl border border-edge-strong bg-panel shadow-raised">
@@ -10,7 +10,7 @@ export function HeroPreview() {
         <span className="h-2.5 w-2.5 rounded-full bg-warning/70" />
         <span className="h-2.5 w-2.5 rounded-full bg-positive/70" />
         <span className="ml-3 text-2xs font-semibold text-fg-dim">
-          console.strata.health / command-center
+          console.ward.health / command-center
         </span>
       </div>
       <div className="grid grid-cols-[44px_1fr]">

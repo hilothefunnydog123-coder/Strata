@@ -1,4 +1,4 @@
-# Strata — Healthcare AI Control Plane (Next.js + Prisma).
+# Ward — Healthcare AI Control Plane (Next.js + Prisma).
 # On boot: applies database migrations, seeds the owner + demo org (idempotent),
 # then serves the app. Binds 0.0.0.0 and honors $PORT.
 
@@ -14,7 +14,7 @@ COPY . .
 # Default DB location (the persistent disk mounts at /data in production).
 # Override DATABASE_URL / SESSION_SECRET / OWNER_* as host env vars.
 ENV NEXT_TELEMETRY_DISABLED=1 \
-    DATABASE_URL="file:/data/strata.db"
+    DATABASE_URL="file:/data/ward.db"
 RUN npm ci
 RUN npm run build
 

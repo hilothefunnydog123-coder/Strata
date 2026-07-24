@@ -10,7 +10,7 @@ export const incidents: Incident[] = [
     severity: "SEV-2",
     status: "Investigating",
     openedAt: hoursFromNow(-4),
-    detectedBy: "Strata drift monitor",
+    detectedBy: "Ward drift monitor",
     owner: "Dr. Elena Marsh",
     description:
       "Automated monitoring detected a 3.2% accuracy decline and elevated input drift on the Sepsis Risk Predictor. Root-cause analysis points to a February EHR upgrade that remapped the respiratory-rate flowsheet row, causing the feature pipeline to ingest null values for a subset of encounters.",
@@ -21,14 +21,14 @@ export const incidents: Incident[] = [
     impact:
       "Degraded recall may delay sepsis detection for affected encounters. No confirmed patient-safety event; rapid-response escalations remain within expected range.",
     timeline: [
-      { at: hoursFromNow(-4), actor: "Strata drift monitor", kind: "detect", text: "Drift score crossed 0.15 warning threshold; performance alert ALT-4821 raised." },
-      { at: hoursFromNow(-4), actor: "Strata fairness monitor", kind: "detect", text: "Subgroup monitor flagged FNR increase for patients over 65 (7.2% → 11.4%)." },
+      { at: hoursFromNow(-4), actor: "Ward drift monitor", kind: "detect", text: "Drift score crossed 0.15 warning threshold; performance alert ALT-4821 raised." },
+      { at: hoursFromNow(-4), actor: "Ward fairness monitor", kind: "detect", text: "Subgroup monitor flagged FNR increase for patients over 65 (7.2% → 11.4%)." },
       { at: hoursFromNow(-3.5), actor: "Dr. Elena Marsh", kind: "action", text: "Incident opened at SEV-2. Clinical AI Team paged." },
       { at: hoursFromNow(-3), actor: "Ravi Patel", kind: "comment", text: "Feature audit shows 22% null rate on respiratory_rate beginning March 14, aligned with the Epic v2026.02 upgrade window." },
       { at: hoursFromNow(-2.5), actor: "Ravi Patel", kind: "action", text: "Confirmed the flowsheet row LOINC mapping changed upstream; pipeline was ingesting nulls rather than failing loudly." },
       { at: hoursFromNow(-2), actor: "Dr. Elena Marsh", kind: "comment", text: "Rapid-response team confirms no missed sepsis escalations identified on manual review of high-risk encounters over the affected window." },
       { at: hoursFromNow(-1.5), actor: "Ravi Patel", kind: "action", text: "Deployed hotfix 4.2.1 with null-imputation and medical-ICU threshold recalibration." },
-      { at: hoursFromNow(-1), actor: "Strata monitor", kind: "status", text: "Post-hotfix accuracy recovering (91.4% → 92.1% and climbing). Incident moved to monitoring pending 24h confirmation." },
+      { at: hoursFromNow(-1), actor: "Ward monitor", kind: "status", text: "Post-hotfix accuracy recovering (91.4% → 92.1% and climbing). Incident moved to monitoring pending 24h confirmation." },
     ],
     relatedAlertIds: ["ALT-4821", "ALT-4822", "ALT-4823"],
     relatedVersion: "4.2.1",
@@ -41,7 +41,7 @@ export const incidents: Incident[] = [
     severity: "SEV-2",
     status: "Contained",
     openedAt: hoursFromNow(-2),
-    detectedBy: "Strata latency monitor",
+    detectedBy: "Ward latency monitor",
     owner: "Dr. Priya Nair",
     description:
       "A GPU node-pool degradation raised p95 inference latency above the 1,200 ms budget, causing two studies to exceed the 3-minute critical-finding notification SLA.",
@@ -50,7 +50,7 @@ export const incidents: Incident[] = [
     suspectedCause: "GPU node-pool degradation in the primary inference cluster.",
     impact: "Delayed hemorrhage notification for two studies; both were read within diagnostic turnaround by the on-call radiologist.",
     timeline: [
-      { at: hoursFromNow(-2), actor: "Strata latency monitor", kind: "detect", text: "p95 latency crossed 1,200 ms budget; alert ALT-4820 escalated." },
+      { at: hoursFromNow(-2), actor: "Ward latency monitor", kind: "detect", text: "p95 latency crossed 1,200 ms budget; alert ALT-4820 escalated." },
       { at: hoursFromNow(-1.8), actor: "Platform on-call", kind: "action", text: "Identified two unhealthy GPU nodes in the primary cluster." },
       { at: hoursFromNow(-1.5), actor: "Platform on-call", kind: "action", text: "Failed over inference to the secondary cluster; latency returned to 720 ms p95." },
       { at: hoursFromNow(-1), actor: "Dr. Priya Nair", kind: "comment", text: "Confirmed both delayed studies were read within diagnostic window; no clinical impact." },
@@ -67,7 +67,7 @@ export const incidents: Incident[] = [
     status: "Resolved",
     openedAt: daysFromNow(-9),
     resolvedAt: daysFromNow(-6),
-    detectedBy: "Strata behavior monitor",
+    detectedBy: "Ward behavior monitor",
     owner: "Dr. Aisha Karim",
     description:
       "A quarterly formulary update introduced new drug entities that were not mapped to interaction rules, producing a spike in low-value alerts and clinician overrides.",
@@ -78,7 +78,7 @@ export const incidents: Incident[] = [
     resolution: "Backfilled interaction mappings and added a post-load validation gate. Override rate returned toward baseline.",
     impact: "Transient alert fatigue; no adverse drug events attributed to the gap.",
     timeline: [
-      { at: daysFromNow(-9), actor: "Strata behavior monitor", kind: "detect", text: "Override rate exceeded 30% threshold." },
+      { at: daysFromNow(-9), actor: "Ward behavior monitor", kind: "detect", text: "Override rate exceeded 30% threshold." },
       { at: daysFromNow(-9), actor: "Dr. Aisha Karim", kind: "action", text: "Incident opened; formulary load identified as the trigger." },
       { at: daysFromNow(-7), actor: "Pharmacy Informatics", kind: "action", text: "Interaction mappings backfilled for new entities." },
       { at: daysFromNow(-6), actor: "Dr. Aisha Karim", kind: "resolve", text: "Override rate normalized; incident resolved with a new post-load validation gate." },
@@ -94,7 +94,7 @@ export const incidents: Incident[] = [
     status: "Closed",
     openedAt: daysFromNow(-24),
     resolvedAt: daysFromNow(-23),
-    detectedBy: "Strata data-lineage monitor",
+    detectedBy: "Ward data-lineage monitor",
     owner: "Sofia Ramirez",
     description: "The social-determinants index feed stalled for 14 hours, causing the model to fall back to median imputation for affected encounters.",
     affectedPeriod: "February 22, 2026",
@@ -104,7 +104,7 @@ export const incidents: Incident[] = [
     resolution: "Added a 48-hour cached fallback for the SDOH feature group and vendor status monitoring.",
     impact: "Minor: risk scores remained within tolerance under median imputation; care-management outreach unaffected.",
     timeline: [
-      { at: daysFromNow(-24), actor: "Strata data-lineage monitor", kind: "detect", text: "SDOH feature freshness exceeded 6h SLA." },
+      { at: daysFromNow(-24), actor: "Ward data-lineage monitor", kind: "detect", text: "SDOH feature freshness exceeded 6h SLA." },
       { at: daysFromNow(-24), actor: "Sofia Ramirez", kind: "action", text: "Confirmed vendor API outage; enabled median-imputation fallback." },
       { at: daysFromNow(-23), actor: "Data Engineering", kind: "resolve", text: "Feed restored; cached fallback added. Incident closed." },
     ],

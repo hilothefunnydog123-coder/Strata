@@ -8,8 +8,8 @@ import { SimulationProvider } from "@/lib/simulation";
 
 export const metadata: Metadata = {
   title: {
-    default: "Strata · Healthcare AI Control Plane",
-    template: "%s · Strata",
+    default: "Ward · Healthcare AI Control Plane",
+    template: "%s · Ward",
   },
   description:
     "The visibility, monitoring, governance, validation, and control layer for healthcare AI. Northstar Health System.",

@@ -136,7 +136,7 @@ export function DocumentsTab({ systemId }: { systemId: string }) {
           <PanelHeader title="Why documentation matters" />
           <PanelBody className="text-xs font-medium leading-relaxed text-fg-muted">
             Governance and regulatory reviews require a current model card, a validation report
-            for the deployed version, and a data-flow record describing PHI handling. Strata keeps
+            for the deployed version, and a data-flow record describing PHI handling. Ward keeps
             these attached to the system and surfaces them in the approval workflow.
           </PanelBody>
         </Panel>

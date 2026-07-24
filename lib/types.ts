@@ -1,5 +1,5 @@
 // ============================================================================
-// Strata — core domain model for the Healthcare AI Control Plane.
+// Ward — core domain model for the Healthcare AI Control Plane.
 // Every entity is strongly typed and structured like a real backend response
 // so mock data can be swapped for a live API with no shape changes.
 // ============================================================================

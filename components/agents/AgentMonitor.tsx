@@ -121,7 +121,7 @@ export function AgentMonitor({ systemId = "prior-auth-agent" }: { systemId?: str
             <PanelHeader
               icon={<Radar className="h-4 w-4" />}
               title="Behavior Detections"
-              description="What Strata watches for on every agent action."
+              description="What Ward watches for on every agent action."
             />
             <PanelBody className="space-y-1.5">
               {DETECTIONS.map((d) => (

@@ -165,7 +165,7 @@ export function SimulationConsole() {
           <PanelBody className="space-y-2 text-xs leading-relaxed text-fg-muted">
             <p>
               Simulation injects realistic conditions into a live-looking estate so you can watch
-              Strata detect and respond end to end. Each scenario streams signals, then raises real
+              Ward detect and respond end to end. Each scenario streams signals, then raises real
               alerts that appear in the Alert Center and on the Overview.
             </p>
             <p className="text-fg-dim">

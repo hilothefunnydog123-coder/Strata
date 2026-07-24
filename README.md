@@ -1,4 +1,4 @@
-# Strata
+# Ward
 
 **The AI control plane for healthcare enterprises.**
 
@@ -11,7 +11,7 @@ systems, no one has a single place to answer the questions that matter:
 > failing for certain populations? Are clinicians ignoring it? Are autonomous agents taking
 > actions they should not? Who approved it? Is it actually improving care or saving money?
 
-Strata is the **visibility, monitoring, governance, validation, audit, and control layer**
+Ward is the **visibility, monitoring, governance, validation, audit, and control layer**
 for healthcare AI. Think Datadog for AI observability, ServiceNow for enterprise AI
 governance, and Cloudflare for AI security, purpose-built for a health system, and rendered
 as a mission-control interface an operator would trust during a high-stakes decision.
@@ -21,7 +21,7 @@ health system, **Northstar Health System** (8 hospitals, 33 registered AI system
 
 ## Real, multi-tenant, and account-based
 
-Strata runs on a real database with real accounts. There is no fake auth.
+Ward runs on a real database with real accounts. There is no fake auth.
 
 - **Marketing website** (`/`) — public landing page, plus a `/download` page for the desktop
   app and a request-a-demo form.
@@ -36,7 +36,7 @@ Everything a user does is real and server-persisted: registering an AI system, a
 documentation, and (for the demo org) the full monitored estate. New organizations start
 clean and build up their own registry.
 
-**Demo logins** (seeded, password `strata`): `elena.marsh@northstarhealth.org`,
+**Demo logins** (seeded, password `ward-demo`): `elena.marsh@northstarhealth.org`,
 `alan.whitmore@northstarhealth.org`, `james.okonkwo@northstarhealth.org`. The platform owner
 is seeded from the `OWNER_EMAIL` / `OWNER_PASSWORD` env vars.
 
@@ -62,7 +62,7 @@ Set these environment variables on your host:
 
 | Variable | Purpose |
 | --- | --- |
-| `DATABASE_URL` | `file:/data/strata.db` on a persistent disk, or a `postgresql://` URL |
+| `DATABASE_URL` | `file:/data/ward.db` on a persistent disk, or a `postgresql://` URL |
 | `SESSION_SECRET` | long random string for signing session cookies |
 | `OWNER_EMAIL` / `OWNER_PASSWORD` | the platform owner account created on first boot |
 
@@ -95,7 +95,7 @@ incidents, human-override behavior, ROI, audit trail, and current health, all in
 | **AI Catalog** | Searchable source-of-truth profiles for every system. |
 | **ROI & Impact** | Executive view of annual impact, net value, and portfolio ROI. |
 | **Settings** | Users, roles and permissions, risk policies, alert thresholds, integrations. |
-| **Simulation** | Inject realistic failures (EHR schema change, subgroup regression, agent anomaly) and watch Strata detect and respond end to end. |
+| **Simulation** | Inject realistic failures (EHR schema change, subgroup regression, agent anomaly) and watch Ward detect and respond end to end. |
 
 ## The demo story
 
@@ -150,7 +150,7 @@ The full console ships as a native desktop app (Electron), isolated in
 # terminal 1
 npm run dev
 # terminal 2
-cd desktop && npm install && npm run dev   # opens the Strata desktop window
+cd desktop && npm install && npm run dev   # opens the Ward desktop window
 ```
 
 See [`desktop/README.md`](desktop/README.md) for the production build and installer steps.
@@ -189,6 +189,6 @@ across reloads.
 
 ## Note
 
-Strata is a prototype. All patient data is synthetic, all organizations and vendors are
+Ward is a prototype. All patient data is synthetic, all organizations and vendors are
 fictional, and nothing here is a medical device or clinical decision-support tool. It is a
 demonstration of what an AI control plane for a healthcare enterprise looks like.

@@ -20,7 +20,7 @@ import { HeroPreview } from "@/components/marketing/HeroPreview";
 import { DemoForm } from "@/components/marketing/DemoForm";
 
 export const metadata: Metadata = {
-  title: "Strata · The AI Control Plane for Healthcare",
+  title: "Ward · The AI Control Plane for Healthcare",
   description:
     "Monitor, govern, validate, and control every AI system in your health system from one secure console.",
 };
@@ -85,7 +85,7 @@ export default function LandingPage() {
               Every AI system in your health system, under control.
             </h1>
             <p className="mt-5 max-w-xl text-base font-medium leading-relaxed text-fg-muted sm:text-lg">
-              Hospitals are deploying hundreds of AI models and agents. Strata is the single
+              Hospitals are deploying hundreds of AI models and agents. Ward is the single
               place to monitor accuracy and drift, catch fairness failures, govern deployments,
               oversee autonomous agents, and prove ROI.
             </p>
@@ -250,7 +250,7 @@ export default function LandingPage() {
             Built for the enterprise, and for PHI.
           </h2>
           <p className="mt-4 text-base font-medium leading-relaxed text-fg-muted">
-            Strata deploys in your VPC or on-premise, integrates with your identity provider, and
+            Ward deploys in your VPC or on-premise, integrates with your identity provider, and
             records every action to an immutable audit store. Fairness monitoring runs only where
             protected-attribute data is available and appropriate to a model's intended use.
           </p>
@@ -271,7 +271,7 @@ export default function LandingPage() {
           <div id="company">
             <SectionKicker>Request a demo</SectionKicker>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-fg">
-              See Strata on your AI estate.
+              See Ward on your AI estate.
             </h2>
             <p className="mt-4 text-base font-medium leading-relaxed text-fg-muted">
               We will walk your team through the live console with a realistic health system,
@@ -290,13 +290,13 @@ export default function LandingPage() {
               ))}
             </div>
             <div className="mt-8 border-t border-edge pt-6">
-              <div className="text-2xs font-bold uppercase tracking-wider text-fg-dim">Strata, Inc.</div>
+              <div className="text-2xs font-bold uppercase tracking-wider text-fg-dim">Ward, Inc.</div>
               <p className="mt-2 max-w-md text-sm font-medium text-fg-muted">
-                Strata is the AI control plane for healthcare enterprises. We help health systems
+                Ward is the AI control plane for healthcare enterprises. We help health systems
                 stay in control as they deploy AI across clinical and administrative operations.
               </p>
-              <a href="mailto:hello@strata.health" className="mt-2 inline-block text-sm font-bold text-accent hover:underline">
-                hello@strata.health
+              <a href="mailto:hello@ward.health" className="mt-2 inline-block text-sm font-bold text-accent hover:underline">
+                hello@ward.health
               </a>
             </div>
           </div>
@@ -314,7 +314,7 @@ export default function LandingPage() {
             <Link href="/login" className="hover:text-fg">Sign in</Link>
           </div>
           <div className="text-2xs font-medium text-fg-dim">
-            © 2026 Strata, Inc. Prototype with synthetic data.
+            © 2026 Ward, Inc. Prototype with synthetic data.
           </div>
         </div>
       </footer>

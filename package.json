@@ -1,8 +1,8 @@
 {
-  "name": "strata-control-plane",
+  "name": "ward-control-plane",
   "version": "1.0.0",
   "private": true,
-  "description": "Strata — the AI control plane for healthcare enterprises.",
+  "description": "Ward — the AI control plane for healthcare enterprises.",
   "engines": {
     "node": ">=20 <23"
   },

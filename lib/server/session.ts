@@ -3,7 +3,7 @@ import crypto from "crypto";
 const SECRET = process.env.SESSION_SECRET || "insecure-dev-secret-change-me";
 const MAX_AGE_DAYS = 30;
 
-export const SESSION_COOKIE = "strata_session";
+export const SESSION_COOKIE = "ward_session";
 
 function b64url(input: Buffer | string): string {
   return Buffer.from(input)

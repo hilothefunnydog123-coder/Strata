@@ -1,6 +1,6 @@
-# Strata Console — Desktop App
+# Ward Console — Desktop App
 
-The full Strata control plane packaged as a native desktop application (Electron).
+The full Ward control plane packaged as a native desktop application (Electron).
 Hospitals launch the app, sign in with their organization account, and get the entire
 console in a dedicated window: registry, monitoring, validation, governance, agent
 oversight, incidents, ROI, and settings.
@@ -22,10 +22,10 @@ In a second terminal, launch the desktop shell:
 ```bash
 cd desktop
 npm install            # installs Electron (first run downloads the runtime)
-npm run dev            # opens the Strata desktop window on the dev server
+npm run dev            # opens the Ward desktop window on the dev server
 ```
 
-The window boots to the sign-in screen. Use a demo account (password `strata`):
+The window boots to the sign-in screen. Use a demo account (password `ward-demo`):
 
 - `elena.marsh@northstarhealth.org` — AI Governance Lead
 - `alan.whitmore@northstarhealth.org` — Executive

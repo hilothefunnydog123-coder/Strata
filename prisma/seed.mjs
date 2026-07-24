@@ -5,8 +5,8 @@ const prisma = new PrismaClient();
 const hash = (p) => bcrypt.hashSync(p, 10);
 
 async function main() {
-  const ownerEmail = (process.env.OWNER_EMAIL || "owner@strata.health").toLowerCase();
-  const ownerPassword = process.env.OWNER_PASSWORD || "strata-owner";
+  const ownerEmail = (process.env.OWNER_EMAIL || "owner@ward.health").toLowerCase();
+  const ownerPassword = process.env.OWNER_PASSWORD || "ward-owner";
   const ownerName = process.env.OWNER_NAME || "Platform Owner";
 
   // Platform owner (superadmin). Password only set on first creation so an
@@ -56,7 +56,7 @@ async function main() {
       });
     } else {
       await prisma.user.create({
-        data: { email: u.email, name: u.name, role: u.role, orgId: org.id, passwordHash: hash("strata") },
+        data: { email: u.email, name: u.name, role: u.role, orgId: org.id, passwordHash: hash("ward-demo") },
       });
     }
   }

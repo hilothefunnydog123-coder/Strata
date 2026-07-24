@@ -31,7 +31,7 @@ export const scenarios: Scenario[] = [
     targetSystemName: "Acute Kidney Injury Predictor",
     category: "Drift",
     summary:
-      "An Epic upgrade remaps a laboratory feature. Strata detects input drift, then performance degradation, and recommends an incident.",
+      "An Epic upgrade remaps a laboratory feature. Ward detects input drift, then performance degradation, and recommends an incident.",
     steps: [
       {
         label: "EHR schema change deployed",
@@ -85,7 +85,7 @@ export const scenarios: Scenario[] = [
       },
       {
         label: "Incident recommended",
-        detail: "Strata correlated the drift and performance signals to a single upstream cause and recommends opening a SEV-3 incident.",
+        detail: "Ward correlated the drift and performance signals to a single upstream cause and recommends opening a SEV-3 incident.",
         tone: "critical",
         delayMs: 2200,
       },
@@ -100,7 +100,7 @@ export const scenarios: Scenario[] = [
     targetSystemName: "30-Day Readmission Risk Model",
     category: "Fairness",
     summary:
-      "Version 3.2 improves overall AUROC but regresses for patients over 65. Strata catches the subgroup regression and blocks promotion.",
+      "Version 3.2 improves overall AUROC but regresses for patients over 65. Ward catches the subgroup regression and blocks promotion.",
     steps: [
       {
         label: "Version 3.2 deployed to staging",
@@ -154,7 +154,7 @@ export const scenarios: Scenario[] = [
     targetSystemName: "Patient Scheduling Agent",
     category: "Agent Behavior",
     summary:
-      "The Scheduling Agent begins making far more actions than normal. Strata detects the unusual behavior and auto-halts the session.",
+      "The Scheduling Agent begins making far more actions than normal. Ward detects the unusual behavior and auto-halts the session.",
     steps: [
       {
         label: "Action volume rising",
@@ -192,7 +192,7 @@ export const scenarios: Scenario[] = [
       },
       {
         label: "Session auto-halted",
-        detail: "Strata halted session SC-2214 and routed it for human review. No duplicate notifications were dispatched.",
+        detail: "Ward halted session SC-2214 and routed it for human review. No duplicate notifications were dispatched.",
         tone: "good",
         delayMs: 2000,
       },

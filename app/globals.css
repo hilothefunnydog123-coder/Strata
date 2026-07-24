@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
-  Strata design tokens.
+  Ward design tokens.
   Dark is the primary "mission control" theme. Light mode is fully supported.
   Colors are stored as space-separated RGB channels so Tailwind's
   `rgb(var(--x) / <alpha-value>)` can apply opacity.

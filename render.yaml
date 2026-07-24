@@ -1,10 +1,10 @@
-# Render Blueprint for Strata (Next.js + Prisma/SQLite).
+# Render Blueprint for Ward (Next.js + Prisma/SQLite).
 # New + -> Blueprint -> pick this repo. SQLite persists on the mounted disk.
 # For scale, switch the datasource to postgresql and set DATABASE_URL to a
 # managed Postgres instead of the disk + file URL below.
 services:
   - type: web
-    name: strata
+    name: ward
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: starter
@@ -13,12 +13,12 @@ services:
     autoDeploy: true
     healthCheckPath: /
     disk:
-      name: strata-data
+      name: ward-data
       mountPath: /data
       sizeGB: 1
     envVars:
       - key: DATABASE_URL
-        value: file:/data/strata.db
+        value: file:/data/ward.db
       - key: SESSION_SECRET
         generateValue: true
       - key: OWNER_EMAIL

@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/Button";
-import { StrataMark } from "@/components/shell/Brand";
+import { WardMark } from "@/components/shell/Brand";
 
 export default function NotFound() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-      <StrataMark className="h-10 w-10" />
+      <WardMark className="h-10 w-10" />
       <div className="mt-5 text-2xs font-semibold uppercase tracking-[0.16em] text-fg-dim">
         404 · Not found
       </div>

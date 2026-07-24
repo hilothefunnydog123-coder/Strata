@@ -1,11 +1,11 @@
-// Strata Console — Electron main process.
+// Ward Console — Electron main process.
 //
-// Runs the Strata control plane as a native desktop application. Hospitals launch
+// Runs the Ward control plane as a native desktop application. Hospitals launch
 // the app, sign in, and get the full console (registry, monitoring, validation,
 // governance, agent oversight, ROI) in a dedicated window.
 //
 // Modes:
-//   STRATA_DEV=1   -> load the running Next dev server (http://localhost:3000)
+//   WARD_DEV=1     -> load the running Next dev server (http://localhost:3000)
 //   default        -> boot the bundled Next standalone server and load it
 
 const { app, BrowserWindow, Menu, shell } = require("electron");
@@ -13,8 +13,8 @@ const path = require("path");
 const http = require("http");
 const { spawn } = require("child_process");
 
-const DEV = process.env.STRATA_DEV === "1";
-const PORT = Number(process.env.STRATA_PORT || 4477);
+const DEV = process.env.WARD_DEV === "1";
+const PORT = Number(process.env.WARD_PORT || 4477);
 const HOST = "127.0.0.1";
 
 let serverProc = null;
@@ -39,7 +39,7 @@ function startServer() {
     },
     stdio: "inherit",
   });
-  serverProc.on("error", (e) => console.error("[strata] server error:", e));
+  serverProc.on("error", (e) => console.error("[ward] server error:", e));
 }
 
 function waitForServer(url, done, tries = 0) {
@@ -48,7 +48,7 @@ function waitForServer(url, done, tries = 0) {
     done();
   });
   req.on("error", () => {
-    if (tries > 80) return done(new Error("Strata server did not start in time."));
+    if (tries > 80) return done(new Error("Ward server did not start in time."));
     setTimeout(() => waitForServer(url, done, tries + 1), 500);
   });
 }
@@ -60,7 +60,7 @@ function createWindow(startUrl) {
     minWidth: 1040,
     minHeight: 680,
     backgroundColor: "#080b10",
-    title: "Strata",
+    title: "Ward",
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
@@ -118,7 +118,7 @@ app.whenReady().then(() => {
   } else {
     startServer();
     waitForServer(base + "/login", (err) => {
-      if (err) console.error("[strata]", err.message);
+      if (err) console.error("[ward]", err.message);
       boot();
     });
   }

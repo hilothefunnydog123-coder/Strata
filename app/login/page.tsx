@@ -69,7 +69,7 @@ function LoginForm() {
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-fg">Sign in</h2>
           <p className="mt-1 text-sm font-medium text-fg-muted">
-            Access the Strata console for your organization.
+            Access the Ward console for your organization.
           </p>
 
           <form onSubmit={submit} className="mt-6 space-y-3.5">
@@ -113,7 +113,7 @@ function LoginForm() {
 
           <div className="mt-6 rounded-lg border border-edge bg-raised p-3.5">
             <div className="text-2xs font-bold uppercase tracking-wider text-fg-dim">
-              Demo accounts · password “strata”
+              Demo accounts · password “ward-demo”
             </div>
             <div className="mt-2 space-y-1.5">
               {DEMO_ACCOUNTS.map((a) => (
@@ -121,7 +121,7 @@ function LoginForm() {
                   key={a.email}
                   onClick={() => {
                     setEmail(a.email);
-                    setPassword("strata");
+                    setPassword("ward-demo");
                     setError(null);
                   }}
                   className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-hover"
@@ -138,7 +138,7 @@ function LoginForm() {
 
           <p className="mt-6 text-center text-xs font-medium text-fg-dim">
             <Link href="/" className="text-accent hover:underline">
-              Back to strata.health
+              Back to ward.health
             </Link>
           </p>
         </div>

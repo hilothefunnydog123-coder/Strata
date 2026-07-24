@@ -19,7 +19,7 @@ export function ThemeToggle() {
   const apply = (t: Theme) => {
     document.documentElement.setAttribute("data-theme", t);
     try {
-      localStorage.setItem("strata-theme", t);
+      localStorage.setItem("ward-theme", t);
     } catch {}
     setTheme(t);
   };
@@ -42,4 +42,4 @@ export function ThemeToggle() {
   );
 }
 
-export const themeInitScript = `(function(){try{var t=localStorage.getItem('strata-theme');if(!t){t='dark';}document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
+export const themeInitScript = `(function(){try{var t=localStorage.getItem('ward-theme');if(!t){t='dark';}document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;

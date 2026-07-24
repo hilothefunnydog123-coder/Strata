@@ -1,6 +1,6 @@
 name: CI
 
-# Typecheck, lint, and build the Strata control plane on every push and PR.
+# Typecheck, lint, and build the Ward control plane on every push and PR.
 
 on:
   push:

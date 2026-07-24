@@ -1,7 +1,7 @@
 import { cn } from "@/lib/cn";
 
-/** Strata mark — layered strata, echoing the product name. */
-export function StrataMark({ className }: { className?: string }) {
+/** Ward mark — stacked layers. */
+export function WardMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 28 28" className={className} fill="none" aria-hidden>
       <rect width="28" height="28" rx="6" fill="rgb(var(--accent))" />
@@ -23,9 +23,9 @@ export function Brand({
 }) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
-      <StrataMark className="h-7 w-7 shrink-0" />
+      <WardMark className="h-7 w-7 shrink-0" />
       <div className="min-w-0 leading-none">
-        <div className="text-sm font-semibold tracking-tight text-fg">Strata</div>
+        <div className="text-sm font-semibold tracking-tight text-fg">Ward</div>
         {subtitle && (
           <div className="mt-1 text-2xs font-medium uppercase tracking-[0.14em] text-fg-dim">
             AI Control Plane

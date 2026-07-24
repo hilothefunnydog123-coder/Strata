@@ -1,18 +1,18 @@
 {
-  "name": "strata-desktop",
+  "name": "ward-desktop",
   "version": "1.0.0",
   "private": true,
-  "description": "Strata Console — the healthcare AI control plane as a native desktop app.",
+  "description": "Ward Console — the healthcare AI control plane as a native desktop app.",
   "main": "main.js",
   "scripts": {
-    "dev": "cross-env STRATA_DEV=1 electron .",
+    "dev": "cross-env WARD_DEV=1 electron .",
     "start": "electron .",
     "build": "electron-builder",
     "build:dir": "electron-builder --dir"
   },
   "build": {
-    "appId": "health.strata.console",
-    "productName": "Strata",
+    "appId": "health.ward.console",
+    "productName": "Ward",
     "asar": true,
     "files": ["main.js", "preload.js"],
     "extraResources": [

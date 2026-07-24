@@ -1,4 +1,4 @@
-// Strata — production data model. SQLite for a self-contained deploy; switch
+// Ward — production data model. SQLite for a self-contained deploy; switch
 // `provider` to "postgresql" and set DATABASE_URL to scale horizontally.
 
 generator client {

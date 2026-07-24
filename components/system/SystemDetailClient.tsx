@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ControlCenter } from "./ControlCenter";
-import { StrataMark } from "@/components/shell/Brand";
+import { WardMark } from "@/components/shell/Brand";
 import { ButtonLink } from "@/components/ui/Button";
 import { alerts, auditForSystem, incidents } from "@/lib/data";
 import { useStore } from "@/lib/store";
@@ -16,7 +16,7 @@ export function SystemDetailClient({ id }: { id: string }) {
   if (!ready) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3">
-        <StrataMark className="h-8 w-8 animate-pulse" />
+        <WardMark className="h-8 w-8 animate-pulse" />
         <div className="text-sm font-semibold text-fg-muted">Loading system</div>
       </div>
     );

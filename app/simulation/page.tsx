@@ -9,7 +9,7 @@ export default function SimulationPage() {
     <div>
       <PageHeader
         title="Simulation Mode"
-        description="Demonstrate how Strata detects and responds to real-world AI failures: schema changes, subgroup regressions, and agent anomalies, propagating through drift, performance, fairness, and alerting in real time."
+        description="Demonstrate how Ward detects and responds to real-world AI failures: schema changes, subgroup regressions, and agent anomalies, propagating through drift, performance, fairness, and alerting in real time."
         breadcrumb={[{ label: "Platform" }, { label: "Simulation" }]}
       />
       <SimulationConsole />
