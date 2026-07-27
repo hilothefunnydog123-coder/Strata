@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type {
   Payer,
   Code,
@@ -20,6 +20,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 /** Open (or create) the desktop SQLite store and ensure the schema exists. */
 export function openLocalDb(path = ":memory:"): LocalDatabase {
+  if (path !== ":memory:") mkdirSync(dirname(resolve(path)), { recursive: true });
   const db = new Database(path);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");

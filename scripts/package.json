@@ -1,0 +1,24 @@
+{
+  "name": "@assent/scripts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/cli.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@assent/core": "workspace:*",
+    "@assent/db": "workspace:*",
+    "@assent/parse": "workspace:*",
+    "@assent/ingest": "workspace:*",
+    "@assent/extract": "workspace:*",
+    "@assent/blueprint": "workspace:*",
+    "@assent/local-db": "workspace:*",
+    "drizzle-orm": "^0.38.3"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
