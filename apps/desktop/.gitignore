@@ -1,0 +1,7 @@
+dist
+node_modules
+.turbo
+
+# Tauri (Rust) build artifacts
+src-tauri/target
+src-tauri/gen
