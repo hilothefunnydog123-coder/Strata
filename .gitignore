@@ -42,3 +42,6 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Eval run snapshots (also written to the eval_run table when DATABASE_URL is set)
+packages/evals/eval-runs/
