@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: assent
+          POSTGRES_PASSWORD: assent
+          POSTGRES_DB: assent_dev
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://assent:assent@localhost:5432/assent_dev
+      PIPELINE_MODE: fixture
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests (invariant, parse, ingest, extract, blueprint, local-db)
+        run: pnpm test
+
+      - name: Evals — hallucination must be 0
+        run: pnpm eval
+
+      - name: FTS5 search benchmark (< 50ms over 300k spans)
+        run: pnpm --filter @assent/local-db bench
+
+      - name: DB migrate + full offline pipeline (idempotent)
+        run: |
+          pnpm db:migrate
+          pnpm db:seed
+          pnpm pipeline
+          pnpm blueprint --asset=asset_demo
+
+      - name: Build web
+        run: pnpm --filter @assent/web build
+
+      - name: Build desktop frontend
+        run: pnpm --filter @assent/desktop build
