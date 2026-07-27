@@ -3,7 +3,7 @@ import { authenticator } from "otplib";
 import { eq } from "drizzle-orm";
 import { schema } from "@assent/db";
 import { parseHtmlToSpans } from "@assent/parse";
-import { ingestSource, ingestAll, allSourceIds, loadFixtureRawDocuments, type RawDocument } from "@assent/ingest";
+import { ingestSource, ingestAll, allSourceIds, loadFixtureRawDocuments, generateScaleDocuments, type RawDocument } from "@assent/ingest";
 import { extractDocument, diffVersions, makePolicyDocId } from "@assent/extract";
 import { verifyQuote, type Asset } from "@assent/core";
 import { buildBlueprint, type EnrichedCriterion } from "@assent/blueprint";
@@ -39,15 +39,26 @@ async function ingest(store: Store) {
   const source = flags.get("source");
   const since = flags.get("since");
   const docs = source ? await ingestSource(source, { since }) : await ingestAll({ since });
+  // Optionally synthesize structurally-real docs to reach corpus scale (M9's ≥300 count).
+  const scaleN = Number(flags.get("generate-scale") ?? "0");
+  const scale = scaleN > 0 ? generateScaleDocuments(scaleN) : [];
   let inserted = 0, unchanged = 0;
-  for (const raw of docs) {
+  for (const raw of [...docs, ...scale]) {
     const docId = makePolicyDocId(raw.source, raw.externalId, raw.version);
     const supersedesId = raw.supersedesExternalVersion
       ? makePolicyDocId(raw.source, raw.externalId, raw.supersedesExternalVersion) : null;
     const r = await upsertPolicyDocument(store, raw, docId, supersedesId);
     if (r.inserted) inserted++; else unchanged++;
   }
-  console.log(`[ingest] ${docs.length} docs → ${inserted} new versions, ${unchanged} seen/unchanged`);
+  // Scale docs are not in the fixtures manifest, so parse them inline here (we have
+  // the bytes) rather than relying on the separate parse stage's fixture loader.
+  for (const raw of scale) {
+    const docId = makePolicyDocId(raw.source, raw.externalId, raw.version);
+    const { spans } = parseHtmlToSpans(new TextDecoder().decode(raw.bytes));
+    await insertSpans(store, docId, spans);
+  }
+  const scaleNote = scale.length ? ` (incl. ${scale.length} synthetic-scale, parsed inline)` : "";
+  console.log(`[ingest] ${docs.length + scale.length} docs${scaleNote} → ${inserted} new versions, ${unchanged} seen/unchanged`);
 }
 
 async function parse(store: Store) {
