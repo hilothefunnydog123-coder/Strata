@@ -50,29 +50,59 @@ export interface CriterionMatch {
   removed: Criterion[];
 }
 
-/** Pair criteria across two versions by kind + subject similarity (greedy best match). */
+/**
+ * Pair criteria across two versions. Kind is a hard constraint; within a kind we
+ * match by similarity — EXCEPT that when a kind has exactly one criterion on each
+ * side, they are paired unconditionally. A revision that rewrites the sole
+ * frequency-limit rule from "has not been previously tested" to "repeat testing is
+ * permitted when…" shares few words but is plainly the same rule changing, and
+ * scoring it as an unrelated add + remove would hide the very signal (loosened)
+ * that the change feed exists to surface.
+ */
 export function matchCriteria(fromList: Criterion[], toList: Criterion[]): CriterionMatch {
   const pairs: MatchedPair[] = [];
   const usedTo = new Set<number>();
-  const unmatchedFrom: Criterion[] = [];
-  for (const from of fromList) {
-    let best = -1;
-    let bestScore = 0.45;
-    toList.forEach((to, j) => {
-      if (usedTo.has(j) || to.kind !== from.kind) return;
-      const score = criterionSim(from, to);
-      if (score > bestScore) {
-        bestScore = score;
-        best = j;
+  const usedFrom = new Set<number>();
+
+  const kinds = new Set([...fromList.map((c) => c.kind), ...toList.map((c) => c.kind)]);
+  for (const kind of kinds) {
+    const fromIdx = fromList.map((c, i) => [c, i] as const).filter(([c]) => c.kind === kind);
+    const toIdx = toList.map((c, i) => [c, i] as const).filter(([c]) => c.kind === kind);
+
+    // Sole-of-its-kind on both sides: the same rule, rewritten.
+    if (fromIdx.length === 1 && toIdx.length === 1) {
+      const [f, fi] = fromIdx[0]!;
+      const [t, ti] = toIdx[0]!;
+      usedFrom.add(fi);
+      usedTo.add(ti);
+      pairs.push({ from: f, to: t });
+      continue;
+    }
+
+    for (const [from, fi] of fromIdx) {
+      let best = -1;
+      let bestScore = 0.4;
+      for (const [to, ti] of toIdx) {
+        if (usedTo.has(ti)) continue;
+        const score = criterionSim(from, to);
+        if (score > bestScore) {
+          bestScore = score;
+          best = ti;
+        }
       }
-    });
-    if (best >= 0) {
-      usedTo.add(best);
-      pairs.push({ from, to: toList[best]! });
-    } else unmatchedFrom.push(from);
+      if (best >= 0) {
+        usedTo.add(best);
+        usedFrom.add(fi);
+        pairs.push({ from, to: toList[best]! });
+      }
+    }
   }
-  const added = toList.filter((_, j) => !usedTo.has(j));
-  return { pairs, added, removed: unmatchedFrom };
+
+  return {
+    pairs,
+    added: toList.filter((_, j) => !usedTo.has(j)),
+    removed: fromList.filter((_, i) => !usedFrom.has(i)),
+  };
 }
 
 // ── Restrictiveness scoring ──────────────────────────────────────────────────

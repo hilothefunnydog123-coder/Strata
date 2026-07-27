@@ -57,6 +57,7 @@ export function generateScaleDocuments(count: number): RawDocument[] {
       supersedesExternalVersion: null,
       codes: [{ code, relationship: "covers" }],
       syntheticScale: true,
+      provenance: "synthetic_scale",
     });
   }
   return out;

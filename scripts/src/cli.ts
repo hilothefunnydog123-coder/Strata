@@ -2,7 +2,7 @@ import { scryptSync, randomBytes } from "node:crypto";
 import { authenticator } from "otplib";
 import { eq } from "drizzle-orm";
 import { schema } from "@assent/db";
-import { parseHtmlToSpans } from "@assent/parse";
+import { parseHtmlToSpans, parsePdfToSpans } from "@assent/parse";
 import { ingestSource, ingestAll, allSourceIds, loadFixtureRawDocuments, generateScaleDocuments, type RawDocument } from "@assent/ingest";
 import { extractDocument, diffVersions, makePolicyDocId } from "@assent/extract";
 import { verifyQuote, type Asset } from "@assent/core";
@@ -74,9 +74,10 @@ async function parse(store: Store) {
   let parsed = 0;
   for (const [docId, raw] of raws) {
     if (withSpans.has(docId)) continue;
-    if (raw.contentType !== "html") { console.warn(`[parse] skipping non-html ${docId}`); continue; }
-    const html = new TextDecoder().decode(raw.bytes);
-    const { spans } = parseHtmlToSpans(html);
+    const { spans } =
+      raw.contentType === "pdf"
+        ? await parsePdfToSpans(raw.bytes)
+        : parseHtmlToSpans(new TextDecoder().decode(raw.bytes));
     await insertSpans(store, docId, spans);
     parsed++;
   }

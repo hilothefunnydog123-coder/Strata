@@ -28,6 +28,12 @@ export interface RawDocument {
   codes: RawCodeLink[];
   /** Marks documents synthesized to reach corpus scale (never in the golden set). */
   syntheticScale?: boolean;
+  /**
+   * Where the bytes came from. `sample` = reconstructed text for offline dev, which
+   * must be labeled as such everywhere it is displayed. `fetched` = retrieved from
+   * the real source in live mode.
+   */
+  provenance: "fetched" | "sample" | "synthetic_scale";
 }
 
 export type SourceAccess = "structured" | "html" | "pdf" | "mixed";

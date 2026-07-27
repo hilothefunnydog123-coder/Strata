@@ -71,7 +71,7 @@ export async function upsertPolicyDocument(
   await db.insert(schema.policyDocument).values({
     id: docId, payerId: raw.payerId, externalId: raw.externalId, title: raw.title, url: raw.url,
     effectiveDate: raw.effectiveDate, retrievedAt: new Date(), contentHash: raw.contentHash,
-    supersedesId, rawStoragePath: raw.rawStoragePath,
+    supersedesId, rawStoragePath: raw.rawStoragePath, provenance: raw.provenance,
   }).onConflictDoNothing();
 
   // Resolve + link codes.

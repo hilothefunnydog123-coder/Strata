@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { PRODUCT } from "@assent/core";
 import { currentUser } from "@/lib/session";
 import { getAccount } from "@/lib/account";
+import { ProvenanceBanner } from "@/components/ProvenanceBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,11 @@ export default async function DashLayout({ children }: { children: React.ReactNo
           </form>
         </div>
       </aside>
-      <main className="p-6 md:p-10 max-w-5xl">{children}</main>
+      <main className="p-6 md:p-10 max-w-5xl">
+        {/* Corpus provenance is stated on every console page and cannot be dismissed. */}
+        <ProvenanceBanner />
+        {children}
+      </main>
     </div>
   );
 }

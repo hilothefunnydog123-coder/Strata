@@ -2,7 +2,7 @@
 import { useId, useState } from "react";
 
 const FIELD =
-  "a-focusable w-full rounded border border-chrome-200 bg-white px-3 py-2 text-[14px] text-ink outline-none placeholder:text-chrome-300 focus:border-citation";
+  "a-focusable w-full rounded border border-chrome-200 bg-white px-3 py-2 text-[14px] text-ink outline-none placeholder:text-chrome-500 focus:border-citation";
 const LABEL = "a-mono text-[10px] uppercase tracking-[0.1em] text-chrome-500";
 
 export function DemoForm() {
@@ -80,7 +80,7 @@ export function DemoForm() {
           </label>
           <label className="grid gap-1.5">
             <span className={LABEL}>
-              Role <span className="normal-case tracking-normal text-chrome-300">optional</span>
+              Role <span className="normal-case tracking-normal">optional</span>
             </span>
             <input
               name="role"

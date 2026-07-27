@@ -126,35 +126,31 @@ export function HeroCitation() {
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-chrome-200 bg-chrome-50 px-4 py-2.5 sm:px-5">
           <span className="a-mono text-[11px] font-medium text-ink">{DOC.id}</span>
           <span className="a-mono text-[11px] text-chrome-500">{DOC.payer}</span>
-          <span className="a-mono ml-auto text-[11px] text-chrome-500">
+          <span className="a-mono w-full text-[11px] text-chrome-500 sm:ml-auto sm:w-auto">
             {DOC.revision} · eff. {DOC.effective} · {DOC.codes}
           </span>
         </div>
 
         <div className="grid min-w-0 md:grid-cols-[1.3fr_1fr]">
-          {/* Left: the source, rendered as a document. */}
-          <div
-            className="min-w-0 max-h-[280px] overflow-y-auto border-b border-chrome-200 p-4 sm:p-6 md:max-h-[440px] md:border-b-0 md:border-r"
-            aria-label={`Source policy text, ${DOC.title}`}
-            role="region"
-          >
-            <div className="a-eyebrow mb-3">Source · Local Coverage Determination</div>
-            <CitationView spans={SPANS} activeSpanId={mark.spanId} activeQuote={mark.quote} />
+          {/* Left: the source, rendered as a document. The label stays put; the paper scrolls. */}
+          <div className="flex min-w-0 flex-col border-b border-chrome-200 md:border-b-0 md:border-r">
+            <div className="a-eyebrow px-4 pt-4 sm:px-6 sm:pt-5">
+              Source · Local Coverage Determination
+            </div>
+            <div
+              ref={pane}
+              tabIndex={0}
+              role="region"
+              aria-label={`Source policy text, ${DOC.title}`}
+              className="a-focusable relative min-w-0 max-h-[260px] overflow-y-auto px-4 pb-4 pt-3 sm:px-6 sm:pb-6 md:max-h-[420px]"
+            >
+              <CitationView spans={SPANS} activeSpanId={mark.spanId} activeQuote={mark.quote} />
+            </div>
           </div>
 
           {/* Right: what Assent pulled out of it. */}
           <div className="min-w-0 bg-chrome-50 p-4 sm:p-5">
-            <div className="mb-3 flex items-baseline justify-between gap-3">
-              <span className="a-eyebrow">Extracted requirements</span>
-              <button
-                type="button"
-                onClick={() => setAuto((a) => !a)}
-                aria-label={auto ? "Pause the walkthrough" : "Play the walkthrough"}
-                className="a-focusable a-mono rounded px-1 text-[10px] uppercase tracking-[0.12em] text-chrome-500 hover:text-ink"
-              >
-                {auto ? "Pause" : "Play"}
-              </button>
-            </div>
+            <div className="a-eyebrow mb-3">Extracted requirements</div>
 
             <ul className="flex flex-col">
               {MARKS.map((m, i) => {
@@ -192,6 +188,17 @@ export function HeroCitation() {
                 );
               })}
             </ul>
+
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setAuto((a) => !a)}
+                aria-label={auto ? "Pause the walkthrough" : "Play the walkthrough"}
+                className="a-focusable a-mono rounded px-1 py-0.5 text-[10px] uppercase tracking-[0.12em] text-chrome-500 hover:text-ink"
+              >
+                {auto ? "Pause" : "Play"}
+              </button>
+            </div>
           </div>
         </div>
       </div>

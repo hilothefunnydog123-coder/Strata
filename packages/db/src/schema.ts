@@ -45,6 +45,12 @@ export const coverageStanceEnum = pgEnum("coverage_stance_kind", COVERAGE_STANCE
 export const changeType = pgEnum("change_type", CHANGE_TYPES);
 export const accountPlan = pgEnum("account_plan", ["pilot", "standard", "enterprise"]);
 export const userRole = pgEnum("user_role", ["admin", "member", "viewer"]);
+/**
+ * Where a document's bytes came from. `sample` marks reconstructed text used for
+ * offline development — it must never be presented as a real payer requirement.
+ */
+export const provenance = pgEnum("provenance", ["fetched", "sample", "synthetic_scale"]);
+
 export const campaignStage = pgEnum("campaign_stage", [
   "not_engaged",
   "dossier_sent",
@@ -93,6 +99,7 @@ export const policyDocument = pgTable(
     contentHash: text("content_hash").notNull(),
     supersedesId: text("supersedes_id"),
     rawStoragePath: text("raw_storage_path").notNull(),
+    provenance: provenance("provenance").notNull().default("sample"),
   },
   (t) => [
     index("policy_document_payer_idx").on(t.payerId),

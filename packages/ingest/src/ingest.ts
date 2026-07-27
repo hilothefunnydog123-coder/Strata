@@ -3,6 +3,10 @@ import { pipelineMode } from "./types";
 import { requireSource, allSourceIds } from "./sources";
 import { loadFixtureRawDocuments } from "./fixtures";
 
+/** v0 scope filter: molecular oncology diagnostics (PROMPT §2). */
+export const MOLECULAR_ONCOLOGY =
+  /sequenc|genomic|molecular|biomarker|oncolog|tumor|cancer|neoplas|gene panel|circulating tumor/i;
+
 export interface IngestOptions {
   since?: string; // ISO date; keep docs with effectiveDate >= since
 }
@@ -23,7 +27,13 @@ export async function ingestSource(sourceId: string, opts: IngestOptions = {}): 
     return docs;
   }
 
-  // live mode
+  // live mode — CMS is a US government work and needs no licensing review, so it
+  // is the source that actually runs today.
+  if (sourceId === "cms") {
+    const { ingestCms } = await import("./sources/cms");
+    return ingestCms({ kind: "ncd", since: opts.since, filter: MOLECULAR_ONCOLOGY });
+  }
+
   if (!source.liveAllowed) {
     throw new Error(
       `Live ingest for "${sourceId}" is disabled. Its Terms of Use must be confirmed to permit ` +

@@ -79,6 +79,8 @@ export function loadFixtureRawDocuments(sourceId?: string, dir = findFixturesDir
       rawStoragePath: path,
       supersedesExternalVersion: supersedes ? supersedes.version : null,
       codes: m.codes,
+      // Committed fixtures are reconstructions, never real fetched documents.
+      provenance: "sample",
     });
   }
   // Stable order: by source, external id, version.

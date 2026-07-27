@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "@assent/core": "workspace:*",
-    "node-html-parser": "^6.1.13"
+    "node-html-parser": "^6.1.13",
+    "pdfjs-dist": "^4.9.155"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

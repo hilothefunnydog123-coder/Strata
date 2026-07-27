@@ -11,7 +11,7 @@ process.env.PIPELINE_MODE = "fixture";
 
 function spansFor(source: string, file: string, externalId: string, version: number): {
   spans: DocumentSpan[];
-  ctx: { source: string; externalId: string; version: number; documentTitle: string; model: string; resolveCode: (c: string) => string };
+  ctx: { source: string; externalId: string; version: number; documentTitle: string; resolveCode: (c: string) => string; documentCodes: string[] };
 } {
   const dir = findFixturesDir();
   const html = readFileSync(join(dir, file), "utf8");
@@ -29,7 +29,7 @@ function spansFor(source: string, file: string, externalId: string, version: num
   }));
   return {
     spans,
-    ctx: { source, externalId, version, documentTitle: "Test", model: "fixture", resolveCode: (c) => `CODE:${c}` },
+    ctx: { source, externalId, version, documentTitle: "Test", resolveCode: (c: string) => `CODE:${c}`, documentCodes: ["81445"] },
   };
 }
 
