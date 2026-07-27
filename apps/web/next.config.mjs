@@ -5,8 +5,8 @@ const nextConfig = {
   transpilePackages: ["@assent/core", "@assent/ui", "@assent/db"],
   eslint: { ignoreDuringBuilds: true },
   experimental: {
-    // postgres (node) is only used in server code / route handlers.
-    serverComponentsExternalPackages: ["postgres"],
+    // postgres and nodemailer (node) are only used in server code / route handlers.
+    serverComponentsExternalPackages: ["postgres", "nodemailer"],
   },
 };
 export default nextConfig;

@@ -14,7 +14,7 @@ export default function Tour() {
   return (
     <>
       <SiteNav />
-      <main className="mx-auto max-w-6xl px-5">
+      <main id="main" className="mx-auto max-w-6xl px-5">
         <section className="pt-14 pb-10">
           <div className="a-mono text-[12px] uppercase tracking-wider text-chrome-500 mb-3">Product tour</div>
           <h1 className="font-serif text-[34px] leading-tight text-ink max-w-3xl">
@@ -34,7 +34,7 @@ export default function Tour() {
         <section className="py-14 grid gap-px bg-chrome-200 rounded-lg overflow-hidden md:grid-cols-2">
           {MODULES.map(([h, p], i) => (
             <div key={h} className="bg-paper p-6">
-              <div className="a-mono text-[12px] text-citation">M{i + 1}</div>
+              <div className="a-mono text-[12px] text-chrome-500">M{i + 1}</div>
               <h3 className="font-serif text-[20px] text-ink mt-1">{h}</h3>
               <p className="text-[14px] leading-relaxed text-chrome-700 mt-2">{p}</p>
             </div>

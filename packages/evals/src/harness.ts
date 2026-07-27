@@ -49,6 +49,8 @@ const docCtx = (d: BuiltDoc) => ({
   documentTitle: `${d.source} ${d.externalId}`,
   model: "fixture",
   resolveCode: (c: string) => `CODE:${c}`,
+  // Codes the corpus links to these documents, so stance detection can attach.
+  documentCodes: ["81445", "81479", "0239U"],
 });
 
 export interface ExtractionEvalResult extends ExtractionMetrics {

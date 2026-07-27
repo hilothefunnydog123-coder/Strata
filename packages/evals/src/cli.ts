@@ -21,8 +21,8 @@ async function main() {
   const diff = await runDiffEval();
 
   console.log("\n═══ Assent evals ═══════════════════════════════════════════\n");
-  console.log("EXTRACTION  (offline provider reproduces the golden labels; these");
-  console.log("            become the real-model score in PIPELINE_MODE=live)\n");
+  console.log("EXTRACTION  (@assent/brain — a locally-trained classifier. No LLM,");
+  console.log("            no network. Scored against the hand-labeled golden set.)\n");
   console.log(`  docs examined           ${ex.docs}`);
   console.log(`  spans examined          ${ex.spansExamined}`);
   console.log(`  gold criteria           ${ex.goldCount}`);
@@ -32,6 +32,7 @@ async function main() {
   console.log(`  recall                  ${pct(ex.recall)}`);
   console.log(`  F1                      ${pct(ex.f1)}`);
   console.log(`  kind accuracy           ${pct(ex.kindAccuracy)}`);
+  console.log(`  quote tightness         ${pct(ex.quoteTightness)}   (1.0 = quote is exactly minimal)`);
   console.log(`  citation pass rate      ${pct(ex.citationPassRate)}`);
   console.log(`  rejection rate          ${pct(ex.rejectionRate)}   (M3 gate: < 5%)`);
   console.log(`  HALLUCINATION RATE      ${pct(ex.hallucinationRate)}   (gate: must be 0)`);

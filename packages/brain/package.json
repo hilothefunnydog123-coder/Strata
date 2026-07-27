@@ -1,5 +1,5 @@
 {
-  "name": "@assent/extract",
+  "name": "@assent/brain",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,15 +9,16 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "train": "tsx src/cli-train.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
     "@assent/core": "workspace:*",
-    "@assent/parse": "workspace:*",
-    "@assent/brain": "workspace:*"
+    "@assent/parse": "workspace:*"
   },
   "devDependencies": {
+    "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

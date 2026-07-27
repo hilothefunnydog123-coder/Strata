@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function Login() {
   if (await currentUser()) redirect("/dashboard");
   return (
-    <main className="min-h-screen grid md:grid-cols-2">
+    <main id="main" className="min-h-screen grid md:grid-cols-2">
       <div className="hidden md:flex flex-col justify-between bg-chrome-900 text-paper p-10">
         <Wordmark className="[&_span]:text-paper" />
         <div>

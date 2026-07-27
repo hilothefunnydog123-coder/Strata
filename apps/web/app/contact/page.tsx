@@ -6,7 +6,7 @@ export default function Contact() {
   return (
     <>
       <SiteNav />
-      <main className="mx-auto max-w-6xl px-5">
+      <main id="main" className="mx-auto max-w-6xl px-5">
         <section className="pt-14 pb-16 grid gap-8 md:grid-cols-[0.8fr_1.2fr] md:items-start">
           <div>
             <h1 className="font-serif text-[32px] text-ink">Contact</h1>

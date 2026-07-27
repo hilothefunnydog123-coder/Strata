@@ -20,7 +20,6 @@ for (const a of rest) {
   const m = a.match(/^--([^=]+)(?:=(.*))?$/);
   if (m) flags.set(m[1]!, m[2] ?? "true");
 }
-const EXTRACT_MODEL = process.env.ASSENT_EXTRACT_MODEL ?? "claude-sonnet-4-6";
 
 /** Map every fixture RawDocument to its deterministic doc id (source==payerId in v0). */
 function rawByDocId(source?: string): Map<string, RawDocument> {
@@ -29,7 +28,15 @@ function rawByDocId(source?: string): Map<string, RawDocument> {
 }
 function docContext(docId: string, raw: RawDocument, resolveCode: (c: string) => string | null) {
   const version = Number(docId.match(/_v(\d+)$/)?.[1] ?? raw.version);
-  return { source: raw.source, externalId: raw.externalId, version, documentTitle: raw.title, model: EXTRACT_MODEL, resolveCode };
+  return {
+    source: raw.source,
+    externalId: raw.externalId,
+    version,
+    documentTitle: raw.title,
+    resolveCode,
+    // Codes this document covers/mentions, so a detected stance attaches to them.
+    documentCodes: raw.codes.map((c) => c.code),
+  };
 }
 
 // ── stages ────────────────────────────────────────────────────────────────────
@@ -122,7 +129,7 @@ async function diff(store: Store) {
     if (source && doc.payerId !== source) continue;
     const from = await getCriteria(store, doc.supersedesId);
     const to = await getCriteria(store, doc.id);
-    const changes = await diffVersions(from, to, doc.id, EXTRACT_MODEL);
+    const changes = await diffVersions(from, to, doc.id);
     await insertChanges(store, changes);
     changed += changes.length;
     const counts = changes.reduce((m, c) => ((m[c.changeType] = (m[c.changeType] ?? 0) + 1), m), {} as Record<string, number>);

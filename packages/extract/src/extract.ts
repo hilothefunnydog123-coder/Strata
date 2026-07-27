@@ -1,5 +1,4 @@
 import {
-  ExtractionOutputSchema,
   makeVerifiedCriterion,
   makeVerifiedStance,
   type Criterion,
@@ -9,12 +8,27 @@ import {
   type DocumentSpan,
   type CriterionDraft,
 } from "@assent/core";
-import { pipelineMode } from "./paths";
-import { goldenFor } from "./golden-provider";
-import { EXTRACTION_SYSTEM, buildExtractionUserPrompt, type ExtractionContext } from "./prompt";
-import { cacheKey, readCache, writeCache } from "./cache";
+import { classifier, detectStance, CriterionClassifier } from "@assent/brain";
+import { CRITERION_KIND_LABEL } from "@assent/core";
 import { makeCriterionId } from "./identity";
-import { makeLlmCall } from "./cost";
+
+/**
+ * Extraction — powered by @assent/brain, a locally-trained classifier. There is
+ * no language model in this path and no network call.
+ *
+ * WHY THE CITATION INVARIANT IS NOW STRUCTURAL:
+ *   The classifier never writes text. It scores candidate clauses that were cut
+ *   out of the stored document, so `verbatimQuote` is `span.text.slice(start,end)`
+ *   — a literal substring by construction. Fabrication is impossible rather than
+ *   filtered after the fact. We still run every draft through
+ *   makeVerifiedCriterion as defense in depth; that gate should never fire, and
+ *   if it ever does it means segmentation and storage have drifted apart, which
+ *   is a bug we want to hear about loudly.
+ *
+ * The model's failure mode is therefore "surfaced a sentence that is not actually
+ * binding" — visible to the user in one click, and recoverable — never "asserted a
+ * requirement that does not exist in any document".
+ */
 
 export interface SpanContext {
   source: string;
@@ -24,15 +38,19 @@ export interface SpanContext {
   headingPath: string[];
   prevText?: string;
   nextText?: string;
-  model: string;
-  /** Resolve a code string (e.g. "0239U") to a Code id. Unresolved stances are rejected, not dropped. */
+  /** Retained for API compatibility; unused — extraction is local. */
+  model?: string;
+  /** Resolve a code string (e.g. "0239U") to a Code id. */
   resolveCode?: (code: string) => string | null;
+  /** Codes the document is linked to, used to attach a stance when the span names none. */
+  documentCodes?: string[];
 }
 
 export interface SpanExtraction {
   criteria: Criterion[];
   stances: CoverageStanceRecord[];
   rejections: RejectedExtraction[];
+  /** Always empty now — kept so callers and the schema stay unchanged. */
   llmCall: LlmCall | null;
   rawOutput: string;
 }
@@ -41,86 +59,32 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-/** Extract one span through the citation invariant. Offline reads golden labels; live calls the model. */
-export async function extractSpan(span: DocumentSpan, ctx: SpanContext): Promise<SpanExtraction> {
-  const mode = pipelineMode();
-  const promptCtx: ExtractionContext = {
-    headingPath: ctx.headingPath,
-    prevText: ctx.prevText,
-    nextText: ctx.nextText,
-    documentTitle: ctx.documentTitle,
-  };
+/** Model identifier recorded on every criterion, for provenance. */
+export function extractorName(): string {
+  const meta = classifier().meta as { architecture?: string };
+  return `assent-brain/${meta.architecture ? "mlp" : "local"}`;
+}
 
-  let rawOutput: string;
-  let llmCall: LlmCall | null = null;
-  let parsedUnknown: unknown;
-
-  if (mode === "fixture") {
-    parsedUnknown = goldenFor(ctx.source, ctx.externalId, ctx.version, span.ordinal);
-    rawOutput = JSON.stringify(parsedUnknown);
-  } else {
-    const user = buildExtractionUserPrompt(span, promptCtx);
-    const key = cacheKey(ctx.model, EXTRACTION_SYSTEM, user);
-    let cached = readCache("extract", key);
-    const t0 = Date.now();
-    if (!cached) {
-      const { callModel } = await import("./anthropic");
-      cached = await callModel({ model: ctx.model, system: EXTRACTION_SYSTEM, user });
-      writeCache("extract", key, cached);
-    }
-    rawOutput = cached.text;
-    llmCall = makeLlmCall({
-      id: `llm_${key.slice(0, 16)}`,
-      inputHash: key,
-      model: ctx.model,
-      promptTokens: cached.promptTokens,
-      completionTokens: cached.completionTokens,
-      latencyMs: Date.now() - t0,
-      stage: "extract",
-    });
-    try {
-      parsedUnknown = JSON.parse(cached.text);
-    } catch {
-      parsedUnknown = null;
-    }
-  }
-
-  const parsed = ExtractionOutputSchema.safeParse(parsedUnknown);
-  if (!parsed.success) {
-    // Off-schema output is a rejection for the whole span, never a repair.
-    return {
-      criteria: [],
-      stances: [],
-      rejections: [
-        {
-          id: `${span.id}_rschema`,
-          spanId: span.id,
-          rawModelOutput: rawOutput.slice(0, 4000),
-          rejectionReason: `output failed schema validation: ${parsed.error.issues[0]?.message ?? "invalid"}`,
-          createdAt: nowIso(),
-        },
-      ],
-      llmCall,
-      rawOutput,
-    };
-  }
-
+/** Extract one span with the local classifier. */
+export function extractSpan(span: DocumentSpan, ctx: SpanContext): SpanExtraction {
+  const brain = classifier();
   const criteria: Criterion[] = [];
   const stances: CoverageStanceRecord[] = [];
   const rejections: RejectedExtraction[] = [];
-  const extractedByModel = mode === "fixture" ? "fixture-golden" : ctx.model;
+  const extractedByModel = extractorName();
 
-  parsed.data.criteria.forEach((draftRaw, i) => {
+  const predictions = brain.extract(span.text, span.headingPath);
+  predictions.forEach((p, i) => {
     const draft: CriterionDraft = {
-      kind: draftRaw.kind,
-      subject: draftRaw.subject,
-      requirementText: draftRaw.requirementText,
-      operator: draftRaw.operator,
-      value: draftRaw.value,
-      unit: draftRaw.unit,
-      evidence: draftRaw.evidence,
-      verbatimQuote: draftRaw.verbatimQuote,
-      confidence: draftRaw.confidence,
+      kind: p.kind,
+      subject: subjectFor(p.kind, p.quote),
+      requirementText: p.quote,
+      operator: null,
+      value: null,
+      unit: null,
+      evidence: {},
+      verbatimQuote: p.quote,
+      confidence: p.confidence,
     };
     const r = makeVerifiedCriterion(draft, span, {
       id: makeCriterionId(span.id, i),
@@ -131,26 +95,39 @@ export async function extractSpan(span: DocumentSpan, ctx: SpanContext): Promise
     else rejections.push({ id: `${span.id}_rc${i}`, createdAt: nowIso(), ...r.rejection });
   });
 
-  parsed.data.stances.forEach((s, i) => {
-    const codeId = ctx.resolveCode?.(s.code) ?? null;
-    if (!codeId) {
-      rejections.push({
-        id: `${span.id}_rs${i}`,
-        spanId: span.id,
-        rawModelOutput: JSON.stringify(s),
-        rejectionReason: `stance references unknown code "${s.code}"`,
-        createdAt: nowIso(),
+  // Stance (rules, extractive) — attached to the codes this document covers.
+  const st = detectStance(span.text);
+  if (st) {
+    const codes = ctx.documentCodes ?? [];
+    codes.forEach((code, i) => {
+      const codeId = ctx.resolveCode?.(code) ?? null;
+      if (!codeId) return;
+      const r = makeVerifiedStance({ stance: st.stance, codeId, verbatimQuote: st.quote }, span, {
+        id: `${span.id}_st${i}`,
       });
-      return;
-    }
-    const r = makeVerifiedStance({ stance: s.stance, codeId, verbatimQuote: s.verbatimQuote }, span, {
-      id: `${span.id}_st${i}`,
+      if (r.ok) stances.push(r.value);
+      else rejections.push({ id: `${span.id}_rst${i}`, createdAt: nowIso(), ...r.rejection });
     });
-    if (r.ok) stances.push(r.value);
-    else rejections.push({ id: `${span.id}_rst${i}`, createdAt: nowIso(), ...r.rejection });
-  });
+  }
 
-  return { criteria, stances, rejections, llmCall, rawOutput };
+  return {
+    criteria,
+    stances,
+    rejections,
+    llmCall: null,
+    rawOutput: JSON.stringify({ predictions, stance: st }),
+  };
+}
+
+/**
+ * A short normalized subject for the criterion, used for cross-payer clustering.
+ * Derived from the kind plus the salient noun phrase, without inventing content.
+ */
+function subjectFor(kind: string, quote: string): string {
+  const label = CRITERION_KIND_LABEL[kind as keyof typeof CRITERION_KIND_LABEL] ?? kind;
+  const words = quote.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+  const salient = words.filter((w) => w.length > 4).slice(0, 4).join(" ");
+  return salient ? `${label.toLowerCase()}: ${salient}` : label.toLowerCase();
 }
 
 export interface DocumentExtraction {
@@ -162,7 +139,7 @@ export interface DocumentExtraction {
   rejectionRate: number;
 }
 
-/** Extract a full document's spans, supplying neighbor context (anchored to the target). */
+/** Extract a full document's spans. */
 export async function extractDocument(
   spans: DocumentSpan[],
   docCtx: Omit<SpanContext, "headingPath" | "prevText" | "nextText">,
@@ -170,23 +147,23 @@ export async function extractDocument(
   const criteria: Criterion[] = [];
   const stances: CoverageStanceRecord[] = [];
   const rejections: RejectedExtraction[] = [];
-  const llmCalls: LlmCall[] = [];
 
   const ordered = [...spans].sort((a, b) => a.ordinal - b.ordinal);
-  for (let i = 0; i < ordered.length; i++) {
-    const span = ordered[i]!;
-    const result = await extractSpan(span, {
-      ...docCtx,
-      headingPath: span.headingPath,
-      prevText: ordered[i - 1]?.text,
-      nextText: ordered[i + 1]?.text,
-    });
+  for (const span of ordered) {
+    const result = extractSpan(span, { ...docCtx, headingPath: span.headingPath });
     criteria.push(...result.criteria);
     stances.push(...result.stances);
     rejections.push(...result.rejections);
-    if (result.llmCall) llmCalls.push(result.llmCall);
   }
 
   const claims = criteria.length + stances.length + rejections.length;
-  return { criteria, stances, rejections, llmCalls, rejectionRate: claims === 0 ? 0 : rejections.length / claims };
+  return {
+    criteria,
+    stances,
+    rejections,
+    llmCalls: [],
+    rejectionRate: claims === 0 ? 0 : rejections.length / claims,
+  };
 }
+
+export { CriterionClassifier };

@@ -7,7 +7,7 @@ export default function Privacy() {
   return (
     <>
       <SiteNav />
-      <main className="mx-auto max-w-reading px-5 py-14 font-serif text-ink">
+      <main id="main" className="mx-auto max-w-reading px-5 py-14 font-serif text-ink">
         <h1 className="text-[30px] mb-2">Privacy</h1>
         <p className="a-mono text-[12px] text-chrome-500 mb-8 font-sans">Last updated: {new Date().getFullYear()}</p>
         <div className="flex flex-col gap-5 text-[15px] leading-relaxed text-chrome-900">
