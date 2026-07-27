@@ -1,7 +1,7 @@
-import type { Criterion, CoverageStanceRecord, DocumentSpan } from "./types.js";
-import type { CriterionKind, CriterionOperator } from "./criterion.js";
-import type { CoverageStance } from "./stance.js";
-import type { EvidenceFacet } from "./types.js";
+import type { Criterion, CoverageStanceRecord, DocumentSpan } from "./types";
+import type { CriterionKind, CriterionOperator } from "./criterion";
+import type { CoverageStance } from "./stance";
+import type { EvidenceFacet } from "./types";
 
 /**
  * ── THE CITATION INVARIANT (PROMPT §5) ──────────────────────────────────────

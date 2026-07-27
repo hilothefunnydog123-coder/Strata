@@ -1,6 +1,6 @@
-import type { CriterionKind, CriterionOperator, StudyDesign, EndpointType } from "./criterion.js";
-import type { CoverageStance, ChangeType } from "./stance.js";
-import type { PayerType } from "./lives.js";
+import type { CriterionKind, CriterionOperator, StudyDesign, EndpointType } from "./criterion";
+import type { CoverageStance, ChangeType } from "./stance";
+import type { PayerType } from "./lives";
 
 /**
  * Shared domain vocabulary. These mirror the server schema (packages/db) and the

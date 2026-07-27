@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { verifyQuote, locateQuote, buildNormalized, makeVerifiedCriterion } from "./citation.js";
-import type { DocumentSpan } from "./types.js";
+import { verifyQuote, locateQuote, buildNormalized, makeVerifiedCriterion } from "./citation";
+import type { DocumentSpan } from "./types";
 
 const span = (text: string): DocumentSpan => ({
   id: "span_1",

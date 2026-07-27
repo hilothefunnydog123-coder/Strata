@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { CRITERION_KINDS, CRITERION_OPERATORS, STUDY_DESIGNS, ENDPOINT_TYPES } from "./criterion.js";
-import { COVERAGE_STANCES, CHANGE_TYPES } from "./stance.js";
+import { CRITERION_KINDS, CRITERION_OPERATORS, STUDY_DESIGNS, ENDPOINT_TYPES } from "./criterion";
+import { COVERAGE_STANCES, CHANGE_TYPES } from "./stance";
 
 /**
  * Strict I/O contracts for the LLM stages. The extractor forces the model to
