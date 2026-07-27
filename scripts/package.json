@@ -15,7 +15,8 @@
     "@assent/extract": "workspace:*",
     "@assent/blueprint": "workspace:*",
     "@assent/local-db": "workspace:*",
-    "drizzle-orm": "^0.38.3"
+    "drizzle-orm": "^0.38.3",
+    "otplib": "^12.0.1"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

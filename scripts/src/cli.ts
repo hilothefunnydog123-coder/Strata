@@ -1,4 +1,5 @@
 import { scryptSync, randomBytes } from "node:crypto";
+import { authenticator } from "otplib";
 import { eq } from "drizzle-orm";
 import { schema } from "@assent/db";
 import { parseHtmlToSpans } from "@assent/parse";
@@ -193,9 +194,12 @@ async function seed(store: Store) {
   const password = process.env.OWNER_PASSWORD ?? "assent-dev-password";
   const hash = `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
   await store.db.insert(schema.account).values({ id: "acct_demo", orgName: "Northwind Diagnostics", plan: "pilot", seatLimit: 5, createdByAdmin: "cli" }).onConflictDoNothing();
+  // Fixed demo TOTP secret so the login flow is testable end-to-end. `pnpm ... totp`
+  // prints the current code. A real admin-provisioned user enrolls their own secret.
+  const totpSecret = process.env.ASSENT_DEMO_TOTP_SECRET ?? "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
   await store.db.insert(schema.appUser).values({
-    id: "user_demo", accountId: "acct_demo", email: process.env.OWNER_EMAIL ?? "vp@northwind.example.com",
-    role: "admin", passwordHash: hash, totpSecret: null, totpEnrolled: false,
+    id: "user_demo", accountId: "acct_demo", email: (process.env.OWNER_EMAIL ?? "vp@northwind.example.com").toLowerCase(),
+    role: "admin", passwordHash: hash, totpSecret, totpEnrolled: true,
   }).onConflictDoNothing();
   await store.db.insert(schema.asset).values({
     id: "asset_demo", accountId: "acct_demo", name: "Northwind CGP (tissue)",
@@ -203,7 +207,15 @@ async function seed(store: Store) {
     intendedUse: "Guide selection of targeted systemic therapy", targetCodes: ["81445", "81479"],
     comparator: "single-gene testing", targetPopulation: "Adults with advanced solid tumors",
   }).onConflictDoNothing();
-  console.log("[seed] account acct_demo, user user_demo, asset asset_demo ready");
+  console.log(`[seed] account acct_demo, user ${process.env.OWNER_EMAIL ?? "vp@northwind.example.com"} (pw: ${password}), asset asset_demo ready`);
+  console.log(`[seed] TOTP enrolled — get the current code with:  pnpm --filter @assent/scripts exec tsx src/cli.ts totp`);
+}
+
+async function totp(store: Store) {
+  const email = flags.get("email") ?? process.env.OWNER_EMAIL ?? "vp@northwind.example.com";
+  const row = (await store.db.select().from(schema.appUser).where(eq(schema.appUser.email, email.toLowerCase())).limit(1))[0];
+  if (!row?.totpSecret) { console.error(`[totp] no TOTP secret for ${email}`); process.exitCode = 1; return; }
+  console.log(`[totp] ${email} → ${authenticator.generate(row.totpSecret)}  (valid ~${authenticator.timeRemaining?.() ?? 30}s)`);
 }
 
 async function pipeline(store: Store) {
@@ -217,7 +229,7 @@ async function pipeline(store: Store) {
 
 // ── dispatch ────────────────────────────────────────────────────────────────
 const STAGES: Record<string, (s: Store) => Promise<void>> = {
-  seed, ingest, parse, extract, verify, diff, blueprint, pipeline,
+  seed, ingest, parse, extract, verify, diff, blueprint, pipeline, totp,
   "export-desktop": exportDesktop, "export-json": exportJson,
 };
 

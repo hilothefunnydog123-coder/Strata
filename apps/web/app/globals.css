@@ -1,0 +1,20 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap");
+
+/* The design system (tokens, citation highlight, reserved colors). */
+@import "@assent/ui/styles.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--a-font-sans);
+  color: var(--a-ink);
+  background: var(--a-paper);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--a-citation-wash); }
+
+.a-rule { border: none; border-top: 1px solid var(--a-chrome-200); }
