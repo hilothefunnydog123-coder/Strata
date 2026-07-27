@@ -167,6 +167,16 @@ async function blueprint(store: Store) {
   }
 }
 
+async function exportJson(store: Store) {
+  const { writeFileSync, mkdirSync } = await import("node:fs");
+  const { dirname } = await import("node:path");
+  const path = flags.get("out") ?? "./data/corpus.json";
+  const corpus = await exportCorpus(store);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(corpus, null, 2));
+  console.log(`[export-json] ${corpus.documents.length} docs / ${corpus.spans.length} spans / ${corpus.criteria.length} criteria → ${path}`);
+}
+
 async function exportDesktop(store: Store) {
   const path = flags.get("out") ?? rest.find((a) => !a.startsWith("--")) ?? "./data/assent-desktop.sqlite";
   const corpus = await exportCorpus(store);
@@ -207,7 +217,8 @@ async function pipeline(store: Store) {
 
 // ── dispatch ────────────────────────────────────────────────────────────────
 const STAGES: Record<string, (s: Store) => Promise<void>> = {
-  seed, ingest, parse, extract, verify, diff, blueprint, pipeline, "export-desktop": exportDesktop,
+  seed, ingest, parse, extract, verify, diff, blueprint, pipeline,
+  "export-desktop": exportDesktop, "export-json": exportJson,
 };
 
 async function main() {

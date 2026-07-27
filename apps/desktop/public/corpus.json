@@ -1,0 +1,2122 @@
+{
+  "payers": [
+    {
+      "id": "cms",
+      "name": "CMS — Medicare (National Coverage)",
+      "type": "mac",
+      "parentPayerId": null
+    },
+    {
+      "id": "moldx",
+      "name": "MolDX / Palmetto GBA",
+      "type": "mac",
+      "parentPayerId": null
+    },
+    {
+      "id": "aetna",
+      "name": "Aetna (CVS Health)",
+      "type": "commercial",
+      "parentPayerId": null
+    },
+    {
+      "id": "cigna",
+      "name": "Cigna Healthcare",
+      "type": "commercial",
+      "parentPayerId": null
+    },
+    {
+      "id": "uhc",
+      "name": "UnitedHealthcare",
+      "type": "commercial",
+      "parentPayerId": null
+    },
+    {
+      "id": "elevance",
+      "name": "Elevance Health (Anthem)",
+      "type": "commercial",
+      "parentPayerId": null
+    },
+    {
+      "id": "bcbsmi",
+      "name": "Blue Cross Blue Shield of Michigan",
+      "type": "commercial",
+      "parentPayerId": null
+    },
+    {
+      "id": "humana",
+      "name": "Humana",
+      "type": "commercial",
+      "parentPayerId": null
+    }
+  ],
+  "coveredLives": [
+    {
+      "payerId": "cms",
+      "year": 2024,
+      "segment": "Medicare FFS",
+      "livesCount": 32000000,
+      "sourceUrl": "https://www.kff.org/medicare/state-indicator/total-medicare-beneficiaries/",
+      "sourceNote": "Approx. Medicare fee-for-service (Original Medicare) enrollment; NCDs bind nationally to FFS. Rounded."
+    },
+    {
+      "payerId": "moldx",
+      "year": 2024,
+      "segment": "Medicare FFS (MolDX jurisdictions)",
+      "livesCount": 30000000,
+      "sourceUrl": "https://www.palmettogba.com/moldx",
+      "sourceNote": "Geographic estimate: FFS lives in MolDX-participating MAC jurisdictions (Palmetto, Noridian, WPS, CGS). Modeled, not exact."
+    },
+    {
+      "payerId": "aetna",
+      "year": 2024,
+      "segment": "Commercial medical",
+      "livesCount": 19000000,
+      "sourceUrl": "https://www.cvshealth.com/",
+      "sourceNote": "Approx. Aetna medical membership per CVS Health reporting. Rounded."
+    },
+    {
+      "payerId": "cigna",
+      "year": 2024,
+      "segment": "US commercial medical",
+      "livesCount": 18000000,
+      "sourceUrl": "https://www.cigna.com/",
+      "sourceNote": "Approx. US commercial medical customers per The Cigna Group reporting. Rounded."
+    },
+    {
+      "payerId": "uhc",
+      "year": 2024,
+      "segment": "Commercial medical",
+      "livesCount": 45000000,
+      "sourceUrl": "https://www.unitedhealthgroup.com/",
+      "sourceNote": "Approx. UnitedHealthcare domestic commercial membership. Rounded."
+    },
+    {
+      "payerId": "elevance",
+      "year": 2024,
+      "segment": "Medical membership",
+      "livesCount": 46000000,
+      "sourceUrl": "https://www.elevancehealth.com/",
+      "sourceNote": "Approx. Elevance Health medical membership. Rounded."
+    },
+    {
+      "payerId": "bcbsmi",
+      "year": 2024,
+      "segment": "Members",
+      "livesCount": 4400000,
+      "sourceUrl": "https://www.bcbsm.com/",
+      "sourceNote": "Approx. Blue Cross Blue Shield of Michigan membership. Rounded."
+    },
+    {
+      "payerId": "humana",
+      "year": 2024,
+      "segment": "Medical (incl. MA)",
+      "livesCount": 17000000,
+      "sourceUrl": "https://www.humana.com/",
+      "sourceNote": "Approx. Humana medical membership, predominantly Medicare Advantage. Rounded."
+    }
+  ],
+  "codes": [
+    {
+      "id": "CPT:81479",
+      "system": "CPT",
+      "code": "81479",
+      "description": "Unlisted molecular pathology procedure"
+    },
+    {
+      "id": "CPT:81445",
+      "system": "CPT",
+      "code": "81445",
+      "description": "Targeted genomic sequence analysis panel, solid organ neoplasm, 5-50 genes"
+    },
+    {
+      "id": "PLA:0239U",
+      "system": "PLA",
+      "code": "0239U",
+      "description": "Targeted genomic sequence analysis panel, solid organ neoplasm, cell-free circulating DNA (liquid biopsy)"
+    },
+    {
+      "id": "HCPCS:G9143",
+      "system": "HCPCS",
+      "code": "G9143",
+      "description": "Warfarin responsiveness / molecular pathology (example ancillary code)"
+    }
+  ],
+  "documents": [
+    {
+      "id": "doc_cms_ncd-90-2_v1",
+      "payerId": "cms",
+      "externalId": "NCD 90.2",
+      "title": "NCD 90.2 — Next Generation Sequencing for Patients with Advanced Cancer",
+      "url": "https://www.cms.gov/medicare-coverage-database/view/ncd.aspx?ncdid=372",
+      "effectiveDate": "2020-01-27",
+      "retrievedAt": "2026-07-27T21:22:55.346Z",
+      "contentHash": "de3a13a5096ce70483ac070d4920930c9fec075d1a661ea37d8464afaa196138",
+      "supersedesId": null,
+      "rawStoragePath": "/home/user/Strata/fixtures/cms/ncd-90.2.html"
+    },
+    {
+      "id": "doc_moldx_l38045_v1",
+      "payerId": "moldx",
+      "externalId": "L38045",
+      "title": "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+      "url": "https://www.palmettogba.com/moldx/lcd/L38045",
+      "effectiveDate": "2023-06-01",
+      "retrievedAt": "2026-07-27T21:22:55.354Z",
+      "contentHash": "8c35d42a587ea61c8a20a0390992c3d14a59029845f87cd34f62fa52a69bfe0d",
+      "supersedesId": null,
+      "rawStoragePath": "/home/user/Strata/fixtures/moldx/L38045-v1.html"
+    },
+    {
+      "id": "doc_moldx_l38045_v2",
+      "payerId": "moldx",
+      "externalId": "L38045",
+      "title": "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045) — Revision 2",
+      "url": "https://www.palmettogba.com/moldx/lcd/L38045",
+      "effectiveDate": "2024-09-15",
+      "retrievedAt": "2026-07-27T21:22:55.360Z",
+      "contentHash": "d85db2e5b8e3b475731a759fe3ea2d92ded487f364230fb3e7e8efa019bdc446",
+      "supersedesId": "doc_moldx_l38045_v1",
+      "rawStoragePath": "/home/user/Strata/fixtures/moldx/L38045-v2.html"
+    },
+    {
+      "id": "doc_aetna_0352_v1",
+      "payerId": "aetna",
+      "externalId": "0352",
+      "title": "Aetna CPB 0352 — Comprehensive Genomic Profiling and Circulating Tumor DNA",
+      "url": "https://www.aetna.com/cpb/medical/data/300_399/0352.html",
+      "effectiveDate": "2024-03-10",
+      "retrievedAt": "2026-07-27T21:22:55.366Z",
+      "contentHash": "a0dae46ca79d8fb8c3c865eff5cfa7a9e1ec04c647a4976532f25ea6a64f0450",
+      "supersedesId": null,
+      "rawStoragePath": "/home/user/Strata/fixtures/aetna/cpb-0352.html"
+    },
+    {
+      "id": "doc_cigna_0123_v1",
+      "payerId": "cigna",
+      "externalId": "0123",
+      "title": "Cigna Coverage Policy 0123 — Comprehensive Genomic Profiling in Oncology",
+      "url": "https://static.cigna.com/assets/chcp/pdf/coveragePolicies/medical/mm_0123_coveragepositioncriteria.pdf",
+      "effectiveDate": "2024-06-15",
+      "retrievedAt": "2026-07-27T21:22:55.371Z",
+      "contentHash": "c322ae4fd8085b608c45e2295263c5e9d117223fd69a485bb68e8a0e90b56972",
+      "supersedesId": null,
+      "rawStoragePath": "/home/user/Strata/fixtures/cigna/cp-mol-0123.html"
+    },
+    {
+      "id": "doc_uhc_onc-045_v1",
+      "payerId": "uhc",
+      "externalId": "ONC.045",
+      "title": "UnitedHealthcare Medical Policy ONC.045 — Molecular Profiling for Solid Tumors",
+      "url": "https://www.uhcprovider.com/policies/ONC.045",
+      "effectiveDate": "2024-05-01",
+      "retrievedAt": "2026-07-27T21:22:55.378Z",
+      "contentHash": "70a172c2c62cb8108943d2c5ea5ca06bb43acbc11f0d0ee3350cbb34a854692c",
+      "supersedesId": null,
+      "rawStoragePath": "/home/user/Strata/fixtures/uhc/mp-onc-045.html"
+    },
+    {
+      "id": "doc_elevance_cg-gene-14_v1",
+      "payerId": "elevance",
+      "externalId": "CG-GENE-14",
+      "title": "Elevance Clinical Guideline CG-GENE-14 — Comprehensive Genomic Profiling",
+      "url": "https://www.elevancehealth.com/clinical-guidelines/CG-GENE-14",
+      "effectiveDate": "2024-02-20",
+      "retrievedAt": "2026-07-27T21:22:55.382Z",
+      "contentHash": "bceacbdcf57f1a0efd0f9b84bedb9dcabd6cac9429b1ff235c80f78c8eccaed4",
+      "supersedesId": null,
+      "rawStoragePath": "/home/user/Strata/fixtures/elevance/cg-gene-14.html"
+    },
+    {
+      "id": "doc_bcbsmi_506-081_v1",
+      "payerId": "bcbsmi",
+      "externalId": "506.081",
+      "title": "BCBSM Medical Policy 506.081 — Genomic Sequence Analysis Panels in Oncology",
+      "url": "https://www.bcbsm.com/mpp/506.081",
+      "effectiveDate": "2024-04-01",
+      "retrievedAt": "2026-07-27T21:22:55.386Z",
+      "contentHash": "b9a4c02152f44038810f3eabd24f4094cdb20a8cbcb7d9db3555fbc1ad1db698",
+      "supersedesId": null,
+      "rawStoragePath": "/home/user/Strata/fixtures/bcbsmi/mp-506-081.html"
+    },
+    {
+      "id": "doc_humana_onc-22_v1",
+      "payerId": "humana",
+      "externalId": "ONC-22",
+      "title": "Humana Medical Coverage Policy ONC-22 — Comprehensive Genomic Profiling",
+      "url": "https://www.humana.com/legal/medical-coverage-policies/ONC-22",
+      "effectiveDate": "2024-07-01",
+      "retrievedAt": "2026-07-27T21:22:55.390Z",
+      "contentHash": "81769e49de15edf9e8cb2c868dd68f3f462383455fec00d6d6e486997455ffe3",
+      "supersedesId": null,
+      "rawStoragePath": "/home/user/Strata/fixtures/humana/mcp-onc-22.html"
+    }
+  ],
+  "spans": [
+    {
+      "id": "doc_aetna_0352_v1_s0",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "ordinal": 0,
+      "pageNumber": 1,
+      "charStart": 0,
+      "charEnd": 37,
+      "text": "Clinical Policy Bulletin Number: 0352",
+      "headingPath": [
+        "Comprehensive Genomic Profiling and Circulating Tumor DNA in Solid Tumors"
+      ]
+    },
+    {
+      "id": "doc_aetna_0352_v1_s1",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "ordinal": 1,
+      "pageNumber": 1,
+      "charStart": 39,
+      "charEnd": 233,
+      "text": "Aetna considers comprehensive genomic profiling of tumor tissue medically necessary for members with advanced or metastatic non-small cell lung cancer when all of the following criteria are met:",
+      "headingPath": [
+        "Comprehensive Genomic Profiling and Circulating Tumor DNA in Solid Tumors",
+        "Policy",
+        "Medically Necessary"
+      ]
+    },
+    {
+      "id": "doc_aetna_0352_v1_s2",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "ordinal": 2,
+      "pageNumber": 1,
+      "charStart": 235,
+      "charEnd": 313,
+      "text": "The member has a diagnosis of Stage IIIB or IV non-small cell lung cancer; and",
+      "headingPath": [
+        "Comprehensive Genomic Profiling and Circulating Tumor DNA in Solid Tumors",
+        "Policy",
+        "Medically Necessary"
+      ]
+    },
+    {
+      "id": "doc_aetna_0352_v1_s3",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "ordinal": 3,
+      "pageNumber": 1,
+      "charStart": 315,
+      "charEnd": 410,
+      "text": "The member has not previously undergone comprehensive genomic profiling for the same tumor; and",
+      "headingPath": [
+        "Comprehensive Genomic Profiling and Circulating Tumor DNA in Solid Tumors",
+        "Policy",
+        "Medically Necessary"
+      ]
+    },
+    {
+      "id": "doc_aetna_0352_v1_s4",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "ordinal": 4,
+      "pageNumber": 1,
+      "charStart": 412,
+      "charEnd": 526,
+      "text": "The results will be used to select FDA-approved targeted therapy or to determine eligibility for a clinical trial.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling and Circulating Tumor DNA in Solid Tumors",
+        "Policy",
+        "Medically Necessary"
+      ]
+    },
+    {
+      "id": "doc_aetna_0352_v1_s5",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "ordinal": 5,
+      "pageNumber": 1,
+      "charStart": 528,
+      "charEnd": 806,
+      "text": "Aetna considers the use of circulating tumor DNA (liquid biopsy) assays for treatment response monitoring or for minimal residual disease detection experimental and investigational because the clinical utility of this application has not been established in prospective studies.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling and Circulating Tumor DNA in Solid Tumors",
+        "Policy",
+        "Experimental and Investigational"
+      ]
+    },
+    {
+      "id": "doc_aetna_0352_v1_s6",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "ordinal": 6,
+      "pageNumber": 1,
+      "charStart": 808,
+      "charEnd": 934,
+      "text": "Aetna considers comprehensive genomic profiling experimental and investigational for cancer screening in asymptomatic persons.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling and Circulating Tumor DNA in Solid Tumors",
+        "Policy",
+        "Experimental and Investigational"
+      ]
+    },
+    {
+      "id": "doc_aetna_0352_v1_s7",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "ordinal": 7,
+      "pageNumber": 1,
+      "charStart": 936,
+      "charEnd": 1412,
+      "text": "Comprehensive genomic profiling refers to the use of next-generation sequencing to interrogate a broad panel of cancer-associated genes in a single assay. A substantial literature has accumulated describing the analytic performance of these panels and the frequency of actionable findings across tumor histologies. The discussion that follows summarizes representative studies and is provided for educational context; it does not constitute the coverage criteria stated above.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling and Circulating Tumor DNA in Solid Tumors",
+        "Background"
+      ]
+    },
+    {
+      "id": "doc_aetna_0352_v1_s8",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "ordinal": 8,
+      "pageNumber": 1,
+      "charStart": 1414,
+      "charEnd": 1742,
+      "text": "Several observational studies have reported that broad panel testing identifies additional targetable alterations relative to single-gene testing. Interpretation of these findings is complicated by heterogeneity in study design and endpoints, and randomized evidence linking broad profiling to improved survival remains limited.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling and Circulating Tumor DNA in Solid Tumors",
+        "Background"
+      ]
+    },
+    {
+      "id": "doc_bcbsmi_506-081_v1_s0",
+      "policyDocumentId": "doc_bcbsmi_506-081_v1",
+      "ordinal": 0,
+      "pageNumber": 1,
+      "charStart": 0,
+      "charEnd": 189,
+      "text": "Blue Cross Blue Shield of Michigan considers genomic sequence analysis panels established for members with advanced or metastatic solid tumors when used to select targeted systemic therapy.",
+      "headingPath": [
+        "Genomic Sequence Analysis Panels for Solid Tumors (506.081)",
+        "Medical Policy Statement"
+      ]
+    },
+    {
+      "id": "doc_bcbsmi_506-081_v1_s1",
+      "policyDocumentId": "doc_bcbsmi_506-081_v1",
+      "ordinal": 1,
+      "pageNumber": 1,
+      "charStart": 191,
+      "charEnd": 349,
+      "text": "The panel must be performed by a laboratory holding CLIA certification, and testing is covered once per primary tumor diagnosis absent documented progression.",
+      "headingPath": [
+        "Genomic Sequence Analysis Panels for Solid Tumors (506.081)",
+        "Medical Policy Statement"
+      ]
+    },
+    {
+      "id": "doc_bcbsmi_506-081_v1_s2",
+      "policyDocumentId": "doc_bcbsmi_506-081_v1",
+      "ordinal": 2,
+      "pageNumber": 1,
+      "charStart": 351,
+      "charEnd": 506,
+      "text": "Repeat panel testing performed within the same line of therapy without evidence of progression is considered not established and is excluded from coverage.",
+      "headingPath": [
+        "Genomic Sequence Analysis Panels for Solid Tumors (506.081)",
+        "Exclusions"
+      ]
+    },
+    {
+      "id": "doc_cigna_0123_v1_s0",
+      "policyDocumentId": "doc_cigna_0123_v1",
+      "ordinal": 0,
+      "pageNumber": 1,
+      "charStart": 0,
+      "charEnd": 264,
+      "text": "Cigna covers tumor comprehensive genomic profiling using next-generation sequencing as medically necessary when the individual has advanced or metastatic solid tumor cancer and the ordering oncologist attests that results will directly inform selection of therapy.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling in Oncology (0123)",
+        "Coverage Policy"
+      ]
+    },
+    {
+      "id": "doc_cigna_0123_v1_s1",
+      "policyDocumentId": "doc_cigna_0123_v1",
+      "ordinal": 1,
+      "pageNumber": 1,
+      "charStart": 266,
+      "charEnd": 407,
+      "text": "Coverage is limited to one comprehensive genomic profiling assay per primary tumor diagnosis, unless there is documented disease progression.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling in Oncology (0123)",
+        "Coverage Policy"
+      ]
+    },
+    {
+      "id": "doc_cigna_0123_v1_s2",
+      "policyDocumentId": "doc_cigna_0123_v1",
+      "ordinal": 2,
+      "pageNumber": 1,
+      "charStart": 409,
+      "charEnd": 551,
+      "text": "Cigna covers testing only when performed by a laboratory accredited under CLIA and, where applicable, by the College of American Pathologists.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling in Oncology (0123)",
+        "Coverage Policy"
+      ]
+    },
+    {
+      "id": "doc_cigna_0123_v1_s3",
+      "policyDocumentId": "doc_cigna_0123_v1",
+      "ordinal": 3,
+      "pageNumber": 1,
+      "charStart": 553,
+      "charEnd": 719,
+      "text": "Cigna does not cover comprehensive genomic profiling for population screening in asymptomatic individuals, as clinical utility for this indication is not established.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling in Oncology (0123)",
+        "Not Covered"
+      ]
+    },
+    {
+      "id": "doc_cigna_0123_v1_s4",
+      "policyDocumentId": "doc_cigna_0123_v1",
+      "ordinal": 4,
+      "pageNumber": 1,
+      "charStart": 721,
+      "charEnd": 881,
+      "text": "This section summarizes the published evidence base for genomic profiling and is provided for reference only; it does not establish the coverage criteria above.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling in Oncology (0123)",
+        "Background"
+      ]
+    },
+    {
+      "id": "doc_cms_ncd-90-2_v1_s0",
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "ordinal": 0,
+      "pageNumber": 1,
+      "charStart": 0,
+      "charEnd": 237,
+      "text": "The Centers for Medicare & Medicaid Services covers diagnostic laboratory tests using next generation sequencing when performed in a CLIA-certified laboratory, when ordered by a treating physician, and when the patient has the following:",
+      "headingPath": [
+        "National Coverage Determination (NCD 90.2): Next Generation Sequencing for Patients with Advanced Cancer",
+        "Indications and Limitations of Coverage"
+      ]
+    },
+    {
+      "id": "doc_cms_ncd-90-2_v1_s1",
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "ordinal": 1,
+      "pageNumber": 1,
+      "charStart": 239,
+      "charEnd": 330,
+      "text": "either recurrent, relapsed, refractory, metastatic, or advanced Stage III or IV cancer; and",
+      "headingPath": [
+        "National Coverage Determination (NCD 90.2): Next Generation Sequencing for Patients with Advanced Cancer",
+        "Indications and Limitations of Coverage"
+      ]
+    },
+    {
+      "id": "doc_cms_ncd-90-2_v1_s2",
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "ordinal": 2,
+      "pageNumber": 1,
+      "charStart": 332,
+      "charEnd": 504,
+      "text": "has not been previously tested using the same NGS test for the same primary diagnosis of cancer unless a new primary cancer diagnosis is made by the treating physician; and",
+      "headingPath": [
+        "National Coverage Determination (NCD 90.2): Next Generation Sequencing for Patients with Advanced Cancer",
+        "Indications and Limitations of Coverage"
+      ]
+    },
+    {
+      "id": "doc_cms_ncd-90-2_v1_s3",
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "ordinal": 3,
+      "pageNumber": 1,
+      "charStart": 506,
+      "charEnd": 551,
+      "text": "has decided to seek further cancer treatment.",
+      "headingPath": [
+        "National Coverage Determination (NCD 90.2): Next Generation Sequencing for Patients with Advanced Cancer",
+        "Indications and Limitations of Coverage"
+      ]
+    },
+    {
+      "id": "doc_cms_ncd-90-2_v1_s4",
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "ordinal": 4,
+      "pageNumber": 1,
+      "charStart": 553,
+      "charEnd": 772,
+      "text": "The diagnostic laboratory test using next generation sequencing must have an FDA approval or clearance as a companion in vitro diagnostic, and its use must be consistent with the FDA-approved or FDA-cleared indications.",
+      "headingPath": [
+        "National Coverage Determination (NCD 90.2): Next Generation Sequencing for Patients with Advanced Cancer",
+        "Indications and Limitations of Coverage"
+      ]
+    },
+    {
+      "id": "doc_cms_ncd-90-2_v1_s5",
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "ordinal": 5,
+      "pageNumber": 1,
+      "charStart": 774,
+      "charEnd": 979,
+      "text": "For patients with advanced cancer whose test does not meet the companion diagnostic criteria above, coverage of next generation sequencing may be determined by the local Medicare Administrative Contractor.",
+      "headingPath": [
+        "National Coverage Determination (NCD 90.2): Next Generation Sequencing for Patients with Advanced Cancer",
+        "Other Applications"
+      ]
+    },
+    {
+      "id": "doc_elevance_cg-gene-14_v1_s0",
+      "policyDocumentId": "doc_elevance_cg-gene-14_v1",
+      "ordinal": 0,
+      "pageNumber": 1,
+      "charStart": 0,
+      "charEnd": 200,
+      "text": "Comprehensive genomic profiling is considered medically necessary when the individual has advanced-stage or metastatic solid tumor malignancy and the result is expected to change oncologic management.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling in Advanced Cancer (CG-GENE-14)",
+        "Clinical Indications"
+      ]
+    },
+    {
+      "id": "doc_elevance_cg-gene-14_v1_s1",
+      "policyDocumentId": "doc_elevance_cg-gene-14_v1",
+      "ordinal": 1,
+      "pageNumber": 1,
+      "charStart": 202,
+      "charEnd": 349,
+      "text": "Testing must be limited to one comprehensive panel per primary cancer, and must be ordered by or in consultation with a board-certified oncologist.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling in Advanced Cancer (CG-GENE-14)",
+        "Clinical Indications"
+      ]
+    },
+    {
+      "id": "doc_elevance_cg-gene-14_v1_s2",
+      "policyDocumentId": "doc_elevance_cg-gene-14_v1",
+      "ordinal": 2,
+      "pageNumber": 1,
+      "charStart": 351,
+      "charEnd": 533,
+      "text": "Comprehensive genomic profiling is considered not medically necessary when performed for screening of asymptomatic individuals or when the result will not affect treatment selection.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling in Advanced Cancer (CG-GENE-14)",
+        "Not Medically Necessary"
+      ]
+    },
+    {
+      "id": "doc_humana_onc-22_v1_s0",
+      "policyDocumentId": "doc_humana_onc-22_v1",
+      "ordinal": 0,
+      "pageNumber": 1,
+      "charStart": 0,
+      "charEnd": 219,
+      "text": "Humana covers comprehensive genomic profiling as medically necessary for members with advanced or metastatic solid tumor cancer when the treating physician will use the results to guide selection of anti-cancer therapy.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling for Advanced Solid Tumors (ONC-22)",
+        "Coverage"
+      ]
+    },
+    {
+      "id": "doc_humana_onc-22_v1_s1",
+      "policyDocumentId": "doc_humana_onc-22_v1",
+      "ordinal": 1,
+      "pageNumber": 1,
+      "charStart": 221,
+      "charEnd": 375,
+      "text": "Coverage requires that the test be performed in a CLIA-certified laboratory and that documentation of the intended use of the results accompany the order.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling for Advanced Solid Tumors (ONC-22)",
+        "Coverage"
+      ]
+    },
+    {
+      "id": "doc_humana_onc-22_v1_s2",
+      "policyDocumentId": "doc_humana_onc-22_v1",
+      "ordinal": 2,
+      "pageNumber": 1,
+      "charStart": 377,
+      "charEnd": 584,
+      "text": "Humana considers comprehensive genomic profiling investigational for use in monitoring minimal residual disease, as the clinical utility for this use has not been demonstrated in prospective outcome studies.",
+      "headingPath": [
+        "Comprehensive Genomic Profiling for Advanced Solid Tumors (ONC-22)",
+        "Limitations"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s0",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 0,
+      "pageNumber": 1,
+      "charStart": 0,
+      "charEnd": 253,
+      "text": "This policy addresses comprehensive genomic profiling (CGP) performed on a patient's tumor specimen to identify somatic alterations that inform treatment selection. CGP is considered reasonable and necessary when all of the following conditions are met.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Coverage Indications, Limitations, and/or Medical Necessity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s1",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 1,
+      "pageNumber": 1,
+      "charStart": 255,
+      "charEnd": 363,
+      "text": "The patient has advanced (Stage III or IV) or metastatic solid tumor cancer at the time the test is ordered.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Coverage Indications, Limitations, and/or Medical Necessity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s2",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 2,
+      "pageNumber": 1,
+      "charStart": 365,
+      "charEnd": 512,
+      "text": "The test is ordered by the treating physician managing the patient's cancer, and the results will be used to guide subsequent management decisions.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Coverage Indications, Limitations, and/or Medical Necessity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s3",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 3,
+      "pageNumber": 1,
+      "charStart": 514,
+      "charEnd": 755,
+      "text": "The patient has not been previously tested with the same or a comparable comprehensive genomic profiling assay for the same primary cancer diagnosis, except when a new primary is identified or clinically significant progression has occurred.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Coverage Indications, Limitations, and/or Medical Necessity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s4",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 4,
+      "pageNumber": 1,
+      "charStart": 757,
+      "charEnd": 932,
+      "text": "The laboratory performing the test is CLIA-certified and the specific test has been registered in the MolDX DEX Diagnostics Exchange and has been assigned a Z-code identifier.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Coverage Indications, Limitations, and/or Medical Necessity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s5",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 5,
+      "pageNumber": 1,
+      "charStart": 934,
+      "charEnd": 1205,
+      "text": "The laboratory must establish and document the analytical validity of the assay. At minimum, the analytical validity submission must demonstrate an analytical concordance of at least 95% against an orthogonal validated method across the reportable range of variant types.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Technical Assessment",
+        "Analytical Validity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s6",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 6,
+      "pageNumber": 1,
+      "charStart": 1207,
+      "charEnd": 1378,
+      "text": "The limit of detection must be established and reported for each variant class, and specimen adequacy criteria, including minimum tumor nuclei content, must be documented.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Technical Assessment",
+        "Analytical Validity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s7",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 7,
+      "pageNumber": 1,
+      "charStart": 1380,
+      "charEnd": 1697,
+      "text": "Clinical validity must be established through peer-reviewed published evidence demonstrating that the alterations reported by the assay are associated with the clinical condition or with response to a specific therapy. Evidence limited to analytical performance alone is not sufficient to establish clinical validity.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Technical Assessment",
+        "Clinical Validity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s8",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 8,
+      "pageNumber": 1,
+      "charStart": 1699,
+      "charEnd": 2059,
+      "text": "Clinical utility must be demonstrated through published evidence that use of the test result leads to a change in patient management that improves health outcomes. The strongest evidence derives from prospective studies with clinical outcomes as the endpoint; retrospective analyses may be considered as supporting evidence but are not sufficient on their own.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Technical Assessment",
+        "Clinical Utility"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s9",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 9,
+      "pageNumber": 1,
+      "charStart": 2061,
+      "charEnd": 2154,
+      "text": "The following uses are considered not reasonable and necessary and are therefore non-covered.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Limitations"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s10",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 10,
+      "pageNumber": 1,
+      "charStart": 2156,
+      "charEnd": 2252,
+      "text": "Comprehensive genomic profiling for cancer screening in asymptomatic individuals is not covered.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Limitations"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s11",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 11,
+      "pageNumber": 1,
+      "charStart": 2254,
+      "charEnd": 2402,
+      "text": "Repeat testing with the same assay for the same primary cancer diagnosis, in the absence of documented progression or a new primary, is not covered.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Limitations"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s12",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 12,
+      "pageNumber": 1,
+      "charStart": 2404,
+      "charEnd": 2552,
+      "text": "Testing performed solely to assess hereditary (germline) cancer risk is addressed by separate policy and is outside the scope of this determination.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Limitations"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s13",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "ordinal": 13,
+      "pageNumber": 1,
+      "charStart": 2554,
+      "charEnd": 3046,
+      "text": "Next-generation sequencing has transformed the characterization of solid tumors over the past decade. A growing body of literature describes the prevalence of actionable alterations across tumor types, and numerous targeted therapies have received regulatory approval with companion diagnostic requirements. This background is provided for context and does not itself establish coverage criteria. Readers are referred to the cited literature for a fuller discussion of the evidence landscape.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Background"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 0,
+      "pageNumber": 1,
+      "charStart": 0,
+      "charEnd": 253,
+      "text": "This policy addresses comprehensive genomic profiling (CGP) performed on a patient's tumor specimen to identify somatic alterations that inform treatment selection. CGP is considered reasonable and necessary when all of the following conditions are met.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Coverage Indications, Limitations, and/or Medical Necessity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s1",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 1,
+      "pageNumber": 1,
+      "charStart": 255,
+      "charEnd": 430,
+      "text": "The patient has advanced (Stage III or IV) or metastatic solid tumor cancer at the time the test is ordered, where metastatic is defined as spread beyond regional lymph nodes.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Coverage Indications, Limitations, and/or Medical Necessity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s2",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 2,
+      "pageNumber": 1,
+      "charStart": 432,
+      "charEnd": 579,
+      "text": "The test is ordered by the treating physician managing the patient's cancer, and the results will be used to guide subsequent management decisions.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Coverage Indications, Limitations, and/or Medical Necessity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s3",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 3,
+      "pageNumber": 1,
+      "charStart": 581,
+      "charEnd": 757,
+      "text": "Repeat testing with the same assay is permitted when there is documented disease progression, a new primary cancer, or to assess the emergence of therapy resistance mechanisms.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Coverage Indications, Limitations, and/or Medical Necessity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s4",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 4,
+      "pageNumber": 1,
+      "charStart": 759,
+      "charEnd": 934,
+      "text": "The laboratory performing the test is CLIA-certified and the specific test has been registered in the MolDX DEX Diagnostics Exchange and has been assigned a Z-code identifier.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Coverage Indications, Limitations, and/or Medical Necessity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s5",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 5,
+      "pageNumber": 1,
+      "charStart": 936,
+      "charEnd": 1058,
+      "text": "The ordering physician must document, prior to ordering, how the test result will be used in the patient's treatment plan.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Coverage Indications, Limitations, and/or Medical Necessity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s6",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 6,
+      "pageNumber": 1,
+      "charStart": 1060,
+      "charEnd": 1331,
+      "text": "The laboratory must establish and document the analytical validity of the assay. At minimum, the analytical validity submission must demonstrate an analytical concordance of at least 95% against an orthogonal validated method across the reportable range of variant types.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Technical Assessment",
+        "Analytical Validity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s7",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 7,
+      "pageNumber": 1,
+      "charStart": 1333,
+      "charEnd": 1504,
+      "text": "The limit of detection must be established and reported for each variant class, and specimen adequacy criteria, including minimum tumor nuclei content, must be documented.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Technical Assessment",
+        "Analytical Validity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s8",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 8,
+      "pageNumber": 1,
+      "charStart": 1506,
+      "charEnd": 1823,
+      "text": "Clinical validity must be established through peer-reviewed published evidence demonstrating that the alterations reported by the assay are associated with the clinical condition or with response to a specific therapy. Evidence limited to analytical performance alone is not sufficient to establish clinical validity.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Technical Assessment",
+        "Clinical Validity"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s9",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 9,
+      "pageNumber": 1,
+      "charStart": 1825,
+      "charEnd": 2060,
+      "text": "Clinical utility must be demonstrated through prospective studies with clinical outcomes as the endpoint. Retrospective analyses and change-in-management studies alone are not sufficient to establish clinical utility under this policy.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Technical Assessment",
+        "Clinical Utility"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s10",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 10,
+      "pageNumber": 1,
+      "charStart": 2062,
+      "charEnd": 2155,
+      "text": "The following uses are considered not reasonable and necessary and are therefore non-covered.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Limitations"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s11",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 11,
+      "pageNumber": 1,
+      "charStart": 2157,
+      "charEnd": 2253,
+      "text": "Comprehensive genomic profiling for cancer screening in asymptomatic individuals is not covered.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Limitations"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s12",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 12,
+      "pageNumber": 1,
+      "charStart": 2255,
+      "charEnd": 2403,
+      "text": "Testing performed solely to assess hereditary (germline) cancer risk is addressed by separate policy and is outside the scope of this determination.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Limitations"
+      ]
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s13",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "ordinal": 13,
+      "pageNumber": 1,
+      "charStart": 2405,
+      "charEnd": 2897,
+      "text": "Next-generation sequencing has transformed the characterization of solid tumors over the past decade. A growing body of literature describes the prevalence of actionable alterations across tumor types, and numerous targeted therapies have received regulatory approval with companion diagnostic requirements. This background is provided for context and does not itself establish coverage criteria. Readers are referred to the cited literature for a fuller discussion of the evidence landscape.",
+      "headingPath": [
+        "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+        "Background"
+      ]
+    },
+    {
+      "id": "doc_uhc_onc-045_v1_s0",
+      "policyDocumentId": "doc_uhc_onc-045_v1",
+      "ordinal": 0,
+      "pageNumber": 1,
+      "charStart": 0,
+      "charEnd": 189,
+      "text": "Comprehensive molecular profiling is proven and medically necessary for members with advanced or metastatic solid tumors when the results will be used to guide systemic anti-cancer therapy.",
+      "headingPath": [
+        "Molecular Profiling to Guide Therapy in Solid Tumors (ONC.045)",
+        "Coverage Rationale"
+      ]
+    },
+    {
+      "id": "doc_uhc_onc-045_v1_s1",
+      "policyDocumentId": "doc_uhc_onc-045_v1",
+      "ordinal": 1,
+      "pageNumber": 1,
+      "charStart": 191,
+      "charEnd": 315,
+      "text": "The test must be performed in a CLIA-certified laboratory and ordered by the physician managing the member's oncologic care.",
+      "headingPath": [
+        "Molecular Profiling to Guide Therapy in Solid Tumors (ONC.045)",
+        "Coverage Rationale"
+      ]
+    },
+    {
+      "id": "doc_uhc_onc-045_v1_s2",
+      "policyDocumentId": "doc_uhc_onc-045_v1",
+      "ordinal": 2,
+      "pageNumber": 1,
+      "charStart": 317,
+      "charEnd": 545,
+      "text": "Comprehensive molecular profiling is unproven and not medically necessary for monitoring of treatment response using circulating tumor DNA, because the clinical utility has not been established in prospective controlled studies.",
+      "headingPath": [
+        "Molecular Profiling to Guide Therapy in Solid Tumors (ONC.045)",
+        "Coverage Rationale"
+      ]
+    },
+    {
+      "id": "doc_uhc_onc-045_v1_s3",
+      "policyDocumentId": "doc_uhc_onc-045_v1",
+      "ordinal": 3,
+      "pageNumber": 1,
+      "charStart": 547,
+      "charEnd": 715,
+      "text": "Advanced disease refers to Stage III or Stage IV malignancy per AJCC staging. This definition is provided for clarity and does not itself impose a coverage requirement.",
+      "headingPath": [
+        "Molecular Profiling to Guide Therapy in Solid Tumors (ONC.045)",
+        "Definitions"
+      ]
+    }
+  ],
+  "criteria": [
+    {
+      "id": "doc_moldx_l38045_v2_s1_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "kind": "clinical_indication",
+      "subject": "advanced or metastatic disease",
+      "requirementText": "Advanced (Stage III/IV) or metastatic disease; metastatic defined as spread beyond regional lymph nodes.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v2_s1",
+      "verbatimQuote": "advanced (Stage III or IV) or metastatic solid tumor cancer at the time the test is ordered, where metastatic is defined as spread beyond regional lymph nodes",
+      "confidence": 0.95,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.440Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s2_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "kind": "ordering_provider",
+      "subject": "ordered by treating physician",
+      "requirementText": "Test ordered by the treating physician managing the cancer.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v2_s2",
+      "verbatimQuote": "ordered by the treating physician managing the patient's cancer",
+      "confidence": 0.93,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.440Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s3_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "kind": "frequency_limit",
+      "subject": "repeat testing",
+      "requirementText": "Repeat testing permitted on progression, new primary, or to assess resistance.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v2_s3",
+      "verbatimQuote": "Repeat testing with the same assay is permitted when there is documented disease progression, a new primary cancer, or to assess the emergence of therapy resistance mechanisms",
+      "confidence": 0.9,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.440Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s4_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "kind": "test_specific_requirement",
+      "subject": "CLIA certification",
+      "requirementText": "Performing laboratory is CLIA-certified.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v2_s4",
+      "verbatimQuote": "The laboratory performing the test is CLIA-certified",
+      "confidence": 0.94,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.441Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s4_c1",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "kind": "test_specific_requirement",
+      "subject": "MolDX DEX Z-code registration",
+      "requirementText": "Test registered in MolDX DEX and assigned a Z-code.",
+      "operator": "exists",
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v2_s4",
+      "verbatimQuote": "registered in the MolDX DEX Diagnostics Exchange and has been assigned a Z-code identifier",
+      "confidence": 0.95,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.441Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s5_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "kind": "documentation",
+      "subject": "document intended use before ordering",
+      "requirementText": "Ordering physician documents, prior to ordering, how the result will be used in the treatment plan.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v2_s5",
+      "verbatimQuote": "The ordering physician must document, prior to ordering, how the test result will be used in the patient's treatment plan",
+      "confidence": 0.92,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.441Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s6_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "kind": "analytical_validity",
+      "subject": "analytical concordance",
+      "requirementText": "Demonstrate analytical concordance of at least 95% vs an orthogonal method.",
+      "operator": "gte",
+      "value": "95",
+      "unit": "%",
+      "evidence": {
+        "endpoint": "analytical_concordance"
+      },
+      "spanId": "doc_moldx_l38045_v2_s6",
+      "verbatimQuote": "analytical concordance of at least 95%",
+      "confidence": 0.96,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.441Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s7_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "kind": "analytical_validity",
+      "subject": "limit of detection",
+      "requirementText": "Establish and report the limit of detection for each variant class.",
+      "operator": "exists",
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v2_s7",
+      "verbatimQuote": "limit of detection must be established and reported for each variant class",
+      "confidence": 0.9,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.442Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s8_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "kind": "clinical_validity",
+      "subject": "peer-reviewed clinical validity",
+      "requirementText": "Clinical validity established via peer-reviewed published evidence.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v2_s8",
+      "verbatimQuote": "Clinical validity must be established through peer-reviewed published evidence",
+      "confidence": 0.94,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.442Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s9_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "kind": "clinical_utility",
+      "subject": "clinical utility change in management",
+      "requirementText": "Clinical utility must be shown in prospective studies with clinical outcomes; retrospective/change-in-management alone insufficient.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {
+        "endpoint": "clinical_outcomes",
+        "studyDesign": "prospective"
+      },
+      "spanId": "doc_moldx_l38045_v2_s9",
+      "verbatimQuote": "Clinical utility must be demonstrated through prospective studies with clinical outcomes as the endpoint",
+      "confidence": 0.94,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.442Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s11_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "kind": "exclusion",
+      "subject": "screening in asymptomatic individuals",
+      "requirementText": "CGP for screening asymptomatic individuals is not covered.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v2_s11",
+      "verbatimQuote": "Comprehensive genomic profiling for cancer screening in asymptomatic individuals is not covered",
+      "confidence": 0.95,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.443Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v2_s12_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "kind": "exclusion",
+      "subject": "germline testing out of scope",
+      "requirementText": "Germline hereditary-risk testing is out of scope of this policy.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v2_s12",
+      "verbatimQuote": "Testing performed solely to assess hereditary (germline) cancer risk",
+      "confidence": 0.88,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.443Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s1_c0",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "kind": "clinical_indication",
+      "subject": "advanced or metastatic disease",
+      "requirementText": "Patient has advanced (Stage III/IV) or metastatic solid tumor at time of order.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v1_s1",
+      "verbatimQuote": "advanced (Stage III or IV) or metastatic solid tumor cancer",
+      "confidence": 0.96,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.451Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s2_c0",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "kind": "ordering_provider",
+      "subject": "ordered by treating physician",
+      "requirementText": "Test ordered by the treating physician managing the cancer.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v1_s2",
+      "verbatimQuote": "ordered by the treating physician managing the patient's cancer",
+      "confidence": 0.93,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.451Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s3_c0",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "kind": "frequency_limit",
+      "subject": "repeat testing",
+      "requirementText": "No prior CGP with the same/comparable assay for the same primary diagnosis.",
+      "operator": "lte",
+      "value": "1",
+      "unit": "test per diagnosis",
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v1_s3",
+      "verbatimQuote": "has not been previously tested with the same or a comparable comprehensive genomic profiling assay for the same primary cancer diagnosis",
+      "confidence": 0.9,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.451Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s4_c0",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "kind": "test_specific_requirement",
+      "subject": "CLIA certification",
+      "requirementText": "Performing laboratory is CLIA-certified.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v1_s4",
+      "verbatimQuote": "The laboratory performing the test is CLIA-certified",
+      "confidence": 0.94,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.452Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s4_c1",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "kind": "test_specific_requirement",
+      "subject": "MolDX DEX Z-code registration",
+      "requirementText": "Test registered in MolDX DEX and assigned a Z-code.",
+      "operator": "exists",
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v1_s4",
+      "verbatimQuote": "registered in the MolDX DEX Diagnostics Exchange and has been assigned a Z-code identifier",
+      "confidence": 0.95,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.452Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s5_c0",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "kind": "analytical_validity",
+      "subject": "analytical concordance",
+      "requirementText": "Demonstrate analytical concordance of at least 95% vs an orthogonal method.",
+      "operator": "gte",
+      "value": "95",
+      "unit": "%",
+      "evidence": {
+        "endpoint": "analytical_concordance"
+      },
+      "spanId": "doc_moldx_l38045_v1_s5",
+      "verbatimQuote": "analytical concordance of at least 95%",
+      "confidence": 0.96,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.452Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s6_c0",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "kind": "analytical_validity",
+      "subject": "limit of detection",
+      "requirementText": "Establish and report the limit of detection for each variant class.",
+      "operator": "exists",
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v1_s6",
+      "verbatimQuote": "limit of detection must be established and reported for each variant class",
+      "confidence": 0.9,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.452Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s7_c0",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "kind": "clinical_validity",
+      "subject": "peer-reviewed clinical validity",
+      "requirementText": "Clinical validity established via peer-reviewed published evidence.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v1_s7",
+      "verbatimQuote": "Clinical validity must be established through peer-reviewed published evidence",
+      "confidence": 0.94,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.452Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s8_c0",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "kind": "clinical_utility",
+      "subject": "clinical utility change in management",
+      "requirementText": "Published evidence that the result changes management and improves outcomes.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {
+        "endpoint": "change_in_management",
+        "studyDesign": "prospective"
+      },
+      "spanId": "doc_moldx_l38045_v1_s8",
+      "verbatimQuote": "Clinical utility must be demonstrated through published evidence that use of the test result leads to a change in patient management that improves health outcomes",
+      "confidence": 0.93,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.452Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s10_c0",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "kind": "exclusion",
+      "subject": "screening in asymptomatic individuals",
+      "requirementText": "CGP for screening asymptomatic individuals is not covered.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v1_s10",
+      "verbatimQuote": "Comprehensive genomic profiling for cancer screening in asymptomatic individuals is not covered",
+      "confidence": 0.95,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.453Z"
+    },
+    {
+      "id": "doc_aetna_0352_v1_s3_c0",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "kind": "frequency_limit",
+      "subject": "repeat testing",
+      "requirementText": "No prior CGP for the same tumor.",
+      "operator": "lte",
+      "value": "1",
+      "unit": "test per tumor",
+      "evidence": {},
+      "spanId": "doc_aetna_0352_v1_s3",
+      "verbatimQuote": "has not previously undergone comprehensive genomic profiling for the same tumor",
+      "confidence": 0.9,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.497Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s11_c0",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "kind": "exclusion",
+      "subject": "repeat testing not covered",
+      "requirementText": "Repeat testing absent progression or new primary is not covered.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v1_s11",
+      "verbatimQuote": "Repeat testing with the same assay for the same primary cancer diagnosis, in the absence of documented progression or a new primary, is not covered",
+      "confidence": 0.92,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.453Z"
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s12_c0",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "kind": "exclusion",
+      "subject": "germline testing out of scope",
+      "requirementText": "Germline hereditary-risk testing is out of scope of this policy.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_moldx_l38045_v1_s12",
+      "verbatimQuote": "Testing performed solely to assess hereditary (germline) cancer risk",
+      "confidence": 0.88,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.453Z"
+    },
+    {
+      "id": "doc_elevance_cg-gene-14_v1_s0_c0",
+      "policyDocumentId": "doc_elevance_cg-gene-14_v1",
+      "kind": "clinical_indication",
+      "subject": "advanced or metastatic disease",
+      "requirementText": "Advanced-stage or metastatic solid tumor malignancy.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_elevance_cg-gene-14_v1_s0",
+      "verbatimQuote": "advanced-stage or metastatic solid tumor malignancy",
+      "confidence": 0.94,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.462Z"
+    },
+    {
+      "id": "doc_elevance_cg-gene-14_v1_s1_c0",
+      "policyDocumentId": "doc_elevance_cg-gene-14_v1",
+      "kind": "frequency_limit",
+      "subject": "one panel per cancer",
+      "requirementText": "Limited to one comprehensive panel per primary cancer.",
+      "operator": "lte",
+      "value": "1",
+      "unit": "panel per cancer",
+      "evidence": {},
+      "spanId": "doc_elevance_cg-gene-14_v1_s1",
+      "verbatimQuote": "limited to one comprehensive panel per primary cancer",
+      "confidence": 0.92,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.462Z"
+    },
+    {
+      "id": "doc_elevance_cg-gene-14_v1_s1_c1",
+      "policyDocumentId": "doc_elevance_cg-gene-14_v1",
+      "kind": "ordering_provider",
+      "subject": "oncologist ordering",
+      "requirementText": "Ordered by or in consultation with a board-certified oncologist.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_elevance_cg-gene-14_v1_s1",
+      "verbatimQuote": "ordered by or in consultation with a board-certified oncologist",
+      "confidence": 0.9,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.462Z"
+    },
+    {
+      "id": "doc_elevance_cg-gene-14_v1_s2_c0",
+      "policyDocumentId": "doc_elevance_cg-gene-14_v1",
+      "kind": "exclusion",
+      "subject": "screening of asymptomatic individuals",
+      "requirementText": "Not medically necessary for screening asymptomatic individuals.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_elevance_cg-gene-14_v1_s2",
+      "verbatimQuote": "not medically necessary when performed for screening of asymptomatic individuals",
+      "confidence": 0.91,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.462Z"
+    },
+    {
+      "id": "doc_bcbsmi_506-081_v1_s0_c0",
+      "policyDocumentId": "doc_bcbsmi_506-081_v1",
+      "kind": "clinical_indication",
+      "subject": "advanced or metastatic disease",
+      "requirementText": "Advanced or metastatic solid tumors, used to select targeted therapy.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_bcbsmi_506-081_v1_s0",
+      "verbatimQuote": "advanced or metastatic solid tumors when used to select targeted systemic therapy",
+      "confidence": 0.93,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.467Z"
+    },
+    {
+      "id": "doc_bcbsmi_506-081_v1_s1_c0",
+      "policyDocumentId": "doc_bcbsmi_506-081_v1",
+      "kind": "test_specific_requirement",
+      "subject": "CLIA certification",
+      "requirementText": "Performed by a CLIA-certified laboratory.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_bcbsmi_506-081_v1_s1",
+      "verbatimQuote": "performed by a laboratory holding CLIA certification",
+      "confidence": 0.92,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.468Z"
+    },
+    {
+      "id": "doc_bcbsmi_506-081_v1_s1_c1",
+      "policyDocumentId": "doc_bcbsmi_506-081_v1",
+      "kind": "frequency_limit",
+      "subject": "one test per diagnosis",
+      "requirementText": "Covered once per primary tumor diagnosis absent progression.",
+      "operator": "lte",
+      "value": "1",
+      "unit": "test per diagnosis",
+      "evidence": {},
+      "spanId": "doc_bcbsmi_506-081_v1_s1",
+      "verbatimQuote": "covered once per primary tumor diagnosis absent documented progression",
+      "confidence": 0.91,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.468Z"
+    },
+    {
+      "id": "doc_bcbsmi_506-081_v1_s2_c0",
+      "policyDocumentId": "doc_bcbsmi_506-081_v1",
+      "kind": "exclusion",
+      "subject": "repeat testing within a line of therapy",
+      "requirementText": "Repeat testing within the same line of therapy without progression is excluded.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_bcbsmi_506-081_v1_s2",
+      "verbatimQuote": "Repeat panel testing performed within the same line of therapy without evidence of progression is considered not established",
+      "confidence": 0.9,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.468Z"
+    },
+    {
+      "id": "doc_cms_ncd-90-2_v1_s0_c0",
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "kind": "test_specific_requirement",
+      "subject": "CLIA certification",
+      "requirementText": "Performed in a CLIA-certified laboratory.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_cms_ncd-90-2_v1_s0",
+      "verbatimQuote": "performed in a CLIA-certified laboratory",
+      "confidence": 0.94,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.473Z"
+    },
+    {
+      "id": "doc_cms_ncd-90-2_v1_s0_c1",
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "kind": "ordering_provider",
+      "subject": "ordered by treating physician",
+      "requirementText": "Ordered by a treating physician.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_cms_ncd-90-2_v1_s0",
+      "verbatimQuote": "ordered by a treating physician",
+      "confidence": 0.9,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.473Z"
+    },
+    {
+      "id": "doc_cms_ncd-90-2_v1_s1_c0",
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "kind": "clinical_indication",
+      "subject": "advanced/recurrent cancer",
+      "requirementText": "Recurrent, relapsed, refractory, metastatic, or advanced Stage III/IV cancer.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_cms_ncd-90-2_v1_s1",
+      "verbatimQuote": "recurrent, relapsed, refractory, metastatic, or advanced Stage III or IV cancer",
+      "confidence": 0.95,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.474Z"
+    },
+    {
+      "id": "doc_cms_ncd-90-2_v1_s2_c0",
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "kind": "frequency_limit",
+      "subject": "repeat testing",
+      "requirementText": "Not previously tested with the same NGS test for the same primary diagnosis.",
+      "operator": "lte",
+      "value": "1",
+      "unit": "test per diagnosis",
+      "evidence": {},
+      "spanId": "doc_cms_ncd-90-2_v1_s2",
+      "verbatimQuote": "has not been previously tested using the same NGS test for the same primary diagnosis of cancer",
+      "confidence": 0.9,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.474Z"
+    },
+    {
+      "id": "doc_cms_ncd-90-2_v1_s4_c0",
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "kind": "test_specific_requirement",
+      "subject": "FDA companion diagnostic",
+      "requirementText": "Test has FDA approval/clearance as a companion IVD; used per label.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_cms_ncd-90-2_v1_s4",
+      "verbatimQuote": "must have an FDA approval or clearance as a companion in vitro diagnostic",
+      "confidence": 0.92,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.474Z"
+    },
+    {
+      "id": "doc_cigna_0123_v1_s0_c0",
+      "policyDocumentId": "doc_cigna_0123_v1",
+      "kind": "clinical_indication",
+      "subject": "advanced or metastatic disease",
+      "requirementText": "Advanced or metastatic solid tumor cancer.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_cigna_0123_v1_s0",
+      "verbatimQuote": "advanced or metastatic solid tumor cancer",
+      "confidence": 0.94,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.480Z"
+    },
+    {
+      "id": "doc_cigna_0123_v1_s1_c0",
+      "policyDocumentId": "doc_cigna_0123_v1",
+      "kind": "frequency_limit",
+      "subject": "one test per diagnosis",
+      "requirementText": "Limited to one CGP assay per primary tumor diagnosis absent progression.",
+      "operator": "lte",
+      "value": "1",
+      "unit": "test per diagnosis",
+      "evidence": {},
+      "spanId": "doc_cigna_0123_v1_s1",
+      "verbatimQuote": "limited to one comprehensive genomic profiling assay per primary tumor diagnosis",
+      "confidence": 0.92,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.481Z"
+    },
+    {
+      "id": "doc_cigna_0123_v1_s2_c0",
+      "policyDocumentId": "doc_cigna_0123_v1",
+      "kind": "test_specific_requirement",
+      "subject": "CLIA accreditation",
+      "requirementText": "Performed by a CLIA-accredited laboratory.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_cigna_0123_v1_s2",
+      "verbatimQuote": "performed by a laboratory accredited under CLIA",
+      "confidence": 0.9,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.481Z"
+    },
+    {
+      "id": "doc_cigna_0123_v1_s3_c0",
+      "policyDocumentId": "doc_cigna_0123_v1",
+      "kind": "exclusion",
+      "subject": "population screening",
+      "requirementText": "Population screening of asymptomatic individuals is not covered.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_cigna_0123_v1_s3",
+      "verbatimQuote": "does not cover comprehensive genomic profiling for population screening in asymptomatic individuals",
+      "confidence": 0.92,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.481Z"
+    },
+    {
+      "id": "doc_uhc_onc-045_v1_s0_c0",
+      "policyDocumentId": "doc_uhc_onc-045_v1",
+      "kind": "clinical_indication",
+      "subject": "advanced or metastatic disease",
+      "requirementText": "Advanced or metastatic solid tumors.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_uhc_onc-045_v1_s0",
+      "verbatimQuote": "advanced or metastatic solid tumors",
+      "confidence": 0.94,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.486Z"
+    },
+    {
+      "id": "doc_uhc_onc-045_v1_s1_c0",
+      "policyDocumentId": "doc_uhc_onc-045_v1",
+      "kind": "test_specific_requirement",
+      "subject": "CLIA certification",
+      "requirementText": "Performed in a CLIA-certified laboratory.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_uhc_onc-045_v1_s1",
+      "verbatimQuote": "performed in a CLIA-certified laboratory",
+      "confidence": 0.93,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.486Z"
+    },
+    {
+      "id": "doc_uhc_onc-045_v1_s1_c1",
+      "policyDocumentId": "doc_uhc_onc-045_v1",
+      "kind": "ordering_provider",
+      "subject": "ordered by managing physician",
+      "requirementText": "Ordered by the physician managing oncologic care.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_uhc_onc-045_v1_s1",
+      "verbatimQuote": "ordered by the physician managing the member's oncologic care",
+      "confidence": 0.9,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.486Z"
+    },
+    {
+      "id": "doc_humana_onc-22_v1_s0_c0",
+      "policyDocumentId": "doc_humana_onc-22_v1",
+      "kind": "clinical_indication",
+      "subject": "advanced or metastatic disease",
+      "requirementText": "Advanced or metastatic solid tumor cancer, used to guide therapy.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_humana_onc-22_v1_s0",
+      "verbatimQuote": "advanced or metastatic solid tumor cancer",
+      "confidence": 0.94,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.491Z"
+    },
+    {
+      "id": "doc_humana_onc-22_v1_s1_c0",
+      "policyDocumentId": "doc_humana_onc-22_v1",
+      "kind": "test_specific_requirement",
+      "subject": "CLIA certification",
+      "requirementText": "Performed in a CLIA-certified laboratory.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_humana_onc-22_v1_s1",
+      "verbatimQuote": "performed in a CLIA-certified laboratory",
+      "confidence": 0.93,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.491Z"
+    },
+    {
+      "id": "doc_humana_onc-22_v1_s1_c1",
+      "policyDocumentId": "doc_humana_onc-22_v1",
+      "kind": "documentation",
+      "subject": "documentation of intended use",
+      "requirementText": "Documentation of the intended use of results accompanies the order.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_humana_onc-22_v1_s1",
+      "verbatimQuote": "documentation of the intended use of the results accompany the order",
+      "confidence": 0.89,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.491Z"
+    },
+    {
+      "id": "doc_aetna_0352_v1_s2_c0",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "kind": "clinical_indication",
+      "subject": "advanced NSCLC",
+      "requirementText": "Diagnosis of Stage IIIB or IV non-small cell lung cancer.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_aetna_0352_v1_s2",
+      "verbatimQuote": "Stage IIIB or IV non-small cell lung cancer",
+      "confidence": 0.95,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.496Z"
+    },
+    {
+      "id": "doc_aetna_0352_v1_s4_c0",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "kind": "documentation",
+      "subject": "intended use to select therapy",
+      "requirementText": "Results used to select FDA-approved targeted therapy or determine trial eligibility.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_aetna_0352_v1_s4",
+      "verbatimQuote": "The results will be used to select FDA-approved targeted therapy or to determine eligibility for a clinical trial",
+      "confidence": 0.88,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.497Z"
+    },
+    {
+      "id": "doc_aetna_0352_v1_s6_c0",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "kind": "exclusion",
+      "subject": "screening in asymptomatic persons",
+      "requirementText": "CGP for screening asymptomatic persons is experimental/investigational.",
+      "operator": null,
+      "value": null,
+      "unit": null,
+      "evidence": {},
+      "spanId": "doc_aetna_0352_v1_s6",
+      "verbatimQuote": "comprehensive genomic profiling experimental and investigational for cancer screening in asymptomatic persons",
+      "confidence": 0.9,
+      "extractedByModel": "fixture-golden",
+      "extractedAt": "2026-07-27T21:22:55.497Z"
+    }
+  ],
+  "stances": [
+    {
+      "id": "doc_moldx_l38045_v2_s0_st0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "codeId": "CPT:81445",
+      "stance": "conditional",
+      "spanId": "doc_moldx_l38045_v2_s0",
+      "verbatimQuote": "CGP is considered reasonable and necessary when all of the following conditions are met"
+    },
+    {
+      "id": "doc_moldx_l38045_v1_s0_st0",
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "codeId": "CPT:81445",
+      "stance": "conditional",
+      "spanId": "doc_moldx_l38045_v1_s0",
+      "verbatimQuote": "CGP is considered reasonable and necessary when all of the following conditions are met"
+    },
+    {
+      "id": "doc_elevance_cg-gene-14_v1_s0_st0",
+      "policyDocumentId": "doc_elevance_cg-gene-14_v1",
+      "codeId": "CPT:81445",
+      "stance": "conditional",
+      "spanId": "doc_elevance_cg-gene-14_v1_s0",
+      "verbatimQuote": "considered medically necessary when the individual has advanced-stage or metastatic solid tumor malignancy"
+    },
+    {
+      "id": "doc_bcbsmi_506-081_v1_s0_st0",
+      "policyDocumentId": "doc_bcbsmi_506-081_v1",
+      "codeId": "CPT:81445",
+      "stance": "conditional",
+      "spanId": "doc_bcbsmi_506-081_v1_s0",
+      "verbatimQuote": "considers genomic sequence analysis panels established for members with advanced or metastatic solid tumors"
+    },
+    {
+      "id": "doc_cms_ncd-90-2_v1_s0_st0",
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "codeId": "CPT:81445",
+      "stance": "conditional",
+      "spanId": "doc_cms_ncd-90-2_v1_s0",
+      "verbatimQuote": "covers diagnostic laboratory tests using next generation sequencing when performed in a CLIA-certified laboratory"
+    },
+    {
+      "id": "doc_cigna_0123_v1_s0_st0",
+      "policyDocumentId": "doc_cigna_0123_v1",
+      "codeId": "CPT:81445",
+      "stance": "conditional",
+      "spanId": "doc_cigna_0123_v1_s0",
+      "verbatimQuote": "Cigna covers tumor comprehensive genomic profiling using next-generation sequencing as medically necessary"
+    },
+    {
+      "id": "doc_uhc_onc-045_v1_s0_st0",
+      "policyDocumentId": "doc_uhc_onc-045_v1",
+      "codeId": "CPT:81445",
+      "stance": "conditional",
+      "spanId": "doc_uhc_onc-045_v1_s0",
+      "verbatimQuote": "proven and medically necessary for members with advanced or metastatic solid tumors"
+    },
+    {
+      "id": "doc_uhc_onc-045_v1_s2_st0",
+      "policyDocumentId": "doc_uhc_onc-045_v1",
+      "codeId": "PLA:0239U",
+      "stance": "investigational",
+      "spanId": "doc_uhc_onc-045_v1_s2",
+      "verbatimQuote": "unproven and not medically necessary for monitoring of treatment response using circulating tumor DNA"
+    },
+    {
+      "id": "doc_humana_onc-22_v1_s0_st0",
+      "policyDocumentId": "doc_humana_onc-22_v1",
+      "codeId": "CPT:81445",
+      "stance": "conditional",
+      "spanId": "doc_humana_onc-22_v1_s0",
+      "verbatimQuote": "covers comprehensive genomic profiling as medically necessary for members with advanced or metastatic solid tumor cancer"
+    },
+    {
+      "id": "doc_humana_onc-22_v1_s2_st0",
+      "policyDocumentId": "doc_humana_onc-22_v1",
+      "codeId": "PLA:0239U",
+      "stance": "investigational",
+      "spanId": "doc_humana_onc-22_v1_s2",
+      "verbatimQuote": "investigational for use in monitoring minimal residual disease, as the clinical utility for this use has not been demonstrated in prospective outcome studies"
+    },
+    {
+      "id": "doc_aetna_0352_v1_s1_st0",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "codeId": "CPT:81445",
+      "stance": "conditional",
+      "spanId": "doc_aetna_0352_v1_s1",
+      "verbatimQuote": "medically necessary for members with advanced or metastatic non-small cell lung cancer"
+    },
+    {
+      "id": "doc_aetna_0352_v1_s5_st0",
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "codeId": "PLA:0239U",
+      "stance": "investigational",
+      "spanId": "doc_aetna_0352_v1_s5",
+      "verbatimQuote": "experimental and investigational because the clinical utility of this application has not been established in prospective studies"
+    }
+  ],
+  "changes": [
+    {
+      "id": "chg_doc_moldx_l38045_v2_s1_c0",
+      "fromCriterionId": "doc_moldx_l38045_v1_s1_c0",
+      "toCriterionId": "doc_moldx_l38045_v2_s1_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "changeType": "clarified",
+      "rationale": "v2 adds a definition of 'metastatic' (spread beyond regional lymph nodes) without changing the underlying coverage bar."
+    },
+    {
+      "id": "chg_doc_moldx_l38045_v2_s3_c0",
+      "fromCriterionId": "doc_moldx_l38045_v1_s3_c0",
+      "toCriterionId": "doc_moldx_l38045_v2_s3_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "changeType": "loosened",
+      "rationale": "v2 explicitly permits repeat testing on documented progression, a new primary, or to assess resistance — broader than v1's prohibition on prior testing."
+    },
+    {
+      "id": "chg_doc_moldx_l38045_v2_s9_c0",
+      "fromCriterionId": "doc_moldx_l38045_v1_s8_c0",
+      "toCriterionId": "doc_moldx_l38045_v2_s9_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "changeType": "tightened",
+      "rationale": "v2 now requires prospective studies with clinical outcomes as the endpoint; retrospective analyses and change-in-management studies, previously acceptable as supporting evidence, are no longer sufficient."
+    },
+    {
+      "id": "chg_doc_moldx_l38045_v2_s5_c0",
+      "fromCriterionId": null,
+      "toCriterionId": "doc_moldx_l38045_v2_s5_c0",
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "changeType": "added",
+      "rationale": "New requirement: document intended use before ordering."
+    },
+    {
+      "id": "chg_rm_doc_moldx_l38045_v1_s11_c0",
+      "fromCriterionId": "doc_moldx_l38045_v1_s11_c0",
+      "toCriterionId": null,
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "changeType": "removed",
+      "rationale": "Requirement removed: repeat testing not covered."
+    }
+  ],
+  "codeLinks": [
+    {
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "codeId": "CPT:81479",
+      "relationship": "covers"
+    },
+    {
+      "policyDocumentId": "doc_cms_ncd-90-2_v1",
+      "codeId": "CPT:81445",
+      "relationship": "covers"
+    },
+    {
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "codeId": "CPT:81479",
+      "relationship": "covers"
+    },
+    {
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "codeId": "CPT:81445",
+      "relationship": "covers"
+    },
+    {
+      "policyDocumentId": "doc_moldx_l38045_v1",
+      "codeId": "PLA:0239U",
+      "relationship": "mentions"
+    },
+    {
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "codeId": "CPT:81479",
+      "relationship": "covers"
+    },
+    {
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "codeId": "CPT:81445",
+      "relationship": "covers"
+    },
+    {
+      "policyDocumentId": "doc_moldx_l38045_v2",
+      "codeId": "PLA:0239U",
+      "relationship": "mentions"
+    },
+    {
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "codeId": "CPT:81445",
+      "relationship": "covers"
+    },
+    {
+      "policyDocumentId": "doc_aetna_0352_v1",
+      "codeId": "PLA:0239U",
+      "relationship": "excludes"
+    },
+    {
+      "policyDocumentId": "doc_cigna_0123_v1",
+      "codeId": "CPT:81479",
+      "relationship": "covers"
+    },
+    {
+      "policyDocumentId": "doc_cigna_0123_v1",
+      "codeId": "CPT:81445",
+      "relationship": "covers"
+    },
+    {
+      "policyDocumentId": "doc_uhc_onc-045_v1",
+      "codeId": "CPT:81445",
+      "relationship": "covers"
+    },
+    {
+      "policyDocumentId": "doc_uhc_onc-045_v1",
+      "codeId": "PLA:0239U",
+      "relationship": "excludes"
+    },
+    {
+      "policyDocumentId": "doc_elevance_cg-gene-14_v1",
+      "codeId": "CPT:81445",
+      "relationship": "covers"
+    },
+    {
+      "policyDocumentId": "doc_bcbsmi_506-081_v1",
+      "codeId": "CPT:81445",
+      "relationship": "covers"
+    },
+    {
+      "policyDocumentId": "doc_humana_onc-22_v1",
+      "codeId": "CPT:81445",
+      "relationship": "covers"
+    },
+    {
+      "policyDocumentId": "doc_humana_onc-22_v1",
+      "codeId": "PLA:0239U",
+      "relationship": "excludes"
+    }
+  ]
+}

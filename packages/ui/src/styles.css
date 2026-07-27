@@ -1,0 +1,98 @@
+/* Assent design system. Color carries meaning and never decorates (docs/DESIGN.md).
+   The three reserved groups — coverage stance, change direction, and the citation
+   accent — do not overlap and are used nowhere else. */
+
+:root {
+  --a-paper: #FBFAF7;
+  --a-ink: #1A1A17;
+  --a-chrome-900: #14161A;
+  --a-chrome-700: #2A2E35;
+  --a-chrome-500: #5B626E;
+  --a-chrome-300: #AEB2B9;
+  --a-chrome-200: #D9DBDE;
+  --a-chrome-100: #E9E9E5;
+  --a-chrome-050: #F1F1EE;
+
+  /* Coverage stance — reserved */
+  --a-stance-covered: #2E7D57;
+  --a-stance-conditional: #B9822B;
+  --a-stance-investigational: #7A5CA8;
+  --a-stance-not_covered: #B23B3B;
+  --a-stance-silent: #9AA0A8;
+
+  /* Change direction — reserved */
+  --a-change-tightened: #B23B3B;
+  --a-change-loosened: #2E7D57;
+  --a-change-added: #2B5F8A;
+  --a-change-removed: #5B626E;
+  --a-change-clarified: #9AA0A8;
+
+  /* Citation — reserved for the signature highlight only */
+  --a-citation: #2B5F8A;
+  --a-citation-wash: #FFF3C4;
+
+  --a-font-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --a-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --a-font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Data — every code, date, LCD number, identifier, dollar amount. */
+.a-mono { font-family: var(--a-font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* Stance dot + label (coverage colors, reserved). */
+.a-stance { display: inline-flex; align-items: center; gap: 0.4em; font-size: 0.8125rem; }
+.a-stance-dot { width: 0.6rem; height: 0.6rem; border-radius: 2px; flex: none; }
+.a-stance--covered .a-stance-dot { background: var(--a-stance-covered); }
+.a-stance--conditional .a-stance-dot { background: var(--a-stance-conditional); }
+.a-stance--investigational .a-stance-dot { background: var(--a-stance-investigational); }
+.a-stance--not_covered .a-stance-dot { background: var(--a-stance-not_covered); }
+.a-stance--silent .a-stance-dot { background: var(--a-stance-silent); outline: 1px solid var(--a-chrome-200); outline-offset: -1px; }
+
+/* Change chip (diff colors, reserved). */
+.a-change { font-family: var(--a-font-mono); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.1rem 0.4rem; border-radius: 3px; color: #fff; }
+.a-change--tightened { background: var(--a-change-tightened); }
+.a-change--loosened { background: var(--a-change-loosened); }
+.a-change--added { background: var(--a-change-added); }
+.a-change--removed { background: var(--a-change-removed); }
+.a-change--clarified { background: var(--a-change-clarified); color: var(--a-ink); }
+
+/* ── The signature: the citation document + highlight ─────────────────────── */
+.a-doc {
+  font-family: var(--a-font-serif);
+  background: var(--a-paper);
+  color: var(--a-ink);
+  line-height: 1.65;
+  font-size: 1.02rem;
+}
+.a-doc-heading {
+  font-family: var(--a-font-sans);
+  font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--a-chrome-500); margin: 1.1rem 0 0.35rem;
+}
+.a-doc-span { margin: 0 0 0.7rem; padding: 0.05rem 0.25rem; border-radius: 3px; scroll-margin: 5rem; }
+.a-doc-span--active { background: rgba(43, 95, 138, 0.05); }
+
+/* The highlighter mark. Its illumination is the product's thesis made physical. */
+.a-cite-mark {
+  background: transparent;
+  color: inherit;
+  border-radius: 2px;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone;
+  padding: 0.05em 0.1em;
+  box-shadow: inset 0 0 0 9999px transparent;
+  transition: background-color 240ms ease, box-shadow 240ms ease;
+}
+.a-cite-mark--on {
+  background: var(--a-citation-wash);
+  box-shadow: inset 0 -0.5em 0 rgba(255, 214, 92, 0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .a-cite-mark { transition: none; }
+}
+
+/* Focus visibility everywhere (quality floor). */
+.a-focusable:focus-visible,
+button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--a-citation);
+  outline-offset: 2px;
+}
