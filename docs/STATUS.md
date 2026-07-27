@@ -15,7 +15,7 @@
 This build is developed and **verified offline** (`PIPELINE_MODE=fixture`, the default):
 the whole pipeline runs with committed fixtures + a committed golden set, no network,
 no API key. Where a milestone's literal acceptance needs external resources not present
-in this environment — live scraping of 8 payer sites, a paid LLM key at corpus scale,
+in this environment — live fetching from the 8 payer sites,
 notarized macOS/Windows Tauri builds — the code is wired to do the real thing when those
 exist, and the *logic* is proven here against fixtures and unit tests. Those boundaries
 are called out below.
@@ -45,12 +45,15 @@ Legend: ✅ proven here · ◑ built and logic-proven, final step needs an exter
   rate-limited, real User-Agent). CMS/MolDX are enabled; the 6 commercial payers are gated
   behind `SOURCES.<id>.liveAllowed` pending a per-source Terms-of-Use review. Until then
   they run from committed fixtures. The fetch/robots/rate-limit primitives exist and are tested.
-- **Real LLM.** With `ANTHROPIC_API_KEY` set and `PIPELINE_MODE=live`, extraction and diff
-  classification call `claude-sonnet-4-6` (temperature 0), cache every call by
-  `hash(model+prompt+input)`, and log tokens/latency/cost to `llm_call`. Offline, the golden
-  set serves as the model provider through the identical verify path, and a cache miss fails
-  loudly rather than fabricating. Blueprint embeddings use a deterministic feature-hash offline;
-  a learned embedding model + pgvector plug in behind the same interface for scale.
+- **No LLM at all.** Extraction is `@assent/brain`, trained locally and shipped as a JSON
+  weight file — nothing to configure, nothing to pay for, and the same result on every run.
+  What a bigger corpus adds is *training data*, which is the cheapest lever on quality:
+  add annotated sentences and re-run `pnpm --filter @assent/brain train`. Blueprint
+  embeddings use a deterministic feature hash; a learned embedding model + pgvector plug in
+  behind the same interface at scale.
+- **Outbound network.** Live ingest needs egress to the source hosts. In this environment
+  all non-package-registry hosts are blocked by policy (`cms.gov` → 403 on CONNECT), which is
+  why the corpus here is sample text and the CMS fetcher has never run against the live API.
 - **Desktop binaries.** The Tauri v2 shell is well-formed; producing signed macOS/Windows
   installers needs those toolchains + a display, which this environment does not have. The React
   frontend builds and runs in a browser against the bundled corpus snapshot for demonstration.
