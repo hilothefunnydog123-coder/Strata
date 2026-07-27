@@ -134,15 +134,14 @@ export function HeroCitation() {
         <div className="grid min-w-0 md:grid-cols-[1.3fr_1fr]">
           {/* Left: the source, rendered as a document. The label stays put; the paper scrolls. */}
           <div className="flex min-w-0 flex-col border-b border-chrome-200 md:border-b-0 md:border-r">
-            <div className="a-eyebrow px-4 pt-4 sm:px-6 sm:pt-5">
-              Source · Local Coverage Determination
-            </div>
+            {/* Outside the scroll box: padding inside one scrolls away with the text. */}
+            <div className="a-eyebrow px-4 pb-3 pt-4 sm:px-6 sm:pt-5">Source policy</div>
             <div
               ref={pane}
               tabIndex={0}
               role="region"
               aria-label={`Source policy text, ${DOC.title}`}
-              className="a-focusable relative min-w-0 max-h-[260px] overflow-y-auto px-4 pb-4 pt-3 sm:px-6 sm:pb-6 md:max-h-[420px]"
+              className="a-focusable relative min-w-0 max-h-[260px] overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-6 md:max-h-[420px]"
             >
               <CitationView spans={SPANS} activeSpanId={mark.spanId} activeQuote={mark.quote} />
             </div>

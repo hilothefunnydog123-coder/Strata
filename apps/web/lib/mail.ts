@@ -50,8 +50,29 @@ interface Envelope {
   html: string;
 }
 
+let warnedAboutDefault = false;
+
+/**
+ * Who receives demo requests.
+ *
+ * The default is the address the product owner asked for, so a fresh checkout
+ * delivers leads without any configuration. That default is intentional but it is
+ * NOT silent: anyone who deploys a fork without setting DEMO_NOTIFY_TO would
+ * otherwise send their visitors' contact details to someone else's inbox and never
+ * know. We say so once per process instead.
+ */
 export function demoNotifyRecipient(): string {
-  return env("DEMO_NOTIFY_TO") ?? DEFAULT_NOTIFY_TO;
+  const configured = env("DEMO_NOTIFY_TO");
+  if (configured) return configured;
+  if (!warnedAboutDefault) {
+    warnedAboutDefault = true;
+    console.warn(
+      `[mail] DEMO_NOTIFY_TO is not set — demo requests (name, email, company, message) ` +
+        `will be delivered to the built-in default address ${DEFAULT_NOTIFY_TO}. ` +
+        `If this deployment is not run by its owner, set DEMO_NOTIFY_TO before taking traffic.`,
+    );
+  }
+  return DEFAULT_NOTIFY_TO;
 }
 
 /**

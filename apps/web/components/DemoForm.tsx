@@ -35,11 +35,7 @@ export function DemoForm() {
 
   if (state === "done") {
     return (
-      <div
-        role="status"
-        aria-live="polite"
-        className="rounded-lg border border-chrome-200 bg-white p-6 sm:p-7"
-      >
+      <div role="status" className="rounded-lg border border-chrome-200 bg-white p-6 sm:p-7">
         <div className="a-eyebrow">Received</div>
         <p className="mt-3 max-w-reading font-serif text-[17px] leading-[1.55] text-ink">
           Thanks — we have your request. We will be in touch to schedule a walkthrough of your
@@ -54,11 +50,7 @@ export function DemoForm() {
 
   const busy = state === "sending";
   return (
-    <form
-      onSubmit={onSubmit}
-      noValidate={false}
-      className="rounded-lg border border-chrome-200 bg-white p-5 sm:p-6"
-    >
+    <form onSubmit={onSubmit} className="rounded-lg border border-chrome-200 bg-white p-5 sm:p-6">
       <fieldset disabled={busy} className="m-0 grid gap-4 border-0 p-0">
         <legend className="sr-only">Request a demo</legend>
 
