@@ -1,0 +1,6 @@
+[
+  { "system": "CPT", "code": "81479", "description": "Unlisted molecular pathology procedure" },
+  { "system": "CPT", "code": "81445", "description": "Targeted genomic sequence analysis panel, solid organ neoplasm, 5-50 genes" },
+  { "system": "PLA", "code": "0239U", "description": "Targeted genomic sequence analysis panel, solid organ neoplasm, cell-free circulating DNA (liquid biopsy)" },
+  { "system": "HCPCS", "code": "G9143", "description": "Warfarin responsiveness / molecular pathology (example ancillary code)" }
+]

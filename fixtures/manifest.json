@@ -1,0 +1,92 @@
+[
+  {
+    "source": "moldx", "payerId": "moldx", "externalId": "L38045", "version": 1,
+    "title": "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045)",
+    "url": "https://www.palmettogba.com/moldx/lcd/L38045",
+    "effectiveDate": "2023-06-01", "file": "moldx/L38045-v1.html", "supersedesFile": null,
+    "codes": [
+      { "code": "81479", "relationship": "covers" },
+      { "code": "81445", "relationship": "covers" },
+      { "code": "0239U", "relationship": "mentions" }
+    ]
+  },
+  {
+    "source": "moldx", "payerId": "moldx", "externalId": "L38045", "version": 2,
+    "title": "MolDX: Comprehensive Genomic Profiling for Advanced Solid Tumors (L38045) — Revision 2",
+    "url": "https://www.palmettogba.com/moldx/lcd/L38045",
+    "effectiveDate": "2024-09-15", "file": "moldx/L38045-v2.html", "supersedesFile": "moldx/L38045-v1.html",
+    "codes": [
+      { "code": "81479", "relationship": "covers" },
+      { "code": "81445", "relationship": "covers" },
+      { "code": "0239U", "relationship": "mentions" }
+    ]
+  },
+  {
+    "source": "aetna", "payerId": "aetna", "externalId": "0352", "version": 1,
+    "title": "Aetna CPB 0352 — Comprehensive Genomic Profiling and Circulating Tumor DNA",
+    "url": "https://www.aetna.com/cpb/medical/data/300_399/0352.html",
+    "effectiveDate": "2024-03-10", "file": "aetna/cpb-0352.html", "supersedesFile": null,
+    "codes": [
+      { "code": "81445", "relationship": "covers" },
+      { "code": "0239U", "relationship": "excludes" }
+    ]
+  },
+  {
+    "source": "cms", "payerId": "cms", "externalId": "NCD 90.2", "version": 1,
+    "title": "NCD 90.2 — Next Generation Sequencing for Patients with Advanced Cancer",
+    "url": "https://www.cms.gov/medicare-coverage-database/view/ncd.aspx?ncdid=372",
+    "effectiveDate": "2020-01-27", "file": "cms/ncd-90.2.html", "supersedesFile": null,
+    "codes": [
+      { "code": "81479", "relationship": "covers" },
+      { "code": "81445", "relationship": "covers" }
+    ]
+  },
+  {
+    "source": "cigna", "payerId": "cigna", "externalId": "0123", "version": 1,
+    "title": "Cigna Coverage Policy 0123 — Comprehensive Genomic Profiling in Oncology",
+    "url": "https://static.cigna.com/assets/chcp/pdf/coveragePolicies/medical/mm_0123_coveragepositioncriteria.pdf",
+    "effectiveDate": "2024-06-15", "file": "cigna/cp-mol-0123.html", "supersedesFile": null,
+    "codes": [
+      { "code": "81479", "relationship": "covers" },
+      { "code": "81445", "relationship": "covers" }
+    ]
+  },
+  {
+    "source": "uhc", "payerId": "uhc", "externalId": "ONC.045", "version": 1,
+    "title": "UnitedHealthcare Medical Policy ONC.045 — Molecular Profiling for Solid Tumors",
+    "url": "https://www.uhcprovider.com/policies/ONC.045",
+    "effectiveDate": "2024-05-01", "file": "uhc/mp-onc-045.html", "supersedesFile": null,
+    "codes": [
+      { "code": "81445", "relationship": "covers" },
+      { "code": "0239U", "relationship": "excludes" }
+    ]
+  },
+  {
+    "source": "elevance", "payerId": "elevance", "externalId": "CG-GENE-14", "version": 1,
+    "title": "Elevance Clinical Guideline CG-GENE-14 — Comprehensive Genomic Profiling",
+    "url": "https://www.elevancehealth.com/clinical-guidelines/CG-GENE-14",
+    "effectiveDate": "2024-02-20", "file": "elevance/cg-gene-14.html", "supersedesFile": null,
+    "codes": [
+      { "code": "81445", "relationship": "covers" }
+    ]
+  },
+  {
+    "source": "bcbsmi", "payerId": "bcbsmi", "externalId": "506.081", "version": 1,
+    "title": "BCBSM Medical Policy 506.081 — Genomic Sequence Analysis Panels in Oncology",
+    "url": "https://www.bcbsm.com/mpp/506.081",
+    "effectiveDate": "2024-04-01", "file": "bcbsmi/mp-506-081.html", "supersedesFile": null,
+    "codes": [
+      { "code": "81445", "relationship": "covers" }
+    ]
+  },
+  {
+    "source": "humana", "payerId": "humana", "externalId": "ONC-22", "version": 1,
+    "title": "Humana Medical Coverage Policy ONC-22 — Comprehensive Genomic Profiling",
+    "url": "https://www.humana.com/legal/medical-coverage-policies/ONC-22",
+    "effectiveDate": "2024-07-01", "file": "humana/mcp-onc-22.html", "supersedesFile": null,
+    "codes": [
+      { "code": "81445", "relationship": "covers" },
+      { "code": "0239U", "relationship": "excludes" }
+    ]
+  }
+]

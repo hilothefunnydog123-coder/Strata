@@ -1,0 +1,10 @@
+[
+  { "id": "cms", "name": "CMS — Medicare (National Coverage)", "type": "mac", "parentPayerId": null },
+  { "id": "moldx", "name": "MolDX / Palmetto GBA", "type": "mac", "parentPayerId": null },
+  { "id": "aetna", "name": "Aetna (CVS Health)", "type": "commercial", "parentPayerId": null },
+  { "id": "cigna", "name": "Cigna Healthcare", "type": "commercial", "parentPayerId": null },
+  { "id": "uhc", "name": "UnitedHealthcare", "type": "commercial", "parentPayerId": null },
+  { "id": "elevance", "name": "Elevance Health (Anthem)", "type": "commercial", "parentPayerId": null },
+  { "id": "bcbsmi", "name": "Blue Cross Blue Shield of Michigan", "type": "commercial", "parentPayerId": null },
+  { "id": "humana", "name": "Humana", "type": "commercial", "parentPayerId": null }
+]

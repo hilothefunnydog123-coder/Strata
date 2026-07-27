@@ -69,7 +69,9 @@ export function loadCorpus(db: LocalDatabase, data: CorpusData): void {
         id: `${c.payerId}-${c.year}-${c.segment}-${i}`, payer_id: c.payerId, year: c.year,
         segment: c.segment, lives_count: c.livesCount, source_url: c.sourceUrl, source_note: c.sourceNote,
       })));
-    put("code", ["id", "system", "code", "description"], d.codes);
+    put("code", ["id", "system", "code", "description"], d.codes.map((c) => ({
+      id: c.id, system: c.system, code: c.code, description: c.description,
+    })));
     put("policy_document",
       ["id", "payer_id", "external_id", "title", "url", "effective_date", "retrieved_at", "content_hash", "supersedes_id", "raw_storage_path"],
       d.documents.map((p) => ({

@@ -1,0 +1,10 @@
+[
+  { "payerId": "cms", "year": 2024, "segment": "Medicare FFS", "livesCount": 32000000, "sourceUrl": "https://www.kff.org/medicare/state-indicator/total-medicare-beneficiaries/", "sourceNote": "Approx. Medicare fee-for-service (Original Medicare) enrollment; NCDs bind nationally to FFS. Rounded." },
+  { "payerId": "moldx", "year": 2024, "segment": "Medicare FFS (MolDX jurisdictions)", "livesCount": 30000000, "sourceUrl": "https://www.palmettogba.com/moldx", "sourceNote": "Geographic estimate: FFS lives in MolDX-participating MAC jurisdictions (Palmetto, Noridian, WPS, CGS). Modeled, not exact." },
+  { "payerId": "aetna", "year": 2024, "segment": "Commercial medical", "livesCount": 19000000, "sourceUrl": "https://www.cvshealth.com/", "sourceNote": "Approx. Aetna medical membership per CVS Health reporting. Rounded." },
+  { "payerId": "cigna", "year": 2024, "segment": "US commercial medical", "livesCount": 18000000, "sourceUrl": "https://www.cigna.com/", "sourceNote": "Approx. US commercial medical customers per The Cigna Group reporting. Rounded." },
+  { "payerId": "uhc", "year": 2024, "segment": "Commercial medical", "livesCount": 45000000, "sourceUrl": "https://www.unitedhealthgroup.com/", "sourceNote": "Approx. UnitedHealthcare domestic commercial membership. Rounded." },
+  { "payerId": "elevance", "year": 2024, "segment": "Medical membership", "livesCount": 46000000, "sourceUrl": "https://www.elevancehealth.com/", "sourceNote": "Approx. Elevance Health medical membership. Rounded." },
+  { "payerId": "bcbsmi", "year": 2024, "segment": "Members", "livesCount": 4400000, "sourceUrl": "https://www.bcbsm.com/", "sourceNote": "Approx. Blue Cross Blue Shield of Michigan membership. Rounded." },
+  { "payerId": "humana", "year": 2024, "segment": "Medical (incl. MA)", "livesCount": 17000000, "sourceUrl": "https://www.humana.com/", "sourceNote": "Approx. Humana medical membership, predominantly Medicare Advantage. Rounded." }
+]
