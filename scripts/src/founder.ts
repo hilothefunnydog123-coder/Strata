@@ -2,7 +2,7 @@ import { scryptSync, randomBytes, randomInt } from "node:crypto";
 import { authenticator } from "otplib";
 import { eq } from "drizzle-orm";
 import { schema } from "@assent/db";
-import { PRODUCT } from "@assent/core";
+import { PRODUCT, FOUNDER_BOOTSTRAP, FOUNDER_ASSET } from "@assent/core";
 import { openStore, type Store } from "./store";
 
 /**
@@ -27,38 +27,22 @@ import { openStore, type Store } from "./store";
 
 // Ambiguous glyphs removed: nobody should lose an evening to l/I/1 or O/0.
 const PW_ALPHABET = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const FOUNDER_ACCOUNT_ID = "acct_founder";
-const FOUNDER_USER_ID = "user_founder";
+const FOUNDER_ACCOUNT_ID = FOUNDER_BOOTSTRAP.accountId;
+const FOUNDER_USER_ID = FOUNDER_BOOTSTRAP.userId;
 
 /**
  * `--bootstrap` — the founder account, created by the container on its own.
  *
  * Running the interactive command requires a shell on the box that can reach the
- * production database. Committing these three values instead means the deploy
- * provisions the account itself and the founder only has to open the site.
+ * production database. Committed values instead mean the deploy provisions the
+ * account itself and the founder only has to open the site.
  *
- * What is safe to commit here, and why:
- *
- *   EMAIL          an identity, not a secret.
- *   PASSWORD_HASH  scrypt over ~116 bits of entropy. Publishing it concedes an
- *                  offline attack that is not computable; the password itself is
- *                  never in this repository.
- *   (no TOTP)      deliberately absent. A shared second factor is not a second
- *                  factor — that is the exact flaw in the seeded demo user, whose
- *                  secret is otplib's published example. This account is created
- *                  UNENROLLED and the browser generates its secret on first
- *                  sign-in, so the only copy is on the founder's phone.
- *
- * The window this opens is one password-only sign-in, closed permanently by
- * enrolling, which the console demands before it will render anything.
+ * The values live in @assent/core because the web app's standalone mode needs the
+ * same account when there is no database to write it to. One definition, so the two
+ * modes cannot disagree about who the owner is. See that file for what is safe to
+ * commit and why no TOTP secret is among it.
  */
-const BOOTSTRAP = {
-  email: process.env.FOUNDER_EMAIL ?? "dlake003@gmail.com",
-  org: process.env.FOUNDER_ORG ?? "Assent, Inc.",
-  passwordHash:
-    process.env.FOUNDER_PASSWORD_HASH ??
-    "30ca0c579d2424ef09dd11043aa277ec:473959b790d7bb5e33021094b83d053219ba08d36ba908406a6c972c1edf56d094b50a089f8eba950abf24e4c8a8ddf3670ccb8ee21ec04fe47b660f5f4a9ff8",
-} as const;
+const BOOTSTRAP = FOUNDER_BOOTSTRAP;
 
 /** 4×5 characters from a 56-glyph alphabet ≈ 116 bits. Grouped so it can be read aloud. */
 function generatePassword(): string {
@@ -137,15 +121,11 @@ async function ensureAsset(store: Store): Promise<boolean> {
     .limit(1);
   if (existing.length > 0) return false;
 
+  // Same definition standalone mode uses, so both show identical figures.
   await store.db.insert(schema.asset).values({
-    id: "asset_founder",
+    ...FOUNDER_ASSET,
+    targetCodes: [...FOUNDER_ASSET.targetCodes],
     accountId: FOUNDER_ACCOUNT_ID,
-    name: "Comprehensive genomic profiling (tissue)",
-    indication: "Comprehensive genomic profiling for advanced or metastatic solid tumors",
-    intendedUse: "Guide selection of targeted systemic therapy",
-    targetCodes: ["81445", "81479"],
-    comparator: "single-gene testing",
-    targetPopulation: "Adults with advanced solid tumors",
   });
   return true;
 }

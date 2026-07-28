@@ -1,4 +1,5 @@
 export * from "./product";
+export * from "./founder";
 export * from "./criterion";
 export * from "./stance";
 export * from "./lives";

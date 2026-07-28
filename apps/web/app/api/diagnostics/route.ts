@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { isStandalone, standaloneCorpus, STANDALONE_REASON } from "@/lib/standalone";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,24 @@ const REMEDY: Record<Category, string> = {
 
 export async function GET() {
   const started = Date.now();
+
+  // Running deliberately without a database is a mode, not a fault. Reporting it as
+  // ok:false would send someone debugging a system that is working as configured.
+  if (isStandalone()) {
+    const corpus = await standaloneCorpus();
+    return NextResponse.json({
+      ok: corpus !== null,
+      mode: "standalone",
+      why: STANDALONE_REASON,
+      database: { configured: false },
+      accounts: { provisioned: 1, admins: 1, note: "the committed founder bootstrap, held in memory" },
+      corpus: corpus
+        ? { documents: corpus.documents.length, criteria: corpus.criteria.length, real: 0, sample: corpus.documents.length }
+        : { error: "corpus.json not found in this image" },
+      revert: "Set DATABASE_URL on the service. Every branch above is skipped and the Postgres paths resume unchanged — nothing to undo.",
+    });
+  }
+
   try {
     // Cheapest possible round trip: proves the connection, not the schema.
     await db().execute(sql`select 1`);

@@ -1,11 +1,33 @@
 import { and, eq, gt } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { isStandalone } from "@/lib/standalone";
 
 export const dynamic = "force-dynamic";
 
 export default async function Device({ searchParams }: { searchParams: { ok?: string; e?: string } }) {
-  const pending = await db().select().from(schema.deviceAuth)
-    .where(and(eq(schema.deviceAuth.approved, false), gt(schema.deviceAuth.expiresAt, new Date())));
+  // Device pairing issues a long-lived token, which needs somewhere durable to keep
+  // it. Standalone says so plainly rather than showing a form that cannot work.
+  const standalone = isStandalone();
+  const pending = standalone
+    ? []
+    : await db().select().from(schema.deviceAuth)
+        .where(and(eq(schema.deviceAuth.approved, false), gt(schema.deviceAuth.expiresAt, new Date())));
+
+  if (standalone) {
+    return (
+      <div>
+        <h1 className="font-serif text-[28px] text-ink">Device approvals</h1>
+        <p className="text-[13px] text-chrome-500 mt-1 max-w-reading">
+          Pairing a desktop app issues a long-lived token, which needs a database to store.
+          The console is running without one, so this stays unavailable until you attach it.
+        </p>
+        <p className="text-[13px] text-chrome-500 mt-4 max-w-reading">
+          You can still use the terminal in this browser — it needs no pairing.{" "}
+          <a href="/terminal/?host=console" className="text-citation">Open it</a>.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>

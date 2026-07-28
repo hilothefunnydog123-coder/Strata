@@ -3,6 +3,9 @@ import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { db, schema } from "./db";
 import { hashToken, randomToken } from "./auth";
+import {
+  isStandalone, standaloneCreateSession, standaloneLookupSession, standaloneDestroySession,
+} from "./standalone";
 
 const COOKIE = "assent_session";
 const TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
@@ -21,7 +24,8 @@ export async function createSession(userId: string): Promise<void> {
   const token = randomToken();
   const id = hashToken(token);
   const expiresAt = new Date(Date.now() + TTL_MS);
-  await db().insert(schema.session).values({ id, userId, expiresAt });
+  if (isStandalone()) standaloneCreateSession(id, userId, expiresAt);
+  else await db().insert(schema.session).values({ id, userId, expiresAt });
   cookies().set(COOKIE, token, {
     httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production",
     path: "/", expires: expiresAt,
@@ -30,7 +34,10 @@ export async function createSession(userId: string): Promise<void> {
 
 export async function destroySession(): Promise<void> {
   const token = cookies().get(COOKIE)?.value;
-  if (token) await db().delete(schema.session).where(eq(schema.session.id, hashToken(token)));
+  if (token) {
+    if (isStandalone()) standaloneDestroySession(hashToken(token));
+    else await db().delete(schema.session).where(eq(schema.session.id, hashToken(token)));
+  }
   cookies().delete(COOKIE);
 }
 
@@ -53,6 +60,13 @@ export async function currentUser(): Promise<SessionUser | null> {
 }
 
 async function lookupSession(token: string): Promise<SessionUser | null> {
+  if (isStandalone()) {
+    const u = standaloneLookupSession(hashToken(token));
+    return u && {
+      id: u.id, email: u.email, role: u.role,
+      accountId: u.accountId, totpEnrolled: u.totpEnrolled,
+    };
+  }
   const rows = await db()
     .select({
       id: schema.appUser.id, email: schema.appUser.email, role: schema.appUser.role,

@@ -63,6 +63,22 @@ pnpm --filter @assent/web dev   # http://localhost:3000
 # Get the demo TOTP code:  pnpm --filter @assent/scripts exec tsx src/cli.ts totp
 ```
 
+### Standalone mode (no database)
+
+With `DATABASE_URL` unset, the console runs from the corpus bundled in the image
+instead of failing: sign-in, the dashboard, the coverage summary and `/terminal` all
+work against `corpus.json`, backed by the committed founder account.
+
+It is a travel/demo posture, not a deployment target — one account, nothing durable,
+and sessions plus authenticator enrollment reset when the process restarts. Demo
+requests, device pairing and eval runs still need Postgres and say so rather than
+pretending to work.
+
+**Reverting is setting one variable.** The mode is chosen by whether `DATABASE_URL`
+exists, asked at each call site; there is no flag to unset and nothing to migrate,
+because standalone never writes anything durable. Set it and the Postgres paths
+resume unchanged. `/api/diagnostics` always reports which mode is live.
+
 ### Your own console login
 
 `pnpm db:seed` creates a *demo* login whose password is a constant in this repo and

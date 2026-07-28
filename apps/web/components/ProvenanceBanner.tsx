@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
+import { isStandalone, standaloneCorpus } from "@/lib/standalone";
 
 /**
  * Corpus provenance, stated plainly and unmissably.
@@ -14,6 +15,31 @@ import { db, schema } from "@/lib/db";
  * It disappears on its own once every document has provenance = 'fetched'.
  */
 export async function ProvenanceBanner() {
+  // Standalone reads the bundled corpus, which is entirely sample text by
+  // definition. Two things are true at once and both belong on the page: the
+  // documents are not real, and the console is running without a database.
+  if (isStandalone()) {
+    const corpus = await standaloneCorpus();
+    const total = corpus?.documents.length ?? 0;
+    return (
+      <div role="status" className="mb-6 border-l-2 border-ink bg-chrome-50 px-4 py-3">
+        <div className="a-mono text-[10px] uppercase tracking-[0.12em] text-ink">
+          Standalone mode — sample corpus, no database
+        </div>
+        <p className="mt-1.5 max-w-reading text-[13px] leading-relaxed text-chrome-700">
+          All {total} documents here are{" "}
+          <strong className="font-medium text-ink">reconstructed sample text</strong> bundled in
+          this build, and they are{" "}
+          <strong className="font-medium text-ink">not real payer requirements</strong>. Sign-in
+          and authenticator enrollment are held in memory and reset when the service restarts.
+        </p>
+        <p className="a-mono mt-2 text-[11px] text-chrome-500">
+          set DATABASE_URL to return to the database-backed console — nothing to undo
+        </p>
+      </div>
+    );
+  }
+
   let counts: Array<{ provenance: string; n: number }> = [];
   try {
     counts = (await db()

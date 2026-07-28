@@ -6,6 +6,7 @@ import { PRODUCT } from "@assent/core";
 import { db, schema } from "@/lib/db";
 import { verifyTotp, newTotpSecret, totpAuthUri } from "@/lib/auth";
 import { currentUser } from "@/lib/session";
+import { isStandalone, standaloneEnrollTotp } from "@/lib/standalone";
 
 export const runtime = "nodejs";
 
@@ -88,10 +89,12 @@ export async function POST(req: Request) {
     );
   }
 
-  await db()
-    .update(schema.appUser)
-    .set({ totpSecret: secret, totpEnrolled: true })
-    .where(eq(schema.appUser.id, user.id));
+  if (isStandalone()) standaloneEnrollTotp(secret);
+  else
+    await db()
+      .update(schema.appUser)
+      .set({ totpSecret: secret, totpEnrolled: true })
+      .where(eq(schema.appUser.id, user.id));
 
   jar.delete(PENDING);
   return NextResponse.json({ ok: true });

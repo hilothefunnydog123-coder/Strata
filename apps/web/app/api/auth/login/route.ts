@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db, schema } from "@/lib/db";
 import { verifyPassword, verifyTotp } from "@/lib/auth";
 import { createSession } from "@/lib/session";
+import { isStandalone, standaloneUserByEmail } from "@/lib/standalone";
 
 export const runtime = "nodejs";
 
@@ -32,10 +33,15 @@ export async function POST(req: Request) {
   // A database outage used to surface as the same blank "Sign-in failed." the form
   // shows for any non-JSON response, which is indistinguishable from a wrong
   // password and sends you hunting for a typo that isn't there. Name it instead.
-  let user: typeof schema.appUser.$inferSelect | undefined;
+  //
+  // Standalone resolves the same shape from memory; every rule below it — password
+  // check, TOTP requirement, the one-time enrollment exemption — is shared, so the
+  // two modes cannot drift apart on anything that decides access.
+  let user: Pick<typeof schema.appUser.$inferSelect, "id" | "passwordHash" | "totpSecret" | "totpEnrolled"> | undefined;
   try {
-    const rows = await db().select().from(schema.appUser).where(eq(schema.appUser.email, email.toLowerCase())).limit(1);
-    user = rows[0];
+    user = isStandalone()
+      ? standaloneUserByEmail(email) ?? undefined
+      : (await db().select().from(schema.appUser).where(eq(schema.appUser.email, email.toLowerCase())).limit(1))[0];
   } catch (err) {
     console.error("[login] database unavailable:", err);
     return NextResponse.json(
