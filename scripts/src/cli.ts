@@ -210,12 +210,20 @@ async function seed(store: Store) {
   await seedReference(store);
   // Demo account + admin user + asset (so blueprint has an object to key off).
   const salt = randomBytes(16).toString("hex");
-  const password = process.env.OWNER_PASSWORD ?? "assent-dev-password";
+  // A committed default password on a public URL is a door with the key taped to it.
+  // Unset, the demo user gets a random one nobody holds — the account still exists so
+  // the pipeline and blueprint have something to key off, but it cannot be signed
+  // into. `pnpm founder` is how a real login is made.
+  const generatedPassword = !process.env.OWNER_PASSWORD;
+  const password = process.env.OWNER_PASSWORD ?? randomBytes(24).toString("base64url");
   const hash = `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
   await store.db.insert(schema.account).values({ id: "acct_demo", orgName: "Northwind Diagnostics", plan: "pilot", seatLimit: 5, createdByAdmin: "cli" }).onConflictDoNothing();
-  // Fixed demo TOTP secret so the login flow is testable end-to-end. `pnpm ... totp`
-  // prints the current code. A real admin-provisioned user enrolls their own secret.
-  const totpSecret = process.env.ASSENT_DEMO_TOTP_SECRET ?? "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
+  // The old default here was otplib's PUBLISHED example secret, which meant anyone
+  // who had read this repository could generate valid codes for any deployment that
+  // ran the seed. Now it is generated per install; `pnpm ... totp` reads it back out
+  // of the database, so local testing is unchanged. Set ASSENT_DEMO_TOTP_SECRET only
+  // when a fixed value is genuinely needed (a scripted test), never in a deployment.
+  const totpSecret = process.env.ASSENT_DEMO_TOTP_SECRET ?? authenticator.generateSecret();
   await store.db.insert(schema.appUser).values({
     id: "user_demo", accountId: "acct_demo", email: (process.env.OWNER_EMAIL ?? "vp@northwind.example.com").toLowerCase(),
     role: "admin", passwordHash: hash, totpSecret, totpEnrolled: true,
@@ -226,8 +234,17 @@ async function seed(store: Store) {
     intendedUse: "Guide selection of targeted systemic therapy", targetCodes: ["81445", "81479"],
     comparator: "single-gene testing", targetPopulation: "Adults with advanced solid tumors",
   }).onConflictDoNothing();
-  console.log(`[seed] account acct_demo, user ${process.env.OWNER_EMAIL ?? "vp@northwind.example.com"} (pw: ${password}), asset asset_demo ready`);
-  console.log(`[seed] TOTP enrolled — get the current code with:  pnpm --filter @assent/scripts exec tsx src/cli.ts totp`);
+  const demoEmail = process.env.OWNER_EMAIL ?? "vp@northwind.example.com";
+  if (generatedPassword) {
+    console.log(`[seed] account acct_demo, asset asset_demo ready`);
+    console.log(`[seed] demo user ${demoEmail} has a RANDOM password that was not stored anywhere —`);
+    console.log(`[seed] it exists to own the demo asset, not to be signed into. For a real login:`);
+    console.log(`[seed]   pnpm founder --email you@yourdomain.com`);
+    console.log(`[seed] (set OWNER_PASSWORD before seeding if you do want to sign in as the demo user)`);
+  } else {
+    console.log(`[seed] account acct_demo, user ${demoEmail} (pw: from OWNER_PASSWORD), asset asset_demo ready`);
+    console.log(`[seed] TOTP enrolled — get the current code with:  pnpm --filter @assent/scripts exec tsx src/cli.ts totp`);
+  }
 }
 
 async function totp(store: Store) {

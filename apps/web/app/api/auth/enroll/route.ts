@@ -7,8 +7,11 @@ import { db, schema } from "@/lib/db";
 import { verifyTotp, newTotpSecret, totpAuthUri } from "@/lib/auth";
 import { currentUser } from "@/lib/session";
 import { isStandalone, standaloneEnrollTotp } from "@/lib/standalone";
+import { check, recordFailure, clear, type Limit } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
+
+const ENROLL_LIMIT: Limit = { max: 8, windowSec: 900 };
 
 /**
  * First-factor-only accounts bind their authenticator here.
@@ -71,6 +74,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "This account already has an authenticator." }, { status: 409 });
   }
 
+  // Six digits is a million guesses — trivial to grind with a session and no limit.
+  const key = `enroll:${user.id}`;
+  const gate = check(key, ENROLL_LIMIT);
+  if (gate.blocked) {
+    return NextResponse.json(
+      { error: `Too many attempts. Try again in ${Math.ceil(gate.retryAfterSec / 60)} minute(s).` },
+      { status: 429, headers: { "retry-after": String(gate.retryAfterSec) } },
+    );
+  }
+
   const parsed = ConfirmSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Enter the 6-digit code." }, { status: 422 });
 
@@ -83,11 +96,13 @@ export async function POST(req: Request) {
   // Proving the authenticator holds the secret is the whole point: enrolling one it
   // never stored would lock the account out on the next sign-in with no way back.
   if (!verifyTotp(parsed.data.totp, secret)) {
+    recordFailure(key, ENROLL_LIMIT);
     return NextResponse.json(
       { error: "That code doesn't match. Check your phone's clock and enter the current code." },
       { status: 400 },
     );
   }
+  clear(key);
 
   if (isStandalone()) standaloneEnrollTotp(secret);
   else

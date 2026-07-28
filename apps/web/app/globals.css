@@ -1,4 +1,22 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap");
+/* Fonts are self-hosted, not fetched from Google.
+ *
+ * The CSP forbids third-party origins, and rather than punch a hole in it for
+ * fonts.googleapis.com these ship from node_modules. Three things improve at once:
+ * the policy stays closed, no visitor's browser announces this site to a third
+ * party, and typography no longer depends on an external host being reachable —
+ * which matters for a product whose whole claim is that it works offline.
+ *
+ * Only the weights actually used are imported; pulling the full families would add
+ * megabytes for glyphs nothing renders.
+ */
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
+@import "@fontsource-variable/source-serif-4";
 
 /* The design system (tokens, citation highlight, reserved colors). */
 @import "@assent/ui/styles.css";
