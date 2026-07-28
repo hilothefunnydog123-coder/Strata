@@ -32,10 +32,25 @@ export async function destroySession(): Promise<void> {
   cookies().delete(COOKIE);
 }
 
-/** Resolve the current user from the session cookie, or null. */
+/**
+ * Resolve the current user from the session cookie, or null.
+ *
+ * Never throws. If the database is unreachable we report "not signed in" rather
+ * than propagating a 500: the marketing site and the login page must keep working
+ * even when the console's data layer is down.
+ */
 export async function currentUser(): Promise<SessionUser | null> {
   const token = cookies().get(COOKIE)?.value;
   if (!token) return null;
+  try {
+    return await lookupSession(token);
+  } catch (err) {
+    console.error("[session] lookup failed; treating request as signed out:", err);
+    return null;
+  }
+}
+
+async function lookupSession(token: string): Promise<SessionUser | null> {
   const rows = await db()
     .select({
       id: schema.appUser.id, email: schema.appUser.email, role: schema.appUser.role,

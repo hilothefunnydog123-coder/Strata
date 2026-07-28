@@ -49,6 +49,8 @@ export function createDb(url: string = databaseUrl()) {
   const client = postgres(url, {
     max: Number(process.env.DATABASE_POOL_MAX ?? 10),
     ssl: sslOptionFor(url),
+    // Fail fast rather than hanging a request (or the boot) on an unreachable host.
+    connect_timeout: Number(process.env.DATABASE_CONNECT_TIMEOUT ?? 10),
     onnotice: () => {},
   });
   const db = drizzle(client, { schema });

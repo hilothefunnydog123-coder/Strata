@@ -16,7 +16,7 @@ services:
     region: oregon
     branch: main
     autoDeploy: true
-    healthCheckPath: /
+    healthCheckPath: /healthz
     envVars:
       - key: DATABASE_URL
         fromDatabase:
