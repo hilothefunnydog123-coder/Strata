@@ -29,9 +29,14 @@ elif [ "${ASSENT_SKIP_BOOTSTRAP:-}" = "1" ]; then
 else
   # Backgrounded on purpose: see the design rule above.
   (
+    # Patient on purpose. A managed Postgres that is cold, waking, or still being
+    # attached can take minutes to answer, and giving up early leaves the console
+    # with no account until someone thinks to redeploy. The server is already
+    # serving throughout, so waiting here costs nothing.
     attempt=1
-    max=5
+    max=12
     delay=3
+    max_delay=30
     while [ "$attempt" -le "$max" ]; do
       echo "[db] applying migrations (attempt ${attempt}/${max})"
       if pnpm --filter @assent/db run migrate; then
@@ -55,6 +60,7 @@ else
         echo "[db] database not ready, retrying in ${delay}s" >&2
         sleep "$delay"
         delay=$((delay * 2))
+        [ "$delay" -gt "$max_delay" ] && delay="$max_delay"
       fi
       attempt=$((attempt + 1))
     done

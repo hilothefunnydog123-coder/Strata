@@ -29,8 +29,21 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid input." }, { status: 422 });
   const { email, password, totp } = parsed.data;
 
-  const rows = await db().select().from(schema.appUser).where(eq(schema.appUser.email, email.toLowerCase())).limit(1);
-  const user = rows[0];
+  // A database outage used to surface as the same blank "Sign-in failed." the form
+  // shows for any non-JSON response, which is indistinguishable from a wrong
+  // password and sends you hunting for a typo that isn't there. Name it instead.
+  let user: typeof schema.appUser.$inferSelect | undefined;
+  try {
+    const rows = await db().select().from(schema.appUser).where(eq(schema.appUser.email, email.toLowerCase())).limit(1);
+    user = rows[0];
+  } catch (err) {
+    console.error("[login] database unavailable:", err);
+    return NextResponse.json(
+      { error: "The console's database is unavailable — this is a server problem, not your password. See /api/diagnostics." },
+      { status: 503 },
+    );
+  }
+
   const invalid = () => NextResponse.json({ error: "Incorrect email, password, or code." }, { status: 401 });
   if (!user) return invalid();
   if (!verifyPassword(password, user.passwordHash)) return invalid();
@@ -40,6 +53,14 @@ export async function POST(req: Request) {
     if (!totp || !verifyTotp(totp, user.totpSecret!)) return invalid();
   }
 
-  await createSession(user.id);
+  try {
+    await createSession(user.id);
+  } catch (err) {
+    console.error("[login] could not persist session:", err);
+    return NextResponse.json(
+      { error: "Signed in, but the session could not be stored. The database is degraded — see /api/diagnostics." },
+      { status: 503 },
+    );
+  }
   return NextResponse.json({ ok: true, enroll: !enrolled });
 }
