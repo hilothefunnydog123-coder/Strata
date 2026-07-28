@@ -1,0 +1,61 @@
+# Render Blueprint for Assent.
+#
+#   New + → Blueprint → pick this repo. It provisions the web service and a
+#   Postgres instance, wires DATABASE_URL between them, and generates a session
+#   secret. On boot the container applies migrations and bootstraps the offline
+#   corpus, so the console has data on the first request.
+#
+# The values marked `sync: false` are the ones you set yourself in the dashboard.
+
+services:
+  - type: web
+    name: assent
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: oregon
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: assent-db
+          property: connectionString
+      # Signs session cookies. Rotating it logs everyone out, which is the point.
+      - key: SESSION_SECRET
+        generateValue: true
+
+      # The admin account created on first boot. Set a real password here.
+      - key: OWNER_EMAIL
+        sync: false
+      - key: OWNER_PASSWORD
+        sync: false
+
+      # Outbound mail for demo requests. Set ONE of these for email to work;
+      # without either, requests are still saved to Postgres and logged.
+      # Fastest: a free key from https://resend.com/api-keys (no DNS setup).
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SMTP_URL
+        sync: false
+      - key: MAIL_FROM
+        value: Assent <onboarding@resend.dev>
+      # Unset → the built-in default in apps/web/lib/mail.ts.
+      - key: DEMO_NOTIFY_TO
+        sync: false
+
+      # Extraction is a local model; the pipeline never needs the network.
+      - key: PIPELINE_MODE
+        value: fixture
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+
+databases:
+  - name: assent-db
+    databaseName: assent
+    user: assent
+    plan: free
+    region: oregon

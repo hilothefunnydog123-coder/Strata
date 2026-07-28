@@ -14,7 +14,8 @@
     "migrate": "tsx src/migrate.ts",
     "push": "drizzle-kit push",
     "studio": "drizzle-kit studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@assent/core": "workspace:*",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "drizzle-kit": "^0.30.1",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

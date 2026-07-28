@@ -2,7 +2,7 @@
   "name": "assent",
   "private": true,
   "version": "0.0.0",
-  "description": "Assent — the queryable specification of US health-insurance coverage policy.",
+  "description": "Assent \u2014 the queryable specification of US health-insurance coverage policy.",
   "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=20"
@@ -26,7 +26,8 @@
     "eval": "tsx packages/evals/src/cli.ts",
     "dev": "pnpm --filter @assent/web run dev",
     "dev:web": "pnpm --filter @assent/web run dev",
-    "dev:desktop": "pnpm --filter @assent/desktop run dev"
+    "dev:desktop": "pnpm --filter @assent/desktop run dev",
+    "start": "pnpm --filter @assent/web start"
   },
   "devDependencies": {
     "@types/node": "^20.16.11",
@@ -36,7 +37,10 @@
     "vitest": "^2.1.8"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"],
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ],
     "overrides": {
       "@types/react": "18.3.12",
       "@types/react-dom": "18.3.1"
