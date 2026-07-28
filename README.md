@@ -63,6 +63,22 @@ pnpm --filter @assent/web dev   # http://localhost:3000
 # Get the demo TOTP code:  pnpm --filter @assent/scripts exec tsx src/cli.ts totp
 ```
 
+### Your own console login
+
+`pnpm db:seed` creates a *demo* login whose password is a constant in this repo and
+whose TOTP secret is otplib's published example — fine for a fixture, useless as a
+credential. For a real one:
+
+```bash
+pnpm founder --email you@yourdomain.com --org "Your Company, Inc."
+```
+
+It provisions a separate enterprise account with you as admin, generates the password
+and TOTP secret on the machine you run it on, and prints them once — only a scrypt hash
+is stored, so nothing is recoverable afterwards. `--rotate` issues new ones and revokes
+every live session and paired desktop. Run it wherever `DATABASE_URL` points at the
+database you actually want the login in.
+
 `PIPELINE_MODE=fixture` (default) runs everything from committed fixtures with zero network.
 `PIPELINE_MODE=live` fetches real documents (robots-respecting, rate-limited) and calls the
 LLM — see `.env.example` and `docs/STATUS.md`.

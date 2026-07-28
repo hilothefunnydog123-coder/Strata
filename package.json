@@ -29,7 +29,8 @@
     "dev:desktop": "pnpm --filter @assent/desktop run dev",
     "start": "pnpm --filter @assent/web start",
     "corpus:status": "tsx scripts/src/corpus-status.ts",
-    "corpus:live": "tsx scripts/src/corpus-live.ts"
+    "corpus:live": "tsx scripts/src/corpus-live.ts",
+    "founder": "tsx scripts/src/founder.ts"
   },
   "devDependencies": {
     "@types/node": "^20.16.11",
