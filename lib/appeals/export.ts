@@ -11,7 +11,6 @@
  * workflow state.
  */
 import {
-  AlignmentType,
   Document,
   HeadingLevel,
   Packer,

@@ -120,6 +120,12 @@ export async function completeFirstSignIn(
   await page.getByRole('button', { name: 'Turn on two-factor' }).click();
   await expect(page.getByText('Two-factor authentication is on')).toBeVisible();
 
+  // Finish the way a person does, by leaving the enrolment page. The session
+  // cookie is only exchanged for one carrying the second factor on the next
+  // request, so a test that stops here still looks un-enrolled to the server.
+  await page.getByRole('button', { name: /Go to my work|Continue/ }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith('/account/two-factor'));
+
   return { totpSecret: secret, backupCodes: backupCodes.map((c) => c.trim()) };
 }
 

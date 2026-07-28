@@ -5,7 +5,11 @@ import { submitDemoRequest, type DemoRequestState } from './actions';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Select, Textarea } from '@/components/ui/field';
 import { ErrorState } from '@/components/ui/primitives';
-import { ANNUAL_DENIAL_VOLUMES, VOLUME_LABELS } from '@/lib/validation/demo-request';
+import {
+  ANNUAL_DENIAL_VOLUMES,
+  HONEYPOT_FIELD,
+  VOLUME_LABELS,
+} from '@/lib/validation/demo-request';
 
 const INITIAL: DemoRequestState = { status: 'idle' };
 
@@ -123,8 +127,14 @@ export function DemoRequestForm() {
           technology skips it, since a screen reader user must not be trapped by
           a field they are not meant to fill. */}
       <div aria-hidden="true" className="absolute left-[-9999px] h-px w-px overflow-hidden">
-        <label htmlFor="website">Do not fill this in</label>
-        <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+        <label htmlFor={HONEYPOT_FIELD}>Do not fill this in</label>
+        <input
+          id={HONEYPOT_FIELD}
+          name={HONEYPOT_FIELD}
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+        />
       </div>
 
       <Button type="submit" intent="primary" disabled={pending}>

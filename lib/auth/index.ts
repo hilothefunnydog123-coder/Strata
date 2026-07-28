@@ -109,6 +109,10 @@ export const auth = betterAuth({
     customRules: {
       '/sign-in/email': { window: 60, max: 20 },
       '/change-password': { window: 60, max: 20 },
+      // Enrolment: rare per person, but a department onboarding several people
+      // at once shares one address, and better-auth's plugin default of three
+      // per ten seconds would stop the fourth of them.
+      '/two-factor/enable': { window: 60, max: 10 },
       '/two-factor/verify-totp': { window: 60, max: 10 },
       '/two-factor/verify-backup-code': { window: 60, max: 10 },
     },

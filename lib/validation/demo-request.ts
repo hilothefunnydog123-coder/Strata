@@ -81,14 +81,17 @@ export const demoRequestSchema = z.object({
     .max(2000, 'Keep it under 2,000 characters. We will ask for the rest on the call.')
     .optional()
     .or(z.literal('')),
-
-  /**
-   * Honeypot. A real person never sees this field and never fills it in, so a
-   * value here is a bot. The submission is accepted with a normal looking
-   * response and thrown away, because telling a bot it was caught only teaches
-   * whoever wrote it to try harder.
-   */
-  website: z.string().max(0).optional().or(z.literal('')),
 });
+
+/**
+ * The honeypot field.
+ *
+ * Deliberately NOT part of the schema above. If it were, a filled honeypot
+ * would fail validation and the form would come back with an error, which tells
+ * whoever wrote the bot exactly which field caught them. Instead the action
+ * reads this separately, before validating anything, and answers a filled
+ * honeypot with the same success screen a person gets while storing nothing.
+ */
+export const HONEYPOT_FIELD = 'website';
 
 export type DemoRequestInput = z.infer<typeof demoRequestSchema>;

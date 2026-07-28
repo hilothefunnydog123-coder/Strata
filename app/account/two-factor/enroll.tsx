@@ -40,7 +40,13 @@ export function EnrollTwoFactor({
     setBusy(false);
 
     if (result.error || !result.data) {
-      setError('That password is not right. Enter the one you just signed in with.');
+      // A rate limited response is not a wrong password, and saying so would
+      // send someone hunting for a typo that is not there.
+      setError(
+        result.error?.status === 429
+          ? 'Too many attempts from your network in the last minute. Wait a minute and try again.'
+          : 'That password is not right. Enter the one you just signed in with.',
+      );
       return;
     }
 
@@ -61,7 +67,9 @@ export function EnrollTwoFactor({
 
     if (result.error) {
       setError(
-        'That code is not valid. Codes change every 30 seconds, so use the one showing now.',
+        result.error.status === 429
+          ? 'Too many attempts in the last minute. Wait a minute and try again.'
+          : 'That code is not valid. Codes change every 30 seconds, so use the one showing now.',
       );
       return;
     }

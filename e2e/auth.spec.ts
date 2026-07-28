@@ -118,7 +118,6 @@ test.describe('two-factor', () => {
       PASSWORD,
     );
 
-    await page.getByRole('button', { name: 'Go to my work' }).click();
     await expect(page).toHaveURL(/\/app/);
 
     await signOut(page);
@@ -164,7 +163,7 @@ test.describe('route access by role', () => {
   };
 
   for (const role of Object.keys(ALLOWED)) {
-    test(`${role} reaches only its own surfaces`, async ({ page, context }) => {
+    test(`${role} reaches only its own surfaces`, async ({ page }) => {
       const account = freshAccount(role as 'org_admin');
       const password = `${PASSWORD}-${role}`;
 
@@ -188,16 +187,31 @@ test.describe('route access by role', () => {
       }
 
       for (const surface of SURFACES) {
-        // By request, carrying the session cookie, not by clicking a link.
-        const response = await context.request.get(surface, { maxRedirects: 0 });
-        const status = response.status();
+        // Fetched from inside the signed in page, so the request carries exactly
+        // the cookies the browser holds, and redirects are not followed. This is
+        // a request test rather than a click test on purpose: a surface that is
+        // merely un-linked is not a surface that is closed.
+        const { status, landedOn } = await page.evaluate(async (path) => {
+          const res = await fetch(path, { credentials: 'include' });
+          return { status: res.status, landedOn: new URL(res.url).pathname };
+        }, surface);
 
         if (ALLOWED[role]!.includes(surface)) {
-          expect(status, `${role} should reach ${surface}`).toBe(200);
-        } else {
+          // Served, at the address asked for, without being bounced anywhere.
           expect(
             status,
-            `${role} must not reach ${surface}, got ${status}`,
+            `${role} should reach ${surface}, got ${status} at ${landedOn}`,
+          ).toBe(200);
+          expect(
+            landedOn,
+            `${role} should stay on ${surface}, but was sent to ${landedOn}`,
+          ).toBe(surface);
+        } else {
+          // forbidden() answers 403 and does not redirect, so a refusal is
+          // distinguishable from "not signed in", which redirects to sign in.
+          expect(
+            status,
+            `${role} must not reach ${surface}, got ${status} at ${landedOn}`,
           ).toBe(403);
         }
       }

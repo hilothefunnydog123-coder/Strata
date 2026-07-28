@@ -10,6 +10,7 @@ import { log } from '@/lib/log';
 import { rateLimit } from '@/lib/rate-limit';
 import {
   demoRequestSchema,
+  HONEYPOT_FIELD,
   VOLUME_LABELS,
   type DemoRequestInput,
 } from '@/lib/validation/demo-request';
@@ -32,6 +33,16 @@ export async function submitDemoRequest(
   _previous: DemoRequestState,
   formData: FormData,
 ): Promise<DemoRequestState> {
+  // The honeypot is read first and separately. A real person never sees this
+  // field, so a value in it is a bot: answer exactly as though it worked, store
+  // nothing, and say nothing, because telling a bot it was caught only teaches
+  // whoever wrote it to try harder. It is kept out of the schema on purpose, so
+  // a filled honeypot cannot surface as a validation error.
+  if (String(formData.get(HONEYPOT_FIELD) ?? '').length > 0) {
+    log.info('demo request discarded, honeypot filled');
+    return { status: 'ok' };
+  }
+
   const raw = {
     name: formData.get('name'),
     email: formData.get('email'),
@@ -39,7 +50,6 @@ export async function submitDemoRequest(
     title: formData.get('title'),
     annualDenialVolume: formData.get('annualDenialVolume'),
     message: formData.get('message'),
-    website: formData.get('website'),
   };
 
   const parsed = demoRequestSchema.safeParse(raw);
@@ -58,13 +68,6 @@ export async function submitDemoRequest(
   }
 
   const input: DemoRequestInput = parsed.data;
-
-  // The honeypot was filled, so this is a bot. Answer as though it worked and
-  // store nothing: telling it that it was caught only improves the next attempt.
-  if (input.website) {
-    log.info('demo request discarded, honeypot filled');
-    return { status: 'ok' };
-  }
 
   const h = await headers();
   const ip =
