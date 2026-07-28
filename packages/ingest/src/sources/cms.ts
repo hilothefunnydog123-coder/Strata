@@ -43,6 +43,110 @@ const CANDIDATE_BASES: string[] = process.env.ASSENT_CMS_MCD_BASE
 /** Resolved once a candidate answers usefully, so the rest of a run stays on it. */
 let resolvedBase: string | null = null;
 
+/**
+ * CMS publishes an OpenAPI description of this API, and it told us so itself.
+ *
+ * The first live run came back 400 with:
+ *
+ *   {"message":"Hello MCIM API Users! Please reference the documentation at
+ *    /docs/v1/swagger to make use of the proper endpoints.","id":404}
+ *
+ * which is the API saying the base was right and the path was invented. So instead
+ * of guessing better, this reads the spec and finds the operations by shape. That
+ * survives CMS renaming a route, which they have done before and will again.
+ */
+const SWAGGER_CANDIDATES = [
+  "https://api.coverage.cms.gov/docs/v1/swagger",
+  "https://api.coverage.cms.gov/docs/v1/swagger.json",
+  "https://api.coverage.cms.gov/v1/docs/swagger",
+  "https://api.coverage.cms.gov/swagger/v1/swagger.json",
+];
+
+interface OpenApiSpec {
+  paths?: Record<string, Record<string, unknown>>;
+  servers?: Array<{ url?: string }>;
+  basePath?: string;
+}
+
+let specCache: OpenApiSpec | null | undefined;
+
+async function loadSpec(): Promise<OpenApiSpec | null> {
+  if (specCache !== undefined) return specCache;
+  for (const url of SWAGGER_CANDIDATES) {
+    try {
+      const res = await politeFetch(url);
+      if (!res.ok) continue;
+      const body = await res.text();
+      const spec = JSON.parse(body) as OpenApiSpec;
+      if (spec && typeof spec === "object" && spec.paths) {
+        specCache = spec;
+        return spec;
+      }
+    } catch {
+      /* try the next candidate */
+    }
+  }
+  specCache = null;
+  return null;
+}
+
+/** Every GET path in the spec, which is the raw material for both selectors below. */
+function getPaths(spec: OpenApiSpec): string[] {
+  return Object.entries(spec.paths ?? {})
+    .filter(([, ops]) => Object.keys(ops).some((m) => m.toLowerCase() === "get"))
+    .map(([p]) => p);
+}
+
+const hasParam = (p: string) => /\{[^}]+\}/.test(p);
+
+/**
+ * A listing operation: mentions the document kind, takes no path parameter, and
+ * looks like an index rather than a lookup. Scored rather than pattern-matched, so
+ * an unexpected but reasonable route still wins over nothing.
+ */
+export function selectListPath(paths: string[], kind: "ncd" | "lcd"): string | null {
+  const scored = paths
+    .filter((p) => !hasParam(p) && new RegExp(`\\b${kind}s?\\b|${kind}`, "i").test(p))
+    .map((p) => {
+      let score = 0;
+      if (/alphabetical|all|list|index|report/i.test(p)) score += 3;
+      if (/search|lookup|query/i.test(p)) score += 2;
+      if (/download|export/i.test(p)) score += 1;
+      // Shallower paths are the more general ones.
+      score -= p.split("/").filter(Boolean).length * 0.1;
+      return { p, score };
+    })
+    .sort((a, b) => b.score - a.score);
+  return scored[0]?.p ?? null;
+}
+
+/** A detail operation: mentions the kind and takes exactly one path parameter. */
+export function selectDetailPath(paths: string[], kind: "ncd" | "lcd"): string | null {
+  const candidates = paths
+    .filter((p) => hasParam(p) && new RegExp(`${kind}`, "i").test(p))
+    .filter((p) => (p.match(/\{[^}]+\}/g) ?? []).length === 1)
+    .sort((a, b) => a.split("/").length - b.split("/").length);
+  return candidates[0] ?? null;
+}
+
+function specBase(spec: OpenApiSpec): string {
+  const server = spec.servers?.[0]?.url;
+  if (server) return server.replace(/\/+$/, "");
+  if (spec.basePath) return `https://api.coverage.cms.gov${spec.basePath.replace(/\/+$/, "")}`;
+  return "https://api.coverage.cms.gov";
+}
+
+/** Paths the spec advertises, resolved to absolute URLs. */
+async function discover(kind: "ncd" | "lcd"): Promise<{ list: string | null; detail: string | null; base: string } | null> {
+  const spec = await loadSpec();
+  if (!spec) return null;
+  const paths = getPaths(spec);
+  const base = specBase(spec);
+  const list = selectListPath(paths, kind);
+  const detail = selectDetailPath(paths, kind);
+  return { list: list ? `${base}${list}` : null, detail: detail ? `${base}${detail}` : null, base };
+}
+
 export interface ProbeResult {
   base: string;
   url: string;
@@ -98,6 +202,27 @@ async function getJson<T>(url: string): Promise<FetchJsonResult<T>> {
  */
 export async function probeCms(kind: "ncd" | "lcd" = "ncd"): Promise<ProbeResult[]> {
   const out: ProbeResult[] = [];
+
+  // The spec first, and its GET paths verbatim. If the selectors below pick the
+  // wrong route, this list is what makes the right one obvious without another
+  // round of guessing.
+  const spec = await loadSpec().catch(() => null);
+  out.push({
+    base: "openapi",
+    url: SWAGGER_CANDIDATES[0]!,
+    ok: !!spec,
+    status: spec ? 200 : null,
+    contentType: spec ? "application/json" : null,
+    bodyHead: spec
+      ? JSON.stringify({
+          getPaths: getPaths(spec).slice(0, 60),
+          chosenList: selectListPath(getPaths(spec), kind),
+          chosenDetail: selectDetailPath(getPaths(spec), kind),
+          base: specBase(spec),
+        })
+      : "",
+    error: spec ? undefined : "no OpenAPI document at any known location",
+  });
   for (const base of CANDIDATE_BASES) {
     const url = `${base}/reports/${kind}-alphabetical`;
     try {
@@ -135,11 +260,34 @@ export async function probeCms(kind: "ncd" | "lcd" = "ncd"): Promise<ProbeResult
   return out;
 }
 
+/** Where the last discovery landed, so a run's detail calls match its list call. */
+let discoveredDetail: string | null = null;
+
 /** List NCDs (national) or LCDs (local) available in the MCD. */
 export async function listDocuments(kind: "ncd" | "lcd"): Promise<McdListItem[]> {
-  const bases = resolvedBase ? [resolvedBase] : CANDIDATE_BASES;
   const failures: string[] = [];
 
+  // Ask the API what it offers before assuming anything.
+  const found = await discover(kind).catch(() => null);
+  if (found?.list) {
+    try {
+      const { data } = await getJson<{ data?: McdListItem[] } | McdListItem[]>(found.list);
+      const items = Array.isArray(data) ? data : data.data;
+      if (Array.isArray(items) && items.length > 0) {
+        resolvedBase = found.base;
+        discoveredDetail = found.detail;
+        return items;
+      }
+      failures.push(`${found.list} (from the API's own spec): parsed but held no document list`);
+    } catch (err) {
+      failures.push(`${found.list} (from the API's own spec): ${err instanceof Error ? err.message : String(err)}`);
+    }
+  } else {
+    failures.push("the OpenAPI spec could not be read, or advertised no listing route");
+  }
+
+  // Fall back to the guessed shapes only after the spec has had its say.
+  const bases = resolvedBase ? [resolvedBase] : CANDIDATE_BASES;
   for (const base of bases) {
     const url = `${base}/reports/${kind}-alphabetical`;
     try {
@@ -177,10 +325,12 @@ export interface McdDocument {
 
 /** Fetch one document's full text + code links. */
 export async function fetchDocument(kind: "ncd" | "lcd", documentId: string): Promise<McdDocument> {
-  // listDocuments() runs first and pins the base that actually answered, so a single
-  // run never mixes endpoints.
+  // listDocuments() runs first and pins whatever answered, so a single run never
+  // mixes a discovered listing route with a guessed detail route.
   const base = resolvedBase ?? CANDIDATE_BASES[0]!;
-  const url = `${base}/${kind}/${encodeURIComponent(documentId)}`;
+  const url = discoveredDetail
+    ? discoveredDetail.replace(/\{[^}]+\}/, encodeURIComponent(documentId))
+    : `${base}/${kind}/${encodeURIComponent(documentId)}`;
   const { data } = await getJson<Record<string, unknown>>(url);
 
   const html =
