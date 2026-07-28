@@ -45,3 +45,7 @@ Thumbs.db
 
 # Eval run snapshots (also written to the eval_run table when DATABASE_URL is set)
 packages/evals/eval-runs/
+
+# Local Docker-build testing artifacts (sandbox proxy CA)
+.proxy-ca.crt
+Dockerfile.test

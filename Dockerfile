@@ -2,20 +2,23 @@
 # gated console); the pipeline CLI ships too so the container can migrate and
 # bootstrap its own corpus on boot.
 #
+# Debian slim rather than Alpine, deliberately: on musl, better-sqlite3 has no
+# prebuilt binary and must be compiled, which drags in python3/make/g++ and a
+# package-manager round trip on every build. On glibc it resolves without a
+# toolchain, so this image installs NO operating-system packages at all — nothing
+# to break when a distro mirror is slow, moved, or unreachable.
+#
 # One stage on purpose. The boot sequence runs migrations and the offline pipeline
 # through tsx, so the runtime genuinely needs the workspace sources and dev
-# dependencies — a slimmed runner stage would have to copy nearly all of it back.
-# Build toolchain is installed as a virtual package and removed after the build.
+# dependencies; a slimmed runner stage would have to copy nearly all of it back.
 
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
-# libc6-compat: prebuilt native binaries (better-sqlite3) expect glibc symbols.
-RUN apk add --no-cache libc6-compat
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
-# Copy manifests first so dependency installation caches independently of source.
+# Manifests first so dependency installation caches independently of source.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc turbo.json tsconfig.base.json ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/desktop/package.json ./apps/desktop/
@@ -31,15 +34,12 @@ COPY packages/ui/package.json ./packages/ui/
 COPY packages/evals/package.json ./packages/evals/
 COPY scripts/package.json ./scripts/
 
-# better-sqlite3 compiles from source when no prebuild matches this platform.
-RUN apk add --no-cache --virtual .build-deps python3 make g++ \
- && pnpm install --frozen-lockfile \
- && apk del .build-deps
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 
 # Next builds without a database: every console page is force-dynamic and the
-# pool is created lazily, so no connection is opened during the build.
+# connection pool is created lazily, so no connection is opened during the build.
 RUN pnpm --filter @assent/web build
 
 ENV NODE_ENV=production \
