@@ -105,55 +105,7 @@ export function matchCriteria(fromList: Criterion[], toList: Criterion[]): Crite
   };
 }
 
-// ── Restrictiveness scoring ──────────────────────────────────────────────────
-
-interface Cue {
-  re: RegExp;
-  weight: number;
-  why: string;
-}
-
-/** Positive weight = harder to satisfy. Negative = easier. */
-const CUES: Cue[] = [
-  { re: /\bmust\b|\bshall\b|\bis required\b|\brequires\b/i, weight: 2, why: "mandatory obligation" },
-  { re: /\bonly\b|\bsolely\b|\bexclusively\b/i, weight: 1.5, why: "narrowed to a single case" },
-  { re: /\b(?:are|is) not sufficient\b|\bnot sufficient\b|\balone are not\b|\bdoes not satisfy\b/i, weight: 2.5, why: "explicitly rules evidence insufficient" },
-  { re: /\bprospective\b|\brandomized\b|\bcontrolled trial\b/i, weight: 2, why: "demands prospective evidence" },
-  { re: /\bclinical outcomes\b|\bsurvival\b/i, weight: 1.5, why: "demands outcome endpoints" },
-  { re: /\bpeer-reviewed\b|\bpublished\b/i, weight: 0.5, why: "demands published evidence" },
-  { re: /\bmay be considered\b|\bmay be\b|\bcan be\b/i, weight: -1.5, why: "permissive phrasing" },
-  { re: /\bis permitted\b|\bare permitted\b|\bis allowed\b|\bmay be repeated\b/i, weight: -2.5, why: "grants permission" },
-  { re: /\bsupporting evidence\b|\bsupportive\b/i, weight: -1, why: "accepts weaker evidence as supporting" },
-  { re: /\bretrospective\b/i, weight: -1, why: "admits retrospective evidence" },
-  { re: /\bnot covered\b|\bis excluded\b|\bnon-?covered\b/i, weight: 2, why: "non-coverage" },
-  { re: /\bexcept\b|\bunless\b/i, weight: -0.5, why: "carves out an exception" },
-];
-
-export interface Restrictiveness {
-  score: number;
-  reasons: string[];
-  thresholds: number[];
-}
-
-export function restrictiveness(text: string): Restrictiveness {
-  let score = 0;
-  const reasons: string[] = [];
-  for (const c of CUES) {
-    if (c.re.test(text)) {
-      score += c.weight;
-      reasons.push(c.why);
-    }
-  }
-  // Numeric thresholds ("at least 95%", "one per", "two prior lines").
-  const thresholds: number[] = [];
-  const numRe = /(\d+(?:\.\d+)?)\s*%|\bat least\s+(\d+(?:\.\d+)?)\b|\bno more than\s+(\d+(?:\.\d+)?)\b/gi;
-  let m: RegExpExecArray | null;
-  while ((m = numRe.exec(text)) !== null) {
-    const v = Number(m[1] ?? m[2] ?? m[3]);
-    if (Number.isFinite(v)) thresholds.push(v);
-  }
-  return { score, reasons, thresholds };
-}
+import { classifyRevision } from "./restrictiveness";
 
 export interface Classification {
   changeType: ChangeType;
@@ -161,49 +113,14 @@ export interface Classification {
 }
 
 /**
- * Classify a changed pair. Deterministic and explainable: the rationale names the
- * cues that moved the score, so a reviewer can check the call against the quotes.
+ * Classify a changed pair. The judgement lives in ./restrictiveness, which reads
+ * what the revision added and removed in the context of the criterion's kind —
+ * a higher number means opposite things for a frequency limit and an evidence
+ * threshold, and the same added clause means opposite things joined by "or"
+ * versus "and". Scored against §9's 20-pair golden set by `pnpm eval`.
  */
 export function classifyChange(from: Criterion, to: Criterion): Classification {
-  const a = restrictiveness(from.verbatimQuote);
-  const b = restrictiveness(to.verbatimQuote);
-
-  // A raised numeric threshold is the least ambiguous signal there is.
-  if (a.thresholds.length > 0 && b.thresholds.length > 0) {
-    const maxA = Math.max(...a.thresholds);
-    const maxB = Math.max(...b.thresholds);
-    if (maxB > maxA) {
-      return { changeType: "tightened", rationale: `Threshold raised from ${maxA} to ${maxB}.` };
-    }
-    if (maxB < maxA) {
-      return { changeType: "loosened", rationale: `Threshold lowered from ${maxA} to ${maxB}.` };
-    }
-  }
-
-  const delta = b.score - a.score;
-  const gained = b.reasons.filter((r) => !a.reasons.includes(r));
-  const lost = a.reasons.filter((r) => !b.reasons.includes(r));
-
-  if (delta >= 1) {
-    return {
-      changeType: "tightened",
-      rationale: `Harder to satisfy: ${gained.length ? gained.join("; ") : "stronger obligation"}${
-        lost.length ? ` (no longer ${lost.join("; ")})` : ""
-      }.`,
-    };
-  }
-  if (delta <= -1) {
-    return {
-      changeType: "loosened",
-      rationale: `Easier to satisfy: ${gained.length ? gained.join("; ") : "weaker obligation"}${
-        lost.length ? ` (dropped ${lost.join("; ")})` : ""
-      }.`,
-    };
-  }
-  return {
-    changeType: "clarified",
-    rationale: "Wording changed without altering what must be shown.",
-  };
+  return classifyRevision(from.verbatimQuote, to.verbatimQuote, to.kind);
 }
 
 /** Compute the full criterion-level change list between two versions. */

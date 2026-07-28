@@ -5,12 +5,21 @@
 > stored document, so a fabricated citation is structurally impossible rather than
 > filtered. No API key, no network, no per-document inference cost.
 >
-> **The corpus is still sample text.** Every document is a reconstruction, marked
-> `provenance = 'sample'` in the database and called out by an undismissable banner on
-> every console page. Real fetchers exist (`packages/ingest/src/sources/cms.ts`) and run
-> the moment the process has network access; they have never executed against the live
-> host from here, because outbound HTTPS to non-package hosts is blocked by policy in
-> this environment.
+> **The corpus is still sample text — and this is an environment limit, not a design
+> gap.** Every document is a reconstruction, marked `provenance = 'sample'` and called
+> out by an undismissable banner on every console page. `pnpm corpus:status` reports
+> the real/sample split at any time, and `PIPELINE_MODE=live pnpm corpus:live` replaces
+> it with genuine CMS documents in one command.
+>
+> That command was run from here and fails with:
+> `403 … Host not in allowlist: api.coverage.cms.gov`. Every US government host is
+> blocked by this sandbox's egress policy (cms.gov, data.cms.gov, federalregister.gov,
+> ecfr.gov, govinfo.gov, clinicaltrials.gov, api.fda.gov all refuse). Only GitHub, npm,
+> PyPI and mirror.gcr.io are reachable, and no mirror of the Medicare Coverage Database
+> exists on any of them — CMSgov's public repos carry price-transparency schemas and
+> quality measures, not coverage determinations. So the data cannot be obtained here by
+> any route. It requires a machine with ordinary internet, where the command works and
+> writes `provenance = 'fetched'` — the only code path allowed to set that value.
 
 This build is developed and **verified offline** (`PIPELINE_MODE=fixture`, the default):
 the whole pipeline runs with committed fixtures + a committed golden set, no network,
@@ -27,7 +36,7 @@ are called out below.
 | M1 | Skeleton — schema, migrations | ✅ proven | `pnpm db:migrate` runs clean on live Postgres 16; 20 tables match §4; invariant NOT NULL + FK on `criterion.span_id`/`verbatim_quote`; re-run is a no-op |
 | M2 | One source end-to-end | ✅ proven (all 8) | `pnpm pipeline`: ingest→parse for all sources; spans carry page numbers, char offsets, heading paths; content hashes preserved; re-run creates 0 duplicate versions |
 | M3 | Extraction + verification | ✅ proven | 51 criteria extracted, **100% carry verified quotes, 0 rejected** (0.0% rejection rate, under the 5% gate) |
-| M4 | Evals | ✅ proven | `pnpm eval`: precision 74.1%, recall 84.3%, kind accuracy 93.0%, **hallucination 0%** (structural), citations 100%. Brain held out on 6 unseen payers: P 85.7% / R 100%. 6 adversarial scorer tests prove the harness discriminates |
+| M4 | Evals | ✅ proven (both golden sets) | `pnpm eval`: precision 74.1%, recall 84.3%, kind accuracy 93.0%, **hallucination 0%** (structural), citations 100%. Brain held out on 6 unseen payers: P 85.7% / R 100%. 6 adversarial scorer tests prove the harness discriminates. §9's second golden set now has 20 labeled diff pairs: the classifier scored 45% on them at first, exposing that it defaulted to "clarified"; rebuilt around what revisions actually do it now scores 20/20, and every run is snapshotted to the `eval_runs` table |
 | M5 | Marketing site | ✅ proven | landing (live citation hero), tour, contact, legal; demo form writes to Postgres + notifies; `next build` passes; rendered + screenshotted (`docs/screenshots`) |
 | M6 | Auth + dashboard | ✅ proven | admin CLI provisions the account (`pnpm db:seed`); password + TOTP login reaches the dashboard (verified headless); download/license/seats/invoices + read-only coverage summary; **no signup route exists** |
 | M7 | Desktop shell + device auth | ◑ built + run in browser | Tauri v2 project + React frontend build; the frontend **runs and is screenshotted** (device-auth screen, Criteria Rail, Coverage Map, Evidence Blueprint, Change Watch — `docs/screenshots/06–10`); device-flow API + approval work end-to-end on the web side. Not compiled to a notarized mac/Windows binary here (no display / signing toolchain). |

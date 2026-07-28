@@ -17,7 +17,8 @@
     "@assent/core": "workspace:*",
     "@assent/parse": "workspace:*",
     "@assent/ingest": "workspace:*",
-    "@assent/extract": "workspace:*"
+    "@assent/extract": "workspace:*",
+    "@assent/db": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

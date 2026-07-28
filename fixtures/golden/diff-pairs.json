@@ -1,0 +1,106 @@
+[
+  {
+    "_note": "PROMPT §9: the diff classifier's own golden set — 20 labeled before/after requirement pairs drawn from realistic policy revisions across the v0 payers. The unit here is the changed requirement, which is what classifyChange() actually consumes. Labels are hand-assigned from the plain meaning of the two quotes: does the revision make the bar HARDER to satisfy (tightened), EASIER (loosened), or the same (clarified)? Deliberately includes cases the restrictiveness heuristic can get wrong — an eval that only contains easy cases measures nothing.",
+    "id": 0, "payer": "_", "kind": "_", "from": "_", "to": "_", "label": "clarified"
+  },
+
+  { "id": 1, "payer": "moldx", "kind": "clinical_utility",
+    "from": "Clinical utility must be demonstrated through published evidence that use of the test result leads to a change in patient management that improves health outcomes",
+    "to": "Clinical utility must be demonstrated through prospective studies with clinical outcomes as the endpoint",
+    "label": "tightened" },
+
+  { "id": 2, "payer": "moldx", "kind": "frequency_limit",
+    "from": "The patient has not been previously tested with the same or a comparable comprehensive genomic profiling assay for the same primary cancer diagnosis",
+    "to": "Repeat testing with the same assay is permitted when there is documented disease progression, a new primary cancer, or to assess the emergence of therapy resistance mechanisms",
+    "label": "loosened" },
+
+  { "id": 3, "payer": "moldx", "kind": "clinical_indication",
+    "from": "advanced (Stage III or IV) or metastatic solid tumor cancer at the time the test is ordered",
+    "to": "advanced (Stage III or IV) or metastatic solid tumor cancer at the time the test is ordered, where metastatic is defined as spread beyond regional lymph nodes",
+    "label": "clarified" },
+
+  { "id": 4, "payer": "moldx", "kind": "analytical_validity",
+    "from": "the analytical validity submission must demonstrate an analytical concordance of at least 95%",
+    "to": "the analytical validity submission must demonstrate an analytical concordance of at least 98%",
+    "label": "tightened" },
+
+  { "id": 5, "payer": "aetna", "kind": "clinical_indication",
+    "from": "The member has a diagnosis of Stage IIIB or IV non-small cell lung cancer",
+    "to": "The member has a diagnosis of Stage IIIA, IIIB or IV non-small cell lung cancer",
+    "label": "loosened" },
+
+  { "id": 6, "payer": "aetna", "kind": "documentation",
+    "from": "The results will be used to select FDA-approved targeted therapy or to determine eligibility for a clinical trial",
+    "to": "The ordering physician must document, prior to ordering, how the result will be used to select FDA-approved targeted therapy",
+    "label": "tightened" },
+
+  { "id": 7, "payer": "aetna", "kind": "exclusion",
+    "from": "Aetna considers comprehensive genomic profiling experimental and investigational for cancer screening in asymptomatic persons",
+    "to": "Aetna considers comprehensive genomic profiling experimental and investigational for cancer screening in asymptomatic persons, including those with a family history of malignancy",
+    "label": "tightened" },
+
+  { "id": 8, "payer": "cms", "kind": "test_specific_requirement",
+    "from": "must have an FDA approval or clearance as a companion in vitro diagnostic",
+    "to": "must have an FDA approval or clearance as a companion in vitro diagnostic, or be offered by a laboratory holding a current CLIA certificate of accreditation",
+    "label": "loosened" },
+
+  { "id": 9, "payer": "cms", "kind": "clinical_indication",
+    "from": "recurrent, relapsed, refractory, metastatic, or advanced Stage III or IV cancer",
+    "to": "recurrent, relapsed, refractory, metastatic, or advanced Stage III or IV cancer, as documented in the medical record",
+    "label": "clarified" },
+
+  { "id": 10, "payer": "cms", "kind": "frequency_limit",
+    "from": "has not been previously tested using the same NGS test for the same primary diagnosis of cancer",
+    "to": "has not been previously tested using the same NGS test for the same primary diagnosis of cancer within the preceding twelve months",
+    "label": "loosened" },
+
+  { "id": 11, "payer": "cigna", "kind": "frequency_limit",
+    "from": "limited to one comprehensive genomic profiling assay per primary tumor diagnosis",
+    "to": "limited to two comprehensive genomic profiling assays per primary tumor diagnosis",
+    "label": "loosened" },
+
+  { "id": 12, "payer": "cigna", "kind": "test_specific_requirement",
+    "from": "performed by a laboratory accredited under CLIA",
+    "to": "performed by a laboratory accredited under CLIA and by the College of American Pathologists",
+    "label": "tightened" },
+
+  { "id": 13, "payer": "cigna", "kind": "exclusion",
+    "from": "does not cover comprehensive genomic profiling for population screening in asymptomatic individuals",
+    "to": "does not cover comprehensive genomic profiling for population screening in asymptomatic individuals or for recurrence monitoring in remission",
+    "label": "tightened" },
+
+  { "id": 14, "payer": "uhc", "kind": "clinical_indication",
+    "from": "advanced or metastatic solid tumors",
+    "to": "advanced or metastatic solid tumors, defined as Stage III or Stage IV per AJCC staging",
+    "label": "clarified" },
+
+  { "id": 15, "payer": "uhc", "kind": "ordering_provider",
+    "from": "ordered by the physician managing the member's oncologic care",
+    "to": "ordered by a board-certified medical oncologist managing the member's care",
+    "label": "tightened" },
+
+  { "id": 16, "payer": "elevance", "kind": "ordering_provider",
+    "from": "ordered by or in consultation with a board-certified oncologist",
+    "to": "ordered by a licensed physician involved in the member's cancer care",
+    "label": "loosened" },
+
+  { "id": 17, "payer": "elevance", "kind": "frequency_limit",
+    "from": "limited to one comprehensive panel per primary cancer",
+    "to": "limited to one comprehensive panel per primary cancer, except where a new primary is identified",
+    "label": "loosened" },
+
+  { "id": 18, "payer": "bcbsmi", "kind": "test_specific_requirement",
+    "from": "performed by a laboratory holding CLIA certification",
+    "to": "performed by a laboratory holding CLIA certification and registered with the plan's designated laboratory network",
+    "label": "tightened" },
+
+  { "id": 19, "payer": "humana", "kind": "documentation",
+    "from": "documentation of the intended use of the results accompany the order",
+    "to": "documentation of the intended use of the results be retained in the medical record and made available on request",
+    "label": "clarified" },
+
+  { "id": 20, "payer": "humana", "kind": "clinical_utility",
+    "from": "clinical utility for this use has not been demonstrated in prospective outcome studies",
+    "to": "clinical utility for this use may be demonstrated by peer-reviewed registry data showing a change in management",
+    "label": "loosened" }
+]

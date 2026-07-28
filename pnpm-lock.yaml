@@ -201,6 +201,9 @@ importers:
       '@assent/core':
         specifier: workspace:*
         version: link:../core
+      '@assent/db':
+        specifier: workspace:*
+        version: link:../db
       '@assent/extract':
         specifier: workspace:*
         version: link:../extract

@@ -2,7 +2,7 @@
   "name": "assent",
   "private": true,
   "version": "0.0.0",
-  "description": "Assent \u2014 the queryable specification of US health-insurance coverage policy.",
+  "description": "Assent — the queryable specification of US health-insurance coverage policy.",
   "packageManager": "pnpm@10.33.0",
   "engines": {
     "node": ">=20"
@@ -27,7 +27,9 @@
     "dev": "pnpm --filter @assent/web run dev",
     "dev:web": "pnpm --filter @assent/web run dev",
     "dev:desktop": "pnpm --filter @assent/desktop run dev",
-    "start": "pnpm --filter @assent/web start"
+    "start": "pnpm --filter @assent/web start",
+    "corpus:status": "tsx scripts/src/corpus-status.ts",
+    "corpus:live": "tsx scripts/src/corpus-live.ts"
   },
   "devDependencies": {
     "@types/node": "^20.16.11",
