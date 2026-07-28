@@ -22,17 +22,60 @@ export interface CitationViewProps {
   activeQuote?: string | null;
   /** Optional: called when a span is clicked (for two-way rail interactions). */
   onSpanClick?: (spanId: string) => void;
+  /**
+   * How to bring the active span into view.
+   *
+   *   "element"   scrollIntoView — correct inside the desktop reading pane, where
+   *               the document IS the page.
+   *   "container" scroll only the nearest scrollable ancestor. Per the CSSOM spec
+   *               scrollIntoView scrolls EVERY ancestor scrolling box, including
+   *               the window, which on a marketing page that auto-advances would
+   *               drag the visitor down the page. Assigning scrollTop cannot.
+   *   "none"      do not scroll.
+   */
+  scrollMode?: "element" | "container" | "none";
   className?: string;
 }
 
-export function CitationView({ spans, activeSpanId, activeQuote, onSpanClick, className }: CitationViewProps) {
+/** Nearest ancestor that can actually scroll, or null. */
+function scrollableParent(el: HTMLElement | null): HTMLElement | null {
+  let node = el?.parentElement ?? null;
+  while (node) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
+export function CitationView({
+  spans,
+  activeSpanId,
+  activeQuote,
+  onSpanClick,
+  scrollMode = "element",
+  className,
+}: CitationViewProps) {
   const activeRef = useRef<HTMLParagraphElement | null>(null);
 
   useEffect(() => {
-    if (!activeSpanId || !activeRef.current) return;
-    const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    activeRef.current.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
-  }, [activeSpanId, activeQuote]);
+    if (scrollMode === "none" || !activeSpanId || !activeRef.current) return;
+    const el = activeRef.current;
+    const reduce =
+      typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+    if (scrollMode === "container") {
+      const pane = scrollableParent(el);
+      if (!pane) return;
+      const target = el.offsetTop - pane.clientHeight / 2 + el.offsetHeight / 2;
+      const top = Math.max(0, Math.min(target, pane.scrollHeight - pane.clientHeight));
+      pane.scrollTo({ top, behavior: reduce ? "auto" : "smooth" });
+      return;
+    }
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+  }, [activeSpanId, activeQuote, scrollMode]);
 
   let lastHeading = "";
   return (
