@@ -47,6 +47,16 @@ else
         pnpm founder --bootstrap || echo "[db] WARNING: founder bootstrap skipped." >&2
         if pnpm db:seed && pnpm pipeline && pnpm blueprint --asset=asset_demo; then
           echo "[db] corpus ready — console is fully populated"
+          # The build sandbox cannot reach CMS; this container can. Try for the real
+          # corpus rather than settling for sample text nobody can act on. It fetches
+          # BEFORE it clears anything, does nothing when the corpus is already real,
+          # and records what happened for /api/diagnostics — so the worst case is the
+          # sample corpus we already had, clearly labelled as such.
+          if [ "${ASSENT_CORPUS_AUTOFETCH:-1}" = "1" ]; then
+            echo "[corpus] attempting the real CMS corpus"
+            pnpm corpus:live --if-needed --limit="${ASSENT_CORPUS_LIMIT:-40}" \
+              || echo "[corpus] live fetch did not succeed — keeping the sample corpus" >&2
+          fi
         else
           echo "[db] WARNING: bootstrap incomplete; console may show an empty corpus." >&2
         fi

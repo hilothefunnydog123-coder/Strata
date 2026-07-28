@@ -29,6 +29,27 @@ interface Options {
   limit: number;
   kind: "ncd" | "lcd";
   keepSample: boolean;
+  /** Boot mode: do nothing if the corpus is already real, and never exit non-zero. */
+  ifNeeded: boolean;
+}
+
+/**
+ * Where the last attempt is recorded.
+ *
+ * The one machine that can reach CMS is the deployment, and the person who needs to
+ * know whether it worked is holding a phone. So the outcome — including the exact
+ * status, content-type and body head from each candidate endpoint — is written here
+ * and served by /api/diagnostics. A failed fetch stops being invisible.
+ */
+const REPORT_PATH = process.env.ASSENT_CORPUS_REPORT ?? "/tmp/assent-corpus-fetch.json";
+
+async function writeReport(report: Record<string, unknown>): Promise<void> {
+  try {
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(REPORT_PATH, JSON.stringify({ ...report, at: new Date().toISOString() }, null, 2));
+  } catch {
+    /* reporting must never be the thing that fails a boot */
+  }
 }
 
 function parseArgs(): Options {
@@ -41,7 +62,18 @@ function parseArgs(): Options {
     limit: Number(flags.get("limit") ?? "50"),
     kind: (flags.get("kind") as "ncd" | "lcd") ?? "ncd",
     keepSample: flags.get("keep-sample") === "true",
+    ifNeeded: flags.get("if-needed") === "true",
   };
+}
+
+/** Documents already carrying provenance 'fetched'. Non-zero means the corpus is real. */
+async function realDocumentCount(store: Store): Promise<number> {
+  const { sql } = await import("drizzle-orm");
+  const res = await store.db.execute(
+    sql`SELECT count(*)::int AS n FROM policy_document WHERE provenance = 'fetched'`,
+  );
+  const rows = res as unknown as Array<{ n?: number }>;
+  return rows[0]?.n ?? 0;
 }
 
 async function clearSample(store: Store): Promise<number> {
@@ -64,7 +96,9 @@ async function clearSample(store: Store): Promise<number> {
 async function main() {
   const opts = parseArgs();
 
-  if (process.env.PIPELINE_MODE !== "live") {
+  // Interactive runs stay opt-in. `--if-needed` is the boot path, which is allowed to
+  // try on its own because a corpus that is quietly fake is the worse failure.
+  if (process.env.PIPELINE_MODE !== "live" && !opts.ifNeeded) {
     console.error(
       "\n[corpus:live] PIPELINE_MODE must be 'live'.\n" +
         "  This command reaches the real Medicare Coverage Database, so it is opt-in.\n\n" +
@@ -78,19 +112,36 @@ async function main() {
   try {
     await seedReference(store);
 
+    if (opts.ifNeeded) {
+      const already = await realDocumentCount(store);
+      if (already > 0) {
+        console.log(`  ${already} real document(s) already present — nothing to do`);
+        await writeReport({ outcome: "already-real", realDocuments: already });
+        return;
+      }
+    }
+
     console.log(`  requesting ${opts.kind.toUpperCase()}s from the Medicare Coverage Database…`);
     let raws;
     try {
       raws = await cms.ingestCms({ kind: opts.kind, limit: opts.limit, filter: undefined });
     } catch (err) {
+      // Capture what each candidate endpoint actually said. This is the difference
+      // between "the fetch failed" and a URL, a status and a body somebody can fix.
+      const probe = await cms.probeCms(opts.kind).catch(() => []);
+      await writeReport({
+        outcome: "failed",
+        error: err instanceof Error ? err.message : String(err),
+        probe,
+      });
       console.error(
         `\n[corpus:live] FAILED to fetch: ${err instanceof Error ? err.message : err}\n\n` +
           "  Nothing was written. The corpus is unchanged.\n" +
-          "  Check, in order:\n" +
-          "    1. this machine has ordinary outbound HTTPS (the build sandbox did not)\n" +
-          "    2. ASSENT_CMS_MCD_BASE still matches CMS's endpoint — they have moved it before\n" +
-          "    3. the response shape in packages/ingest/src/sources/cms.ts\n",
+          "  The exact response from each candidate endpoint is in /api/diagnostics.\n",
       );
+      // On the boot path a failed fetch must not fail the deploy — the sample corpus
+      // still serves, and the banner still says it is sample.
+      if (opts.ifNeeded) return;
       process.exit(1);
     }
 
@@ -124,6 +175,7 @@ async function main() {
       criteria += result.criteria.length;
     }
 
+    await writeReport({ outcome: "fetched", documents: docs, criteria });
     console.log(`\n  ✅ ${docs} REAL documents, ${criteria} requirements, every one carrying a`);
     console.log("     verbatim quote that exists in the fetched source.\n");
     console.log("  Confirm at any time with:  pnpm corpus:status\n");

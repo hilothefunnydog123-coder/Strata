@@ -21,6 +21,24 @@ export const dynamic = "force-dynamic";
  * rather than the driver's message, which carries the host and user.
  */
 
+/**
+ * What the boot-time corpus fetch did, written by `corpus:live --if-needed`.
+ *
+ * The one machine that can reach CMS is this container, and whoever needs the answer
+ * may only have a phone. On failure the file carries each candidate endpoint's real
+ * status, content-type and body head — enough to fix the endpoint shape without a
+ * shell, instead of guessing again.
+ */
+async function lastCorpusFetch(): Promise<unknown> {
+  const path = process.env.ASSENT_CORPUS_REPORT ?? "/tmp/assent-corpus-fetch.json";
+  try {
+    const { readFile } = await import("node:fs/promises");
+    return JSON.parse(await readFile(path, "utf8"));
+  } catch {
+    return { outcome: "not-attempted", note: "No boot fetch has run in this container yet." };
+  }
+}
+
 type Category = "no_database_url" | "unreachable" | "auth_failed" | "not_migrated" | "unknown";
 
 function categorize(err: unknown): Category {
@@ -57,6 +75,7 @@ export async function GET() {
       corpus: corpus
         ? { documents: corpus.documents.length, criteria: corpus.criteria.length, real: 0, sample: corpus.documents.length }
         : { error: "corpus.json not found in this image" },
+      corpusFetch: await lastCorpusFetch(),
       revert: "Set DATABASE_URL on the service. Every branch above is skipped and the Postgres paths resume unchanged — nothing to undo.",
     });
   }
@@ -102,6 +121,7 @@ export async function GET() {
         awaitingEnrollment: Math.max(0, accountsProvisioned - (users?.enrolled ?? 0)),
       },
       corpus: { documents: docs?.total ?? 0, real: docs?.real ?? 0, sample: (docs?.total ?? 0) - (docs?.real ?? 0) },
+      corpusFetch: await lastCorpusFetch(),
       remedy:
         accountsProvisioned > 0
           ? null

@@ -1,0 +1,137 @@
+name: Desktop release
+
+# Assent Desktop is a Tauri app: the installer for each platform must be produced ON
+# that platform. macOS bundles need Xcode's toolchain and codesign, Windows needs the
+# MSVC toolchain and WiX. No Linux box — including the one this repository was built
+# on — can cross-compile them, which is why packaging is a pipeline rather than a
+# script somebody runs locally.
+#
+# Push a tag to cut a release:
+#
+#   git tag desktop-v0.1.0 && git push origin desktop-v0.1.0
+#
+# It produces a DRAFT release with .dmg, .msi/.exe and .AppImage/.deb attached, so
+# the artifacts can be checked before anyone can download them.
+#
+# SIGNING. Unsigned builds are produced when no certificate secrets are present, so
+# this works on day one; they will warn on first launch (Gatekeeper, SmartScreen).
+# Add the secrets below and the same workflow signs and notarises instead — nothing
+# else changes:
+#
+#   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
+#   APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID       (macOS: sign + notarise)
+#   WINDOWS_CERTIFICATE, WINDOWS_CERTIFICATE_PASSWORD   (Windows: Authenticode)
+
+on:
+  push:
+    tags: ["desktop-v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build the bundles but do not create a release"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # One macOS job producing a universal binary, so Apple Silicon and Intel
+          # are covered by a single download rather than two confusing ones.
+          - platform: macos-latest
+            args: "--target universal-apple-darwin"
+            rust_targets: "aarch64-apple-darwin,x86_64-apple-darwin"
+          - platform: ubuntu-22.04
+            args: ""
+            rust_targets: ""
+          - platform: windows-latest
+            args: ""
+            rust_targets: ""
+
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 22.04 rather than 24.04 on purpose: the AppImage produced on an older glibc
+      # runs on newer distributions, but not the other way round.
+      - name: Linux bundle dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
+            build-essential curl wget file libssl-dev libgtk-3-dev
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      # Rust compilation dominates the runtime here; without this every release
+      # rebuilds every dependency from scratch on all three platforms.
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+          key: ${{ matrix.platform }}
+
+      - run: pnpm install --frozen-lockfile
+
+      # The renderer is shared with the web terminal, so a break here would surface
+      # in both. Fail before spending twenty minutes on a Rust build.
+      - run: pnpm --filter @assent/desktop build
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Empty when the secret is unset, which tauri-action treats as "unsigned".
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || format('desktop-dev-{0}', github.run_number) }}
+          releaseName: "Assent Desktop ${{ github.ref_type == 'tag' && github.ref_name || 'dev build' }}"
+          releaseBody: |
+            Assent Desktop — the coverage-policy research terminal.
+
+            The corpus ships inside the app and is queried offline. Check
+            `/api/diagnostics` on your console to confirm whether it is real
+            payer policy or the bundled sample.
+          releaseDraft: true
+          prerelease: ${{ github.ref_type != 'tag' }}
+          args: ${{ matrix.args }}
+
+      # Kept regardless of whether a release was created, so a dry run still hands
+      # back something installable to test.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: assent-desktop-${{ matrix.platform }}
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/**/*.dmg
+            apps/desktop/src-tauri/target/release/bundle/**/*.AppImage
+            apps/desktop/src-tauri/target/release/bundle/**/*.deb
+            apps/desktop/src-tauri/target/release/bundle/**/*.msi
+            apps/desktop/src-tauri/target/release/bundle/**/*.exe
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/**/*.dmg
+          if-no-files-found: warn

@@ -20,8 +20,39 @@ import type { RawDocument, RawCodeLink } from "../types";
  * reorganized these endpoints before.
  */
 
-/** Override when CMS moves the endpoint. */
-const MCD_BASE = process.env.ASSENT_CMS_MCD_BASE ?? "https://api.coverage.cms.gov/v1";
+/**
+ * Candidate bases, tried in order.
+ *
+ * CMS has published the Coverage Database under several shapes over the years and
+ * this code has never met the live host, so committing to one guess would make the
+ * whole ingest a coin flip. Each candidate is attempted and the failure recorded;
+ * `probeCms()` returns the lot, which is what turns "it didn't work" into a specific
+ * URL and response body somebody can act on.
+ *
+ * ASSENT_CMS_MCD_BASE, when set, is used alone — an operator who knows the endpoint
+ * should not have their answer second-guessed.
+ */
+const CANDIDATE_BASES: string[] = process.env.ASSENT_CMS_MCD_BASE
+  ? [process.env.ASSENT_CMS_MCD_BASE]
+  : [
+      "https://api.coverage.cms.gov/v1",
+      "https://api.coverage.cms.gov",
+      "https://www.cms.gov/medicare-coverage-database/api/v1",
+    ];
+
+/** Resolved once a candidate answers usefully, so the rest of a run stays on it. */
+let resolvedBase: string | null = null;
+
+export interface ProbeResult {
+  base: string;
+  url: string;
+  ok: boolean;
+  status: number | null;
+  contentType: string | null;
+  /** First bytes of the body — the thing that actually identifies what went wrong. */
+  bodyHead: string;
+  error?: string;
+}
 
 export interface McdListItem {
   documentId: string;
@@ -57,18 +88,80 @@ async function getJson<T>(url: string): Promise<FetchJsonResult<T>> {
   return { url, data: data as T };
 }
 
+/**
+ * Ask every candidate base for a document list and report what each said.
+ *
+ * Deliberately returns results instead of throwing: the point is to produce
+ * evidence, including from the failures. Surfaced through /api/diagnostics so the
+ * exact status, content-type and body head from the live host are readable without
+ * shell access to the box that could reach it.
+ */
+export async function probeCms(kind: "ncd" | "lcd" = "ncd"): Promise<ProbeResult[]> {
+  const out: ProbeResult[] = [];
+  for (const base of CANDIDATE_BASES) {
+    const url = `${base}/reports/${kind}-alphabetical`;
+    try {
+      const res = await politeFetch(url);
+      const body = await res.text();
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(body);
+      } catch {
+        /* recorded below via contentType + bodyHead */
+      }
+      const items = Array.isArray(parsed)
+        ? parsed
+        : (parsed as { data?: unknown } | null)?.data;
+      out.push({
+        base,
+        url,
+        ok: res.ok && Array.isArray(items) && items.length > 0,
+        status: res.status,
+        contentType: res.headers.get("content-type"),
+        bodyHead: body.slice(0, 400),
+      });
+    } catch (err) {
+      out.push({
+        base,
+        url,
+        ok: false,
+        status: null,
+        contentType: null,
+        bodyHead: "",
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  return out;
+}
+
 /** List NCDs (national) or LCDs (local) available in the MCD. */
 export async function listDocuments(kind: "ncd" | "lcd"): Promise<McdListItem[]> {
-  const url = `${MCD_BASE}/reports/${kind}-alphabetical`;
-  const { data } = await getJson<{ data?: McdListItem[] } | McdListItem[]>(url);
-  const items = Array.isArray(data) ? data : data.data;
-  if (!Array.isArray(items)) {
-    throw new Error(`[cms] ${url} did not return a document list. Verify the endpoint shape.`);
+  const bases = resolvedBase ? [resolvedBase] : CANDIDATE_BASES;
+  const failures: string[] = [];
+
+  for (const base of bases) {
+    const url = `${base}/reports/${kind}-alphabetical`;
+    try {
+      const { data } = await getJson<{ data?: McdListItem[] } | McdListItem[]>(url);
+      const items = Array.isArray(data) ? data : data.data;
+      if (!Array.isArray(items) || items.length === 0) {
+        failures.push(`${url}: parsed but held no document list`);
+        continue;
+      }
+      resolvedBase = base;
+      return items;
+    } catch (err) {
+      failures.push(`${url}: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
-  if (items.length === 0) {
-    throw new Error(`[cms] ${url} returned zero documents — refusing to treat that as success.`);
-  }
-  return items;
+
+  throw new Error(
+    `[cms] no candidate endpoint returned a document list.\n` +
+      failures.map((f) => `  · ${f}`).join("\n") +
+      `\n  Set ASSENT_CMS_MCD_BASE to the correct base once known, or read` +
+      ` /api/diagnostics?probe=cms for the raw responses.`,
+  );
 }
 
 export interface McdDocument {
@@ -84,7 +177,10 @@ export interface McdDocument {
 
 /** Fetch one document's full text + code links. */
 export async function fetchDocument(kind: "ncd" | "lcd", documentId: string): Promise<McdDocument> {
-  const url = `${MCD_BASE}/${kind}/${encodeURIComponent(documentId)}`;
+  // listDocuments() runs first and pins the base that actually answered, so a single
+  // run never mixes endpoints.
+  const base = resolvedBase ?? CANDIDATE_BASES[0]!;
+  const url = `${base}/${kind}/${encodeURIComponent(documentId)}`;
   const { data } = await getJson<Record<string, unknown>>(url);
 
   const html =

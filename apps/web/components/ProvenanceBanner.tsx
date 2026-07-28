@@ -31,7 +31,7 @@ export async function ProvenanceBanner() {
           <strong className="font-medium text-ink">reconstructed sample text</strong> bundled in
           this build, and they are{" "}
           <strong className="font-medium text-ink">not real payer requirements</strong>. Sign-in
-          and authenticator enrollment are held in memory and reset when the service restarts.
+          and authenticator enrollment survive a restart but not a redeploy, and there is one account.
         </p>
         <p className="a-mono mt-2 text-[11px] text-chrome-500">
           set DATABASE_URL to return to the database-backed console — nothing to undo

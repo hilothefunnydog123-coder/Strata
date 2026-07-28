@@ -1,5 +1,6 @@
 import "server-only";
 import { readFile } from "node:fs/promises";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { FOUNDER_BOOTSTRAP, FOUNDER_ASSET } from "@assent/core";
 import type {
@@ -26,8 +27,9 @@ import type {
  *
  * What it deliberately is NOT:
  *
- *   · not persistent — sessions and TOTP enrollment live in this process and are
- *     gone on restart. A redeploy signs you out and un-enrols your authenticator.
+ *   · persistent only within a container — sessions and enrollment are mirrored to
+ *     disk so a restart does not sign you out, but an ephemeral filesystem loses
+ *     them on redeploy.
  *   · not multi-user — one account, no seat management, no device pairing.
  *   · not a data layer — nothing here writes. Demo requests, device approvals and
  *     eval runs still need Postgres and say so rather than pretending to work.
@@ -42,7 +44,7 @@ export function isStandalone(): boolean {
 
 /** Explains itself in the UI and in diagnostics, so the mode is never a surprise. */
 export const STANDALONE_REASON =
-  "No DATABASE_URL is set, so the console is running from the corpus bundled in this image. Sessions and authenticator enrollment are held in memory and reset when the service restarts.";
+  "No DATABASE_URL is set, so the console is running from the corpus bundled in this image. Sign-in and authenticator enrollment persist across restarts but not across redeploys, and there is one account.";
 
 // ── the single account ────────────────────────────────────────────────────────
 
@@ -65,8 +67,8 @@ export interface StandaloneUser {
  * (Found exactly that way.) globalThis is the one scope both bundles share, and it
  * survives dev hot-reload as a bonus.
  *
- * This is the whole durability story: one process, one memory. Nothing here is
- * written to disk, which is why a restart signs you out.
+ * Durability is handled separately, just below: this holds the live copy, and the
+ * file mirror keeps it across a restart.
  */
 interface StandaloneState {
   user: StandaloneUser;
@@ -76,9 +78,56 @@ interface StandaloneState {
 const STATE_KEY = Symbol.for("assent.standalone.state");
 type GlobalWithState = typeof globalThis & { [STATE_KEY]?: StandaloneState };
 
+/**
+ * Mirrored to disk so a restart does not sign the owner out and un-enrol their
+ * authenticator — which would mean re-scanning a QR every time the process bounced.
+ *
+ * What is written is exactly what the database mode stores: a scrypt hash, a TOTP
+ * secret, and session IDs that are already sha256 of the cookie token. Mode 0600,
+ * and best-effort throughout: an unwritable filesystem degrades to memory rather
+ * than breaking sign-in.
+ *
+ * On an ephemeral container this survives restarts but not redeploys. That is the
+ * ceiling of what standalone can offer, and the reason a database is still the
+ * right answer for anything but a demo.
+ */
+const STATE_FILE = process.env.ASSENT_STANDALONE_STATE ?? "/tmp/assent-standalone.json";
+
+interface PersistedState {
+  totpSecret: string | null;
+  totpEnrolled: boolean;
+  sessions: Array<[string, { userId: string; expiresAt: number }]>;
+}
+
+function loadPersisted(): PersistedState | null {
+  try {
+    // Sync on purpose: this runs once, inside the lazy initialiser, and every caller
+    // downstream would otherwise have to become async for a single small read.
+    return JSON.parse(readFileSync(STATE_FILE, "utf8")) as PersistedState;
+  } catch {
+    return null;
+  }
+}
+
+export function persistStandalone(): void {
+  try {
+    const s = state();
+    const payload: PersistedState = {
+      totpSecret: s.user.totpSecret,
+      totpEnrolled: s.user.totpEnrolled,
+      // Expired entries are dropped here rather than accumulating on disk forever.
+      sessions: [...s.sessions].filter(([, v]) => v.expiresAt > Date.now()),
+    };
+    writeFileSync(STATE_FILE, JSON.stringify(payload), { mode: 0o600 });
+  } catch {
+    /* memory-only is a degraded mode, not a failure */
+  }
+}
+
 function state(): StandaloneState {
   const g = globalThis as GlobalWithState;
   if (!g[STATE_KEY]) {
+    const saved = loadPersisted();
     g[STATE_KEY] = {
       user: {
         id: FOUNDER_BOOTSTRAP.userId,
@@ -86,10 +135,10 @@ function state(): StandaloneState {
         role: "admin",
         accountId: FOUNDER_BOOTSTRAP.accountId,
         passwordHash: FOUNDER_BOOTSTRAP.passwordHash,
-        totpSecret: null,
-        totpEnrolled: false,
+        totpSecret: saved?.totpSecret ?? null,
+        totpEnrolled: saved?.totpEnrolled ?? false,
       },
-      sessions: new Map(),
+      sessions: new Map(saved?.sessions ?? []),
     };
   }
   return g[STATE_KEY]!;
@@ -109,6 +158,7 @@ export function standaloneEnrollTotp(secret: string): void {
   const { user } = state();
   user.totpSecret = secret;
   user.totpEnrolled = true;
+  persistStandalone();
 }
 
 export function standaloneAccount() {
@@ -136,7 +186,7 @@ export function standaloneAsset() {
   };
 }
 
-// ── sessions, in this process only ────────────────────────────────────────────
+// ── sessions ────────────────────────────────────────────
 
 /**
  * Keyed by the same sha256 of the cookie token the database mode stores, so the raw
@@ -144,6 +194,7 @@ export function standaloneAsset() {
  */
 export function standaloneCreateSession(id: string, userId: string, expiresAt: Date): void {
   state().sessions.set(id, { userId, expiresAt: expiresAt.getTime() });
+  persistStandalone();
 }
 
 export function standaloneLookupSession(id: string): StandaloneUser | null {
@@ -159,6 +210,7 @@ export function standaloneLookupSession(id: string): StandaloneUser | null {
 
 export function standaloneDestroySession(id: string): void {
   state().sessions.delete(id);
+  persistStandalone();
 }
 
 // ── the corpus, read from the file the desktop terminal already ships ─────────
