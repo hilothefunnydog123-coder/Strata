@@ -37,6 +37,9 @@ else
       if pnpm --filter @assent/db run migrate; then
         echo "[db] migrations applied"
         echo "[db] bootstrapping corpus (idempotent, offline)"
+        # Provisions the founder account if it is absent and leaves it untouched if
+        # it is not, so a redeploy can never reset the owner's own credentials.
+        pnpm founder --bootstrap || echo "[db] WARNING: founder bootstrap skipped." >&2
         if pnpm db:seed && pnpm pipeline && pnpm blueprint --asset=asset_demo; then
           echo "[db] corpus ready — console is fully populated"
         else

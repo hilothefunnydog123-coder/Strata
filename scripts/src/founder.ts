@@ -30,6 +30,36 @@ const PW_ALPHABET = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const FOUNDER_ACCOUNT_ID = "acct_founder";
 const FOUNDER_USER_ID = "user_founder";
 
+/**
+ * `--bootstrap` — the founder account, created by the container on its own.
+ *
+ * Running the interactive command requires a shell on the box that can reach the
+ * production database. Committing these three values instead means the deploy
+ * provisions the account itself and the founder only has to open the site.
+ *
+ * What is safe to commit here, and why:
+ *
+ *   EMAIL          an identity, not a secret.
+ *   PASSWORD_HASH  scrypt over ~116 bits of entropy. Publishing it concedes an
+ *                  offline attack that is not computable; the password itself is
+ *                  never in this repository.
+ *   (no TOTP)      deliberately absent. A shared second factor is not a second
+ *                  factor — that is the exact flaw in the seeded demo user, whose
+ *                  secret is otplib's published example. This account is created
+ *                  UNENROLLED and the browser generates its secret on first
+ *                  sign-in, so the only copy is on the founder's phone.
+ *
+ * The window this opens is one password-only sign-in, closed permanently by
+ * enrolling, which the console demands before it will render anything.
+ */
+const BOOTSTRAP = {
+  email: process.env.FOUNDER_EMAIL ?? "dlake003@gmail.com",
+  org: process.env.FOUNDER_ORG ?? "Assent, Inc.",
+  passwordHash:
+    process.env.FOUNDER_PASSWORD_HASH ??
+    "30ca0c579d2424ef09dd11043aa277ec:473959b790d7bb5e33021094b83d053219ba08d36ba908406a6c972c1edf56d094b50a089f8eba950abf24e4c8a8ddf3670ccb8ee21ec04fe47b660f5f4a9ff8",
+} as const;
+
 /** 4×5 characters from a 56-glyph alphabet ≈ 116 bits. Grouped so it can be read aloud. */
 function generatePassword(): string {
   const groups: string[] = [];
@@ -56,6 +86,7 @@ interface Options {
   email: string;
   org: string;
   rotate: boolean;
+  bootstrap: boolean;
 }
 
 function parseArgs(): Options {
@@ -68,6 +99,7 @@ function parseArgs(): Options {
     email: (flags.get("email") ?? process.env.FOUNDER_EMAIL ?? "").trim().toLowerCase(),
     org: flags.get("org") ?? process.env.FOUNDER_ORG ?? PRODUCT.legalName,
     rotate: flags.get("rotate") === "true",
+    bootstrap: flags.get("bootstrap") === "true",
   };
 }
 
@@ -118,8 +150,70 @@ async function ensureAsset(store: Store): Promise<boolean> {
   return true;
 }
 
+/**
+ * Provision the founder from committed values, with no terminal to print to.
+ *
+ * Runs on every boot, so it must be inert once the account exists — it never
+ * rewrites a password, never re-enrols a second factor, never touches a session.
+ * A redeploy that silently reset the owner's credentials would be worse than one
+ * that failed outright.
+ */
+async function bootstrap(store: Store): Promise<void> {
+  const email = BOOTSTRAP.email.trim().toLowerCase();
+  if (!email || !BOOTSTRAP.passwordHash.includes(":")) {
+    console.log("[founder] no bootstrap credential configured — skipping");
+    return;
+  }
+
+  const existing = (
+    await store.db.select().from(schema.appUser).where(eq(schema.appUser.email, email)).limit(1)
+  )[0];
+  if (existing) {
+    const state = existing.totpEnrolled ? "enrolled" : "awaiting first sign-in";
+    console.log(`[founder] ${email} already provisioned (${state}) — leaving it alone`);
+    return;
+  }
+
+  await store.db
+    .insert(schema.account)
+    .values({
+      id: FOUNDER_ACCOUNT_ID,
+      orgName: BOOTSTRAP.org,
+      plan: "enterprise",
+      seatLimit: 25,
+      createdByAdmin: "founder-bootstrap",
+    })
+    .onConflictDoNothing();
+
+  await store.db
+    .insert(schema.appUser)
+    .values({
+      id: FOUNDER_USER_ID,
+      accountId: FOUNDER_ACCOUNT_ID,
+      email,
+      role: "admin",
+      passwordHash: BOOTSTRAP.passwordHash,
+      totpSecret: null,
+      totpEnrolled: false, // the browser generates it on first sign-in
+    })
+    .onConflictDoNothing();
+
+  await ensureAsset(store);
+  console.log(`[founder] provisioned ${email} — second factor enrols on first sign-in`);
+}
+
 async function main() {
   const opts = parseArgs();
+
+  if (opts.bootstrap) {
+    const store = openStore();
+    try {
+      await bootstrap(store);
+    } finally {
+      await store.client.end();
+    }
+    return;
+  }
 
   if (!opts.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(opts.email)) {
     console.error(

@@ -12,6 +12,8 @@ export interface SessionUser {
   email: string;
   role: "admin" | "member" | "viewer";
   accountId: string;
+  /** False for a bootstrapped account that has not yet enrolled a second factor. */
+  totpEnrolled: boolean;
 }
 
 /** Create a session, store only its hash, set the httpOnly cookie. */
@@ -55,6 +57,7 @@ async function lookupSession(token: string): Promise<SessionUser | null> {
     .select({
       id: schema.appUser.id, email: schema.appUser.email, role: schema.appUser.role,
       accountId: schema.appUser.accountId, expiresAt: schema.session.expiresAt,
+      totpEnrolled: schema.appUser.totpEnrolled,
     })
     .from(schema.session)
     .innerJoin(schema.appUser, eq(schema.appUser.id, schema.session.userId))
@@ -62,5 +65,8 @@ async function lookupSession(token: string): Promise<SessionUser | null> {
     .limit(1);
   const row = rows[0];
   if (!row || row.expiresAt.getTime() < Date.now()) return null;
-  return { id: row.id, email: row.email, role: row.role, accountId: row.accountId };
+  return {
+    id: row.id, email: row.email, role: row.role,
+    accountId: row.accountId, totpEnrolled: row.totpEnrolled,
+  };
 }

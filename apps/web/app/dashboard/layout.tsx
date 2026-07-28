@@ -19,6 +19,9 @@ const NAV: ReadonlyArray<readonly [string, string]> = [
 export default async function DashLayout({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
   if (!user) redirect("/login");
+  // A bootstrapped account signs in on its password alone. This is the gate that
+  // makes that acceptable: no console page renders until a second factor exists.
+  if (!user.totpEnrolled) redirect("/enroll");
   const account = await getAccount(user.accountId);
 
   return (
