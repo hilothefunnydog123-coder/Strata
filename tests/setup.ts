@@ -7,8 +7,8 @@
 import { config } from 'dotenv';
 import { randomBytes } from 'node:crypto';
 
-config({ path: '.env.test', override: false });
-config({ path: '.env.local', override: false });
+config({ path: '.env.test', override: false, quiet: true });
+config({ path: '.env.local', override: false, quiet: true });
 
 process.env.DATABASE_URL ??= 'postgres://strata:strata@127.0.0.1:5432/strata_test';
 process.env.BETTER_AUTH_SECRET ??= randomBytes(32).toString('hex');

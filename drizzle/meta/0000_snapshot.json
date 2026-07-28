@@ -1,5 +1,5 @@
 {
-  "id": "f353d0af-9714-4156-bb86-8f002756248b",
+  "id": "a513b8de-dfcf-4ea8-90d6-f409edff6f49",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -3373,6 +3373,26 @@
           "primaryKey": false,
           "notNull": true
         },
+        "verified": {
+          "name": "verified",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "failed_verification_count": {
+          "name": "failed_verification_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "locked_until": {
+          "name": "locked_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "user_id": {
           "name": "user_id",
           "type": "text",
@@ -3467,6 +3487,14 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'active'"
+        },
+        "platform_role": {
+          "name": "platform_role",
+          "type": "platform_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'none'"
         },
         "must_change_password": {
           "name": "must_change_password",
@@ -3723,6 +3751,15 @@
         "failed"
       ]
     },
+    "public.org_role": {
+      "name": "org_role",
+      "schema": "public",
+      "values": [
+        "org_admin",
+        "appeal_specialist",
+        "readonly"
+      ]
+    },
     "public.org_status": {
       "name": "org_status",
       "schema": "public",
@@ -3752,6 +3789,16 @@
         "other"
       ]
     },
+    "public.platform_role": {
+      "name": "platform_role",
+      "schema": "public",
+      "values": [
+        "none",
+        "superadmin",
+        "clinical_reviewer",
+        "legal_reviewer"
+      ]
+    },
     "public.review_verdict": {
       "name": "review_verdict",
       "schema": "public",
@@ -3767,18 +3814,6 @@
       "values": [
         "clinical",
         "legal"
-      ]
-    },
-    "public.role": {
-      "name": "role",
-      "schema": "public",
-      "values": [
-        "superadmin",
-        "org_admin",
-        "appeal_specialist",
-        "readonly",
-        "clinical_reviewer",
-        "legal_reviewer"
       ]
     },
     "public.service_type": {

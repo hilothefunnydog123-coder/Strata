@@ -41,11 +41,25 @@ const now = () => timestamp('created_at', { withTimezone: true }).notNull().defa
 export const orgStatusEnum = pgEnum('org_status', ['active', 'inactive']);
 export const userStatusEnum = pgEnum('user_status', ['active', 'disabled']);
 
-export const roleEnum = pgEnum('role', [
-  'superadmin',
+/**
+ * Roles split along the line the surfaces do.
+ *
+ * An organisation role is held per membership: the same person can be an admin
+ * at one hospital and read only at another. A platform role is held by the
+ * account itself, because the operator and the review team do not belong to a
+ * customer organisation. Reviewers are still scoped, through
+ * reviewer_assignment, so a platform role is permission to do a job rather than
+ * permission to see everything.
+ */
+export const orgRoleEnum = pgEnum('org_role', [
   'org_admin',
   'appeal_specialist',
   'readonly',
+]);
+
+export const platformRoleEnum = pgEnum('platform_role', [
+  'none',
+  'superadmin',
   'clinical_reviewer',
   'legal_reviewer',
 ]);
@@ -195,6 +209,8 @@ export const user = pgTable(
     twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
     /** Operator controlled. A disabled user cannot hold a session. */
     status: userStatusEnum('status').notNull().default('active'),
+    /** Platform level role. Customer staff hold 'none' and get their role from membership. */
+    platformRole: platformRoleEnum('platform_role').notNull().default('none'),
     /** Forces a password change on next sign in. */
     mustChangePassword: boolean('must_change_password').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -264,6 +280,19 @@ export const twoFactor = pgTable(
     /** TOTP shared secret. Encrypted at rest with the PHI key. */
     secret: text('secret').notNull(),
     backupCodes: text('backup_codes').notNull(),
+    /**
+     * False between "show me the secret" and "here is a code from my
+     * authenticator". Enrolment that is started but never proved does not count
+     * as a second factor, so the account stays gated.
+     */
+    verified: boolean('verified').notNull().default(false),
+    /**
+     * Consecutive wrong codes. better-auth locks the factor once this passes
+     * its threshold, which is what stops an attacker with a password from
+     * grinding through six digit codes.
+     */
+    failedVerificationCount: integer('failed_verification_count').notNull().default(0),
+    lockedUntil: timestamp('locked_until', { withTimezone: true }),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),

@@ -10,12 +10,13 @@ CREATE TYPE "public"."fact_type" AS ENUM('diagnosis', 'functional_status', 'ther
 CREATE TYPE "public"."holding_outcome" AS ENUM('claimant_favorable', 'plan_favorable', 'mixed');--> statement-breakpoint
 CREATE TYPE "public"."invoice_status" AS ENUM('draft', 'issued', 'paid', 'void');--> statement-breakpoint
 CREATE TYPE "public"."job_status" AS ENUM('pending', 'running', 'done', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."org_role" AS ENUM('org_admin', 'appeal_specialist', 'readonly');--> statement-breakpoint
 CREATE TYPE "public"."org_status" AS ENUM('active', 'inactive');--> statement-breakpoint
 CREATE TYPE "public"."outcome_result" AS ENUM('won', 'lost', 'partial', 'withdrawn');--> statement-breakpoint
 CREATE TYPE "public"."payer_type" AS ENUM('medicare_advantage', 'traditional_medicare', 'medicaid_managed_care', 'commercial', 'other');--> statement-breakpoint
+CREATE TYPE "public"."platform_role" AS ENUM('none', 'superadmin', 'clinical_reviewer', 'legal_reviewer');--> statement-breakpoint
 CREATE TYPE "public"."review_verdict" AS ENUM('approved', 'rejected', 'edited');--> statement-breakpoint
 CREATE TYPE "public"."review_type" AS ENUM('clinical', 'legal');--> statement-breakpoint
-CREATE TYPE "public"."role" AS ENUM('superadmin', 'org_admin', 'appeal_specialist', 'readonly', 'clinical_reviewer', 'legal_reviewer');--> statement-breakpoint
 CREATE TYPE "public"."service_type" AS ENUM('skilled_nursing', 'inpatient_rehab', 'home_health', 'long_term_care_hospital', 'inpatient_acute', 'outpatient', 'dme', 'other');--> statement-breakpoint
 CREATE TYPE "public"."source_type" AS ENUM('dab_decision', 'regulation', 'manual', 'lcd', 'ncd');--> statement-breakpoint
 CREATE TYPE "public"."user_status" AS ENUM('active', 'disabled');--> statement-breakpoint
@@ -378,6 +379,9 @@ CREATE TABLE "two_factor" (
 	"id" text PRIMARY KEY NOT NULL,
 	"secret" text NOT NULL,
 	"backup_codes" text NOT NULL,
+	"verified" boolean DEFAULT false NOT NULL,
+	"failed_verification_count" integer DEFAULT 0 NOT NULL,
+	"locked_until" timestamp with time zone,
 	"user_id" text NOT NULL
 );
 --> statement-breakpoint
@@ -389,6 +393,7 @@ CREATE TABLE "user" (
 	"image" text,
 	"two_factor_enabled" boolean DEFAULT false NOT NULL,
 	"status" "user_status" DEFAULT 'active' NOT NULL,
+	"platform_role" "platform_role" DEFAULT 'none' NOT NULL,
 	"must_change_password" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,

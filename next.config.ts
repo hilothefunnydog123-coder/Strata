@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
     // Server actions carry appeal content. Keep the body cap tight; documents
     // are uploaded to object storage rather than through an action payload.
     serverActions: { bodySizeLimit: '2mb' },
+    // Lets forbidden() render a real 403 rather than a not-found page, so an
+    // authorisation failure is distinguishable from a missing record.
+    authInterrupts: true,
   },
   async headers() {
     return [
