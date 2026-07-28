@@ -128,7 +128,10 @@ async function main() {
     } catch (err) {
       // Capture what each candidate endpoint actually said. This is the difference
       // between "the fetch failed" and a URL, a status and a body somebody can fix.
-      const probe = await cms.probeCms(opts.kind).catch(() => []);
+      // Deep, because a redeploy costs minutes: one pass over every spec location,
+      // meta route and candidate collection, so the next fix is made against
+      // evidence rather than another guess.
+      const probe = await cms.deepProbeCms(opts.kind).catch(() => []);
       await writeReport({
         outcome: "failed",
         error: err instanceof Error ? err.message : String(err),

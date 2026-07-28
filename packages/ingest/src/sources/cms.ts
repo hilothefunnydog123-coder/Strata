@@ -55,12 +55,48 @@ let resolvedBase: string | null = null;
  * of guessing better, this reads the spec and finds the operations by shape. That
  * survives CMS renaming a route, which they have done before and will again.
  */
+const API_ROOT = "https://api.coverage.cms.gov";
+
 const SWAGGER_CANDIDATES = [
-  "https://api.coverage.cms.gov/docs/v1/swagger",
-  "https://api.coverage.cms.gov/docs/v1/swagger.json",
-  "https://api.coverage.cms.gov/v1/docs/swagger",
-  "https://api.coverage.cms.gov/swagger/v1/swagger.json",
+  `${API_ROOT}/docs/v1/swagger`,
+  `${API_ROOT}/docs/v1/swagger.json`,
+  `${API_ROOT}/docs/v1/swagger/v1/swagger.json`,
+  `${API_ROOT}/v1/docs/swagger`,
+  `${API_ROOT}/v1/swagger.json`,
+  `${API_ROOT}/swagger/v1/swagger.json`,
+  `${API_ROOT}/docs`,
 ];
+
+/**
+ * Route shapes to try when the spec cannot be read.
+ *
+ * Every wrong guess from here costs a full redeploy on the box that can actually
+ * reach CMS, so the deep probe walks the whole list in ONE pass and reports what
+ * each returned. One reload of /api/diagnostics then contains the answer instead of
+ * another round of me guessing and waiting.
+ *
+ * The live 400 told us `/v1` is the right prefix and `reports/` is not a real
+ * collection, so these vary the collection segment rather than the version.
+ */
+function listPathCandidates(kind: "ncd" | "lcd"): string[] {
+  const long = kind === "ncd" ? "national-coverage-determinations" : "local-coverage-determinations";
+  return [
+    `/v1/data/${kind}`,
+    `/v1/data/${kind}s`,
+    `/v1/data/${kind}-alphabetical`,
+    `/v1/${kind}`,
+    `/v1/${kind}s`,
+    `/v1/${kind}/alphabetical`,
+    `/v1/data/${long}`,
+    `/v1/coverage/${kind}`,
+    `/v1/documents/${kind}`,
+    `/v1/search/${kind}`,
+    `/v1/reports/${kind}-alphabetical`, // the known 400, kept so its answer stays visible
+  ];
+}
+
+/** Meta routes worth seeing the body of — they usually name the real collections. */
+const META_PATHS = ["/v1", "/", "/v1/data"];
 
 interface OpenApiSpec {
   paths?: Record<string, Record<string, unknown>>;
@@ -200,6 +236,49 @@ async function getJson<T>(url: string): Promise<FetchJsonResult<T>> {
  * exact status, content-type and body head from the live host are readable without
  * shell access to the box that could reach it.
  */
+/** One HTTP call, reduced to the few facts that identify what happened. */
+async function probeOne(url: string, label: string): Promise<ProbeResult> {
+  try {
+    const res = await politeFetch(url);
+    const body = await res.text();
+    let listLength: number | null = null;
+    try {
+      const parsed = JSON.parse(body) as unknown;
+      const items = Array.isArray(parsed) ? parsed : (parsed as { data?: unknown } | null)?.data;
+      if (Array.isArray(items)) listLength = items.length;
+    } catch {
+      /* not JSON; contentType + bodyHead say so */
+    }
+    return {
+      base: label,
+      url,
+      ok: res.ok && (listLength ?? 0) > 0,
+      status: res.status,
+      contentType: res.headers.get("content-type"),
+      bodyHead: (listLength !== null ? `[${listLength} items] ` : "") + body.slice(0, 260),
+    };
+  } catch (err) {
+    return {
+      base: label, url, ok: false, status: null, contentType: null, bodyHead: "",
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Walk every candidate in one pass: the spec locations, the meta routes, and each
+ * plausible collection path. Deliberately exhaustive — a redeploy costs minutes and
+ * a wrong guess costs another one, so this trades a dozen cheap requests for
+ * finishing the search in a single round trip.
+ */
+export async function deepProbeCms(kind: "ncd" | "lcd" = "ncd"): Promise<ProbeResult[]> {
+  const out: ProbeResult[] = [];
+  for (const url of SWAGGER_CANDIDATES) out.push(await probeOne(url, "spec"));
+  for (const p of META_PATHS) out.push(await probeOne(`${API_ROOT}${p}`, "meta"));
+  for (const p of listPathCandidates(kind)) out.push(await probeOne(`${API_ROOT}${p}`, "list"));
+  return out;
+}
+
 export async function probeCms(kind: "ncd" | "lcd" = "ncd"): Promise<ProbeResult[]> {
   const out: ProbeResult[] = [];
 
@@ -286,10 +365,11 @@ export async function listDocuments(kind: "ncd" | "lcd"): Promise<McdListItem[]>
     failures.push("the OpenAPI spec could not be read, or advertised no listing route");
   }
 
-  // Fall back to the guessed shapes only after the spec has had its say.
-  const bases = resolvedBase ? [resolvedBase] : CANDIDATE_BASES;
-  for (const base of bases) {
-    const url = `${base}/reports/${kind}-alphabetical`;
+  // Fall back to the candidate shapes only after the spec has had its say. Walking
+  // the whole list here means a single run can still succeed when the spec is
+  // unreadable but a conventional route exists.
+  for (const path of listPathCandidates(kind)) {
+    const url = `${API_ROOT}${path}`;
     try {
       const { data } = await getJson<{ data?: McdListItem[] } | McdListItem[]>(url);
       const items = Array.isArray(data) ? data : data.data;
@@ -297,7 +377,8 @@ export async function listDocuments(kind: "ncd" | "lcd"): Promise<McdListItem[]>
         failures.push(`${url}: parsed but held no document list`);
         continue;
       }
-      resolvedBase = base;
+      // Pin the prefix this path lives under so detail calls stay consistent.
+      resolvedBase = `${API_ROOT}${path.split("/").slice(0, 3).join("/")}`;
       return items;
     } catch (err) {
       failures.push(`${url}: ${err instanceof Error ? err.message : String(err)}`);

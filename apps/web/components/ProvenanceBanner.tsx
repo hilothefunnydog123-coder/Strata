@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { isStandalone, standaloneCorpus } from "@/lib/standalone";
+import { CorpusFetchButton } from "./CorpusFetchButton";
 
 /**
  * Corpus provenance, stated plainly and unmissably.
@@ -73,8 +74,11 @@ export async function ProvenanceBanner() {
       <p className="a-mono mt-2 text-[11px] text-chrome-500">
         {sample > 0 && <>sample {sample} · </>}
         {scale > 0 && <>synthetic-scale {scale} · </>}
-        run the ingest stage against the live sources to replace them
+        Medicare policy is public domain and can be fetched directly
       </p>
+      {/* The fix is one tap from the page that states the problem, rather than a
+          redeploy or a shell somewhere else. */}
+      <CorpusFetchButton />
     </div>
   );
 }
