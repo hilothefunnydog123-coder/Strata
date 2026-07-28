@@ -715,3 +715,103 @@ button {
   .d-spinner { animation-duration: 2.4s; }
   .d-cov-bar, .d-cluster-bar * { transition: none !important; }
 }
+
+/* ── Phone and small tablet ────────────────────────────────────────────────────
+ *
+ * The terminal is designed for a wide screen: a fixed 232px module rail beside a
+ * dense content region, with research modules splitting into two panes. None of
+ * that survives a 390px viewport, so below 900px the same components re-flow
+ * rather than shrink — the rail becomes a horizontal strip of tabs and every
+ * side-by-side pane stacks. No module is hidden and nothing is a separate mobile
+ * build; this is the same app, laid out for the screen it is on.
+ */
+@media (max-width: 900px) {
+  .d-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    /* Dynamic viewport units: 100vh sits under the phone browser's toolbars, so
+       the bottom of the content region would be unreachable. */
+    height: 100dvh;
+  }
+
+  /* Rail → a single scrollable row of tabs pinned above the content. */
+  .d-rail {
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: 0;
+    border-bottom: 1px solid #000;
+    padding: 0 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .d-rail::-webkit-scrollbar { display: none; }
+  .d-rail-brand,
+  .d-rail-group-label,
+  .d-rail-foot {
+    display: none; /* the topbar already names the product and the module */
+  }
+  .d-rail-group {
+    display: flex;
+    flex-direction: row;
+    gap: 2px;
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+  .d-rail-item {
+    white-space: nowrap;
+    padding: 11px 12px; /* a comfortable touch target, not a 6px desktop row */
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+  }
+  .d-rail-item--active {
+    border-left: 0;
+    border-bottom-color: var(--a-citation);
+  }
+  .d-rail-num { display: none; }
+  .d-rail-item--disabled { display: none; } /* M7/M8 stubs — noise on a phone */
+
+  /* Topbar wraps instead of overflowing; ⌘K is meaningless without a keyboard. */
+  .d-topbar {
+    height: auto;
+    min-height: 42px;
+    padding: 8px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .d-topbar-spacer { margin-left: 0; }
+  .d-kbd { display: none; }
+
+  /* Every side-by-side pane stacks. The document pane keeps a workable height so
+     a citation still has room to highlight in place. */
+  .d-split {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(240px, 45vh) minmax(0, 1fr);
+  }
+  .d-doc-pane {
+    border-right: 0;
+    border-bottom: 1px solid var(--a-chrome-200);
+    padding: 14px 14px 24vh;
+  }
+  .d-change-diff { grid-template-columns: minmax(0, 1fr); }
+
+  .d-content { padding: 12px; }
+  .d-flush-scroll { padding: 12px; }
+  .d-input--search { min-width: 0; width: 100%; }
+
+  /* Selects carry long policy titles; let them shrink instead of overflowing. */
+  .d-select, .d-input, .d-field { max-width: 100%; min-width: 0; }
+  .d-field { display: flex; flex-wrap: wrap; }
+
+  /* Wide tables scroll inside their own box rather than clipping at the edge. */
+  .d-table-wrap, .d-content > table, .d-table { display: block; overflow-x: auto; }
+  .d-table thead, .d-table tbody { display: table; width: 100%; min-width: 560px; }
+  .d-cov-table { display: block; overflow-x: auto; white-space: nowrap; }
+  .d-cluster-bar { width: 100px; }
+  .d-cov-stat { min-width: 0; flex: 1 1 130px; }
+
+  .d-palette { width: calc(100vw - 24px); max-width: none; }
+}

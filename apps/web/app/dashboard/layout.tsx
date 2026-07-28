@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 const NAV: ReadonlyArray<readonly [string, string]> = [
   ["/dashboard", "Overview"],
   ["/dashboard/coverage", "Coverage summary"],
+  ["/terminal/?host=console", "Open terminal ↗"],
   ["/dashboard/download", "Desktop app"],
   ["/dashboard/license", "License & seats"],
   ["/dashboard/invoices", "Invoices"],

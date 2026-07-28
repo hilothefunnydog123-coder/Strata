@@ -8,6 +8,23 @@ import type { ReactNode } from "react";
  */
 const STORAGE_KEY = "assent.desktop.authed";
 
+/**
+ * Served inside the signed-in console rather than the Tauri webview.
+ *
+ * The device flow exists so a native app can get a token without ever seeing a
+ * password. When the console is already serving these files, that has happened:
+ * the request carried a verified session cookie or it would not have been served
+ * at all. Pairing a "device" against the browser it is running in would be
+ * ceremony, so the shell opens directly.
+ */
+function consoleHosted(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).get("host") === "console";
+  } catch {
+    return false;
+  }
+}
+
 interface AuthContextValue {
   authed: boolean;
   approve: () => void;
@@ -18,6 +35,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authed, setAuthed] = useState<boolean>(() => {
+    if (consoleHosted()) return true;
     try {
       return localStorage.getItem(STORAGE_KEY) === "1";
     } catch {

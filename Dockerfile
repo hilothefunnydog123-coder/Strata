@@ -38,6 +38,10 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
+# The desktop renderer, built first so the web app can serve it at /terminal to a
+# signed-in browser. Same bundle the Tauri shell loads — no browser-only variant.
+RUN pnpm --filter @assent/desktop build
+
 # Next builds without a database: every console page is force-dynamic and the
 # connection pool is created lazily, so no connection is opened during the build.
 RUN pnpm --filter @assent/web build
