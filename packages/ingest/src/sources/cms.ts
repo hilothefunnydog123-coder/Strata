@@ -92,11 +92,37 @@ export function routeExists(body: string): boolean {
  * rather than by hope.
  */
 const DATA_RESOURCES = [
-  "contractor", "ncd", "lcd", "article", "mcd",
-  "ncd-document", "ncd-documents", "ncd-tracking-sheet", "ncd-alphabetical-index",
-  "lcd-document", "lcd-documents", "national-coverage", "local-coverage",
-  "report", "reports", "index", "indexes", "search", "keyword",
-  "state", "jurisdiction", "contractor-type", "hcpcs", "code",
+  // Known-real, and the shape everything else is judged against.
+  "contractor",
+  "ncd",   // 400 "You must include a ncdid" — exists, wants a parameter
+  "lcd",   // 401 — exists, gated behind the AMA CPT licence
+  "article", // 401 — same gate
+
+  // UNDERSCORES. The working response's own field names are contractor_id,
+  // contract_type_id, contract_subtype_id — this API is snake_case throughout, and
+  // every earlier guess used hyphens. That alone is worth a full sweep.
+  "ncd_document", "ncd_documents", "ncd_version", "ncd_versions",
+  "ncd_alphabetical", "ncd_list", "ncd_tracking_sheet", "ncd_id",
+  "national_coverage_determination", "national_coverage_determinations",
+  "lcd_document", "lcd_version", "local_coverage_determination",
+  "contract_type", "contract_subtype", "coverage_document", "document",
+  "ncd_hcpcs_code", "ncd_covered_indication", "ncd_chapter", "ncd_section",
+];
+
+/**
+ * Parameter shapes to try against `/v1/data/ncd`.
+ *
+ * It exists and wants `ncdid`, so the listing may simply be the same route asked
+ * differently — a wildcard, a page, or a version selector. Cheaper to ask than to
+ * keep hunting for a separate collection that may not exist.
+ */
+const NCD_PARAM_PROBES = [
+  "?ncdid=1",
+  "?ncdid=all",
+  "?ncdid=*",
+  "?ncdid=1&ncdversion=1",
+  "?limit=50",
+  "?ncdid=",
 ];
 
 /**
@@ -305,8 +331,23 @@ async function getJson<T>(url: string): Promise<FetchJsonResult<T>> {
   if (!(await robotsAllows(url, userAgent()))) {
     throw new Error(`[cms] robots.txt disallows ${url} for ${userAgent()} — not fetching.`);
   }
-  const res = await politeFetch(url);
+  const headers: Record<string, string> = {};
+  // LCDs and Articles answer 401 with a note about the AMA CPT licence: CMS gates
+  // them behind a token because those documents carry AMA-copyrighted codes. NCDs
+  // are not gated. Supplying the token when an operator has one is the licensed
+  // route to the rest; there is no unlicensed one, and this does not invent it.
+  const token = process.env.ASSENT_CMS_API_TOKEN;
+  if (token) headers.authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+
+  const res = await politeFetch(url, headers);
   const body = await res.text();
+  if (res.status === 401) {
+    throw new Error(
+      `[cms] 401 from ${url}: this collection requires a CMS API token (the response cites the ` +
+        `AMA CPT licence). NCDs are open; LCDs and Articles are not. Set ASSENT_CMS_API_TOKEN once ` +
+        `you hold one. Body: ${body.slice(0, 200)}`,
+    );
+  }
   if (!res.ok) {
     throw new Error(`[cms] ${res.status} from ${url}: ${body.slice(0, 300)}`);
   }
@@ -365,6 +406,22 @@ async function probeOne(url: string, label: string): Promise<ProbeResult> {
     // EXISTS is the fact worth surfacing: a real route that wants a parameter is a
     // find, and looks identical to a 404 if you only read the status code.
     const exists = routeExists(body);
+
+    // This API describes itself: the working /v1/data/contractor response carried
+    // meta.fields naming every column. Pulling that out is worth more than another
+    // 260 characters of body.
+    let metaNote = "";
+    try {
+      const parsed = JSON.parse(body) as { meta?: { fields?: unknown; children?: unknown; next_token?: unknown } };
+      const fields = parsed?.meta?.fields;
+      const children = parsed?.meta?.children;
+      if (Array.isArray(fields) && fields.length) metaNote += `[fields: ${fields.join(",")}] `;
+      if (Array.isArray(children) && children.length) metaNote += `[children: ${JSON.stringify(children)}] `;
+      if (parsed?.meta?.next_token) metaNote += `[next_token present] `;
+    } catch {
+      /* not JSON */
+    }
+
     return {
       base: label,
       url,
@@ -373,8 +430,10 @@ async function probeOne(url: string, label: string): Promise<ProbeResult> {
       contentType: res.headers.get("content-type"),
       bodyHead:
         (exists ? "[ROUTE EXISTS] " : "") +
+        (res.status === 401 ? "[AUTH REQUIRED] " : "") +
         (listLength !== null ? `[${listLength} items] ` : "") +
-        body.slice(0, 260),
+        metaNote +
+        body.slice(0, 300),
     };
   } catch (err) {
     return {
@@ -393,24 +452,57 @@ async function probeOne(url: string, label: string): Promise<ProbeResult> {
 export async function deepProbeCms(kind: "ncd" | "lcd" = "ncd"): Promise<ProbeResult[]> {
   const out: ProbeResult[] = [];
 
-  // The documentation page names the spec; report what was scraped from it so a
-  // failure to follow it is visible rather than silent.
+  // The docs page is a Swagger UI shell, so the spec URL is usually inside the
+  // JavaScript that boots it rather than the HTML. The first pass only looked at
+  // the HTML and read 260 characters of it, which was never going to find anything.
+  // This reads the page properly and follows its scripts.
   try {
     const res = await politeFetch(`${API_ROOT}/docs`);
     const html = await res.text();
-    const urls = specUrlsFromHtml(html, `${API_ROOT}/docs`);
+    const direct = specUrlsFromHtml(html, `${API_ROOT}/docs`);
+
+    // Anything the page pulls in, and any path fragment that looks like a route.
+    const assets = [...html.matchAll(/<(?:script|link)[^>]+(?:src|href)=["']([^"']+)["']/gi)]
+      .map((m) => m[1]!)
+      .filter((u) => /\.js(\?|$)/i.test(u) || /swagger|openapi|api/i.test(u));
+    const routeHints = [...new Set([...html.matchAll(/["'](\/v1\/[a-z0-9_\-/{}]+)["']/gi)].map((m) => m[1]!))];
+
     out.push({
-      base: "docs-scrape", url: `${API_ROOT}/docs`, ok: urls.length > 0,
+      base: "docs-page", url: `${API_ROOT}/docs`, ok: direct.length > 0 || routeHints.length > 0,
       status: res.status, contentType: res.headers.get("content-type"),
-      bodyHead: urls.length ? `spec URLs found: ${urls.join(" , ")}` : `no spec URL in page; head: ${html.slice(0, 200)}`,
+      bodyHead:
+        `specURLs=${JSON.stringify(direct)} assets=${JSON.stringify(assets.slice(0, 12))} ` +
+        `routeHints=${JSON.stringify(routeHints.slice(0, 25))} :: ${html.slice(0, 1200)}`,
     });
-    for (const u of urls.slice(0, 4)) out.push(await probeOne(u, "spec-from-docs"));
+
+    // Read the boot scripts: the spec URL and often the whole route list live there.
+    for (const asset of assets.slice(0, 6)) {
+      try {
+        const assetUrl = new URL(asset, `${API_ROOT}/docs`).toString();
+        const ares = await politeFetch(assetUrl);
+        const js = await ares.text();
+        const inJs = specUrlsFromHtml(js, assetUrl);
+        const jsRoutes = [...new Set([...js.matchAll(/["'](\/v1\/data\/[a-z0-9_\-]+)["']/gi)].map((m) => m[1]!))];
+        out.push({
+          base: "docs-asset", url: assetUrl, ok: inJs.length > 0 || jsRoutes.length > 0,
+          status: ares.status, contentType: ares.headers.get("content-type"),
+          bodyHead: `specURLs=${JSON.stringify(inJs)} dataRoutes=${JSON.stringify(jsRoutes.slice(0, 40))}`,
+        });
+        for (const u of inJs.slice(0, 3)) out.push(await probeOne(u, "spec-from-asset"));
+      } catch {
+        /* an asset that will not load is not worth failing the probe over */
+      }
+    }
+    for (const u of direct.slice(0, 4)) out.push(await probeOne(u, "spec-from-docs"));
   } catch (err) {
     out.push({
-      base: "docs-scrape", url: `${API_ROOT}/docs`, ok: false, status: null,
+      base: "docs-page", url: `${API_ROOT}/docs`, ok: false, status: null,
       contentType: null, bodyHead: "", error: err instanceof Error ? err.message : String(err),
     });
   }
+
+  // Ask the known-real NCD route for a list in every plausible dialect.
+  for (const q of NCD_PARAM_PROBES) out.push(await probeOne(`${API_ROOT}/v1/data/ncd${q}`, "ncd-param"));
 
   for (const url of SWAGGER_CANDIDATES) out.push(await probeOne(url, "spec"));
   for (const p of META_PATHS) out.push(await probeOne(`${API_ROOT}${p}`, "meta"));

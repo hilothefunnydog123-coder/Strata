@@ -26,14 +26,16 @@ export async function throttle(domain: string): Promise<void> {
 }
 
 /** Fetch with retry + exponential backoff (2s,4s,8s,16s), throttled per domain. */
-export async function politeFetch(url: string): Promise<Response> {
+export async function politeFetch(url: string, extraHeaders: Record<string, string> = {}): Promise<Response> {
   const domain = new URL(url).host;
   let attempt = 0;
   const delays = [2000, 4000, 8000, 16000];
   for (;;) {
     await throttle(domain);
     try {
-      const res = await fetch(url, { headers: { "User-Agent": userAgent() } });
+      // Caller headers ride along (e.g. a licensed CMS token) without displacing
+      // the identifying User-Agent, which is the polite part of politeFetch.
+      const res = await fetch(url, { headers: { "User-Agent": userAgent(), ...extraHeaders } });
       if (res.status >= 500 && attempt < delays.length) {
         await new Promise((r) => setTimeout(r, delays[attempt]!));
         attempt++;
