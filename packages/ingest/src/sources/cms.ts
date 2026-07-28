@@ -68,6 +68,38 @@ const SWAGGER_CANDIDATES = [
 ];
 
 /**
+ * The API's own "no such route" message.
+ *
+ * This is the single most useful thing the live probe found. Every invented path
+ * returns it; a real one never does. So a 400 saying "You must include a ncdid" is
+ * not a failure at all — it is `/v1/data/ncd` confirming it exists and telling us
+ * what it wants. That turns endpoint discovery from guessing into a test with a
+ * reliable answer.
+ */
+const ROUTE_NOT_FOUND = /Hello MCIM API Users/i;
+
+export function routeExists(body: string): boolean {
+  return body.length > 0 && !ROUTE_NOT_FOUND.test(body);
+}
+
+/**
+ * Names to try under `/v1/data/`. The API told us the shape itself:
+ *
+ *   /v1/data  →  {"message":"Please add one of the data endpoints, like /contractor"}
+ *
+ * so `contractor` is known-real and anchors the pattern. The rest are the
+ * collections a coverage database would expose, filtered by the discriminator above
+ * rather than by hope.
+ */
+const DATA_RESOURCES = [
+  "contractor", "ncd", "lcd", "article", "mcd",
+  "ncd-document", "ncd-documents", "ncd-tracking-sheet", "ncd-alphabetical-index",
+  "lcd-document", "lcd-documents", "national-coverage", "local-coverage",
+  "report", "reports", "index", "indexes", "search", "keyword",
+  "state", "jurisdiction", "contractor-type", "hcpcs", "code",
+];
+
+/**
  * Route shapes to try when the spec cannot be read.
  *
  * Every wrong guess from here costs a full redeploy on the box that can actually
@@ -106,8 +138,70 @@ interface OpenApiSpec {
 
 let specCache: OpenApiSpec | null | undefined;
 
+/**
+ * Find the spec by reading the documentation page.
+ *
+ * `/docs` returns HTML titled "Coverage API" — a Swagger UI page. Such a page always
+ * names the spec it renders, so rather than guessing more .json locations, this
+ * scrapes the URL out of it and follows that. Guessing was already tried; seven
+ * candidates all 404'd.
+ */
+export function specUrlsFromHtml(html: string, root: string): string[] {
+  const found = new Set<string>();
+  const patterns = [
+    /url\s*:\s*["']([^"']+)["']/gi,          // SwaggerUIBundle({ url: "..." })
+    /["']([^"']*swagger[^"']*\.json[^"']*)["']/gi,
+    /["']([^"']*openapi[^"']*\.json[^"']*)["']/gi,
+    /["'](\/[^"']*\/swagger(?:\.json)?)["']/gi,
+  ];
+  for (const re of patterns) {
+    for (const m of html.matchAll(re)) {
+      const raw = m[1];
+      if (!raw || raw.startsWith("#")) continue;
+      if (!/swagger|openapi|\.json/i.test(raw)) continue;
+      try {
+        found.add(new URL(raw, root).toString());
+      } catch {
+        /* not a resolvable URL */
+      }
+    }
+  }
+  return [...found];
+}
+
+async function specFromDocsPage(): Promise<OpenApiSpec | null> {
+  for (const docsUrl of [`${API_ROOT}/docs`, `${API_ROOT}/`]) {
+    try {
+      const res = await politeFetch(docsUrl);
+      if (!res.ok) continue;
+      const html = await res.text();
+      for (const specUrl of specUrlsFromHtml(html, docsUrl)) {
+        try {
+          const sres = await politeFetch(specUrl);
+          if (!sres.ok) continue;
+          const spec = JSON.parse(await sres.text()) as OpenApiSpec;
+          if (spec?.paths) return spec;
+        } catch {
+          /* next candidate */
+        }
+      }
+    } catch {
+      /* next docs page */
+    }
+  }
+  return null;
+}
+
 async function loadSpec(): Promise<OpenApiSpec | null> {
   if (specCache !== undefined) return specCache;
+
+  // The documentation page first: it states the answer instead of us guessing it.
+  const fromDocs = await specFromDocsPage().catch(() => null);
+  if (fromDocs) {
+    specCache = fromDocs;
+    return fromDocs;
+  }
+
   for (const url of SWAGGER_CANDIDATES) {
     try {
       const res = await politeFetch(url);
@@ -236,6 +330,26 @@ async function getJson<T>(url: string): Promise<FetchJsonResult<T>> {
  * exact status, content-type and body head from the live host are readable without
  * shell access to the box that could reach it.
  */
+/**
+ * Pull the row array out of whatever envelope the API uses.
+ *
+ * The shape is unknown until it answers, and committing to `{data:[…]}` would fail
+ * on `{results:[…]}` for no good reason. So: the conventional keys first, then any
+ * array-valued property, then a bare array.
+ */
+export function extractItems(parsed: unknown): unknown[] | null {
+  if (Array.isArray(parsed)) return parsed;
+  if (!parsed || typeof parsed !== "object") return null;
+  const obj = parsed as Record<string, unknown>;
+  for (const key of ["data", "results", "items", "records", "rows", "documents"]) {
+    if (Array.isArray(obj[key])) return obj[key] as unknown[];
+  }
+  for (const v of Object.values(obj)) {
+    if (Array.isArray(v) && v.length > 0 && typeof v[0] === "object") return v as unknown[];
+  }
+  return null;
+}
+
 /** One HTTP call, reduced to the few facts that identify what happened. */
 async function probeOne(url: string, label: string): Promise<ProbeResult> {
   try {
@@ -243,19 +357,24 @@ async function probeOne(url: string, label: string): Promise<ProbeResult> {
     const body = await res.text();
     let listLength: number | null = null;
     try {
-      const parsed = JSON.parse(body) as unknown;
-      const items = Array.isArray(parsed) ? parsed : (parsed as { data?: unknown } | null)?.data;
-      if (Array.isArray(items)) listLength = items.length;
+      const items = extractItems(JSON.parse(body) as unknown);
+      if (items) listLength = items.length;
     } catch {
       /* not JSON; contentType + bodyHead say so */
     }
+    // EXISTS is the fact worth surfacing: a real route that wants a parameter is a
+    // find, and looks identical to a 404 if you only read the status code.
+    const exists = routeExists(body);
     return {
       base: label,
       url,
       ok: res.ok && (listLength ?? 0) > 0,
       status: res.status,
       contentType: res.headers.get("content-type"),
-      bodyHead: (listLength !== null ? `[${listLength} items] ` : "") + body.slice(0, 260),
+      bodyHead:
+        (exists ? "[ROUTE EXISTS] " : "") +
+        (listLength !== null ? `[${listLength} items] ` : "") +
+        body.slice(0, 260),
     };
   } catch (err) {
     return {
@@ -273,8 +392,33 @@ async function probeOne(url: string, label: string): Promise<ProbeResult> {
  */
 export async function deepProbeCms(kind: "ncd" | "lcd" = "ncd"): Promise<ProbeResult[]> {
   const out: ProbeResult[] = [];
+
+  // The documentation page names the spec; report what was scraped from it so a
+  // failure to follow it is visible rather than silent.
+  try {
+    const res = await politeFetch(`${API_ROOT}/docs`);
+    const html = await res.text();
+    const urls = specUrlsFromHtml(html, `${API_ROOT}/docs`);
+    out.push({
+      base: "docs-scrape", url: `${API_ROOT}/docs`, ok: urls.length > 0,
+      status: res.status, contentType: res.headers.get("content-type"),
+      bodyHead: urls.length ? `spec URLs found: ${urls.join(" , ")}` : `no spec URL in page; head: ${html.slice(0, 200)}`,
+    });
+    for (const u of urls.slice(0, 4)) out.push(await probeOne(u, "spec-from-docs"));
+  } catch (err) {
+    out.push({
+      base: "docs-scrape", url: `${API_ROOT}/docs`, ok: false, status: null,
+      contentType: null, bodyHead: "", error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   for (const url of SWAGGER_CANDIDATES) out.push(await probeOne(url, "spec"));
   for (const p of META_PATHS) out.push(await probeOne(`${API_ROOT}${p}`, "meta"));
+
+  // Enumerate /v1/data/*. Anything not answering with the route-not-found message
+  // is a real collection, whatever it says next.
+  for (const name of DATA_RESOURCES) out.push(await probeOne(`${API_ROOT}/v1/data/${name}`, "data"));
+
   for (const p of listPathCandidates(kind)) out.push(await probeOne(`${API_ROOT}${p}`, "list"));
   return out;
 }
@@ -350,9 +494,9 @@ export async function listDocuments(kind: "ncd" | "lcd"): Promise<McdListItem[]>
   const found = await discover(kind).catch(() => null);
   if (found?.list) {
     try {
-      const { data } = await getJson<{ data?: McdListItem[] } | McdListItem[]>(found.list);
-      const items = Array.isArray(data) ? data : data.data;
-      if (Array.isArray(items) && items.length > 0) {
+      const { data } = await getJson<unknown>(found.list);
+      const items = extractItems(data) as McdListItem[] | null;
+      if (items && items.length > 0) {
         resolvedBase = found.base;
         discoveredDetail = found.detail;
         return items;
@@ -371,9 +515,9 @@ export async function listDocuments(kind: "ncd" | "lcd"): Promise<McdListItem[]>
   for (const path of listPathCandidates(kind)) {
     const url = `${API_ROOT}${path}`;
     try {
-      const { data } = await getJson<{ data?: McdListItem[] } | McdListItem[]>(url);
-      const items = Array.isArray(data) ? data : data.data;
-      if (!Array.isArray(items) || items.length === 0) {
+      const { data } = await getJson<unknown>(url);
+      const items = extractItems(data) as McdListItem[] | null;
+      if (!items || items.length === 0) {
         failures.push(`${url}: parsed but held no document list`);
         continue;
       }
@@ -406,16 +550,54 @@ export interface McdDocument {
 
 /** Fetch one document's full text + code links. */
 export async function fetchDocument(kind: "ncd" | "lcd", documentId: string): Promise<McdDocument> {
-  // listDocuments() runs first and pins whatever answered, so a single run never
-  // mixes a discovered listing route with a guessed detail route.
+  // The live probe settled how detail is addressed:
+  //
+  //   /v1/data/ncd  →  {"message":"You must include a ncdid","id":400}
+  //
+  // a query parameter, not a path segment. That form is tried first; a route the
+  // spec advertised, and the older path style, follow it.
   const base = resolvedBase ?? CANDIDATE_BASES[0]!;
-  const url = discoveredDetail
-    ? discoveredDetail.replace(/\{[^}]+\}/, encodeURIComponent(documentId))
-    : `${base}/${kind}/${encodeURIComponent(documentId)}`;
-  const { data } = await getJson<Record<string, unknown>>(url);
+  const id = encodeURIComponent(documentId);
+  const attempts = [
+    `${API_ROOT}/v1/data/${kind}?${kind}id=${id}`,
+    discoveredDetail?.replace(/\{[^}]+\}/, id),
+    `${base}/${kind}/${id}`,
+  ].filter((u): u is string => typeof u === "string");
+
+  let data: Record<string, unknown> | null = null;
+  let url = attempts[0]!;
+  const failures: string[] = [];
+  for (const attempt of attempts) {
+    try {
+      const got = await getJson<Record<string, unknown>>(attempt);
+      data = got.data;
+      url = attempt;
+      break;
+    } catch (err) {
+      failures.push(`${attempt}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  if (!data) {
+    throw new Error(`[cms] could not fetch ${kind} ${documentId}:\n` + failures.map((f) => `  · ${f}`).join("\n"));
+  }
+
+  // Detail responses may be wrapped the same way lists are. Unwrap a single-row
+  // envelope so field lookup below works either way.
+  const rows = extractItems(data);
+  const doc: Record<string, unknown> =
+    rows && rows.length > 0 && typeof rows[0] === "object"
+      ? (rows[0] as Record<string, unknown>)
+      : typeof data.data === "object" && data.data !== null && !Array.isArray(data.data)
+        ? (data.data as Record<string, unknown>)
+        : data;
 
   const html =
-    (data.documentHtml as string) ?? (data.description as string) ?? (data.text as string) ?? "";
+    (doc.documentHtml as string) ??
+    (doc.description as string) ??
+    (doc.text as string) ??
+    (doc.indicationsAndLimitations as string) ??
+    (doc.coverageIndications as string) ??
+    "";
   if (!html || html.length < 200) {
     throw new Error(
       `[cms] ${url} returned no usable document body (got ${html.length} chars). ` +
@@ -423,8 +605,8 @@ export async function fetchDocument(kind: "ncd" | "lcd", documentId: string): Pr
     );
   }
   const codes: RawCodeLink[] = [];
-  for (const key of ["cptCodes", "hcpcsCodes", "codes"]) {
-    const arr = data[key];
+  for (const key of ["cptCodes", "hcpcsCodes", "codes", "hcpcsCodeList"]) {
+    const arr = doc[key];
     if (!Array.isArray(arr)) continue;
     for (const c of arr) {
       const code = typeof c === "string" ? c : ((c as { code?: string })?.code ?? "");
@@ -434,9 +616,9 @@ export async function fetchDocument(kind: "ncd" | "lcd", documentId: string): Pr
 
   return {
     documentId,
-    version: Number(data.documentVersion ?? data.version ?? 1),
-    title: String(data.documentTitle ?? data.title ?? documentId),
-    effectiveDate: String(data.effectiveDate ?? data.startDate ?? "").slice(0, 10),
+    version: Number(doc.documentVersion ?? doc.version ?? 1),
+    title: String(doc.documentTitle ?? doc.title ?? doc.ncdTitle ?? doc.lcdTitle ?? documentId),
+    effectiveDate: String(doc.effectiveDate ?? doc.startDate ?? "").slice(0, 10),
     html,
     codes,
     sourceUrl: `https://www.cms.gov/medicare-coverage-database/view/${kind}.aspx?${kind}id=${encodeURIComponent(documentId)}`,
