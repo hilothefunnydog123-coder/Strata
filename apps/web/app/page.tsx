@@ -3,85 +3,92 @@ import { SiteNav, SiteFooter } from "@/components/Chrome";
 import { HeroCitation } from "@/components/HeroCitation";
 import { DemoForm } from "@/components/DemoForm";
 
+/**
+ * The landing page carries as little prose as it can.
+ *
+ * The hero widget already demonstrates the product — a real policy with its
+ * requirements being marked up — so the copy's only job is to name what you get.
+ * Every line here is a claim the visitor can check against the thing moving next
+ * to it, which is why none of them need a paragraph.
+ */
+
+/** What you get. One line each — the widget supplies the proof. */
+const VALUE: Array<[string, string]> = [
+  ["Every payer, one place", "CMS, MolDX and the major commercial plans, parsed into the requirements they state."],
+  ["Every requirement, cited", "Traced to a verbatim sentence in the source. Nothing paraphrased, nothing inferred."],
+  ["The design that pays", "Which trial unlocks 61% of covered lives, and what the next arm buys you."],
+];
+
+const PIPELINE: Array<[string, string]> = [
+  ["01", "Ingest every policy and revision"],
+  ["02", "Extract each binding requirement"],
+  ["03", "Flag what tightened or loosened"],
+  ["04", "Rank by covered lives unlocked"],
+];
+
 export default function Home() {
   return (
     <>
       <SiteNav />
       <main id="main" className="mx-auto max-w-6xl px-5">
-        {/* Hero — real policy prose being marked up, not a big number and a gradient. */}
-        <section className="pt-14 pb-16">
-          <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-            <div>
-              <div className="a-mono text-[12px] uppercase tracking-wider text-chrome-500 mb-4">
-                For market access teams of one
-              </div>
-              <h1 className="font-serif text-[34px] sm:text-[42px] leading-[1.08] text-ink tracking-tight">
-                You are about to bet five years on a guess about what payers will require.
-              </h1>
-              <p className="mt-5 text-[16px] leading-relaxed text-chrome-700 max-w-reading">
-                Every payer publishes what evidence it needs before it will pay — in prose,
-                across nine hundred documents nobody has ever read end to end. Assent reads
-                them, pulls out each binding requirement, and ties it to the exact sentence it
-                came from. Then it shows you the trial design that unlocks the most covered lives.
-              </p>
-              <div className="mt-7 flex items-center gap-3">
-                <Link href="#demo" className="rounded bg-ink text-paper px-4 py-2.5 text-[14px] hover:bg-chrome-700 no-underline">
-                  Request a demo
-                </Link>
-                <Link href="/tour" className="rounded border border-chrome-200 px-4 py-2.5 text-[14px] text-ink hover:bg-chrome-50 no-underline">
-                  See the product
-                </Link>
-              </div>
+        {/* Hero — the product doing its one trick, with copy that just names it. */}
+        <section className="grid items-center gap-10 pt-16 pb-20 lg:grid-cols-[0.85fr_1.15fr]">
+          <div>
+            <div className="a-mono text-[12px] uppercase tracking-wider text-chrome-500">
+              Molecular oncology diagnostics
             </div>
-            <HeroCitation />
+            <h1 className="mt-4 font-serif text-[38px] sm:text-[46px] leading-[1.05] tracking-tight text-ink">
+              Know what payers require before you design the trial.
+            </h1>
+            <p className="mt-5 max-w-reading text-[17px] leading-relaxed text-chrome-700">
+              Every requirement, from every payer, traced to the sentence it came from.
+            </p>
+            <div className="mt-8 flex items-center gap-3">
+              <Link href="#demo" className="rounded bg-ink px-5 py-2.5 text-[14px] text-paper no-underline hover:bg-chrome-700">
+                Request a demo
+              </Link>
+              <Link href="/tour" className="rounded border border-chrome-200 px-5 py-2.5 text-[14px] text-ink no-underline hover:bg-chrome-50">
+                See the product
+              </Link>
+            </div>
           </div>
+          <HeroCitation />
         </section>
 
         <hr className="a-rule" />
 
-        {/* The thesis, three ways. */}
-        <section className="py-16 grid gap-10 md:grid-cols-3">
-          {[
-            { h: "One corpus, finally structured", p: "CMS, MolDX, and the major commercial payers — every medical policy, every historical version, parsed into the requirements they actually state. Molecular oncology first." },
-            { h: "Nothing without a citation", p: "No requirement exists in Assent without a verbatim sentence that is programmatically verified to be in the source. One fabricated requirement would be a liability, so we discard rather than guess." },
-            { h: "The frontier, not an answer", p: "Given your indication and codes: this design unlocks 61% of lives; a head-to-head arm takes you to 84%; the last 16% needs a prospective outcomes study. A cost/benefit decision a CEO can make." },
-          ].map((c) => (
-            <div key={c.h}>
-              <h3 className="font-serif text-[19px] text-ink mb-2">{c.h}</h3>
-              <p className="text-[14px] leading-relaxed text-chrome-700">{c.p}</p>
+        {/* What you get. */}
+        <section className="grid gap-10 py-16 md:grid-cols-3">
+          {VALUE.map(([h, p]) => (
+            <div key={h}>
+              <h2 className="font-serif text-[20px] text-ink">{h}</h2>
+              <p className="mt-2 text-[14px] leading-relaxed text-chrome-700">{p}</p>
             </div>
           ))}
         </section>
 
         <hr className="a-rule" />
 
-        {/* How it works — the pipeline, quietly. */}
+        {/* How, in four words each. */}
         <section className="py-16">
-          <h2 className="font-serif text-[26px] text-ink mb-8">From published prose to a defensible trial decision</h2>
-          <ol className="grid gap-px bg-chrome-200 rounded-lg overflow-hidden md:grid-cols-4">
-            {[
-              ["01", "Ingest", "Every policy and every revision, fetched and preserved byte-for-byte."],
-              ["02", "Extract", "Each binding requirement pulled out with its minimal supporting quote — and verified."],
-              ["03", "Diff", "Version to version, what tightened and what loosened. The ten percent that isn't noise."],
-              ["04", "Blueprint", "Requirements clustered across payers, weighted by covered lives, ranked by lives unlocked."],
-            ].map(([n, h, p]) => (
+          <ol className="grid gap-px overflow-hidden rounded-lg bg-chrome-200 md:grid-cols-4">
+            {PIPELINE.map(([n, label]) => (
               <li key={n} className="bg-paper p-5">
-                <div className="a-mono text-[12px] text-citation">{n}</div>
-                <div className="font-medium text-ink mt-1">{h}</div>
-                <p className="text-[13px] leading-relaxed text-chrome-500 mt-1.5">{p}</p>
+                <div className="a-mono text-[12px] text-chrome-500">{n}</div>
+                <div className="mt-1 text-[14px] leading-snug text-ink">{label}</div>
               </li>
             ))}
           </ol>
         </section>
 
+        <hr className="a-rule" />
+
         {/* Demo. */}
-        <section id="demo" className="py-16 grid gap-8 md:grid-cols-[0.8fr_1.2fr] md:items-start scroll-mt-16">
+        <section id="demo" className="grid scroll-mt-16 gap-8 py-16 md:grid-cols-[0.8fr_1.2fr] md:items-start">
           <div>
             <h2 className="font-serif text-[26px] text-ink">Request a demo</h2>
-            <p className="mt-3 text-[14px] leading-relaxed text-chrome-700 max-w-reading">
-              Tell us your indication and codes. We will walk you through the requirements
-              your payers actually state, and where your evidence stands against them. Assent
-              is sold to teams under contract — there is no self-service signup.
+            <p className="mt-3 max-w-reading text-[14px] leading-relaxed text-chrome-700">
+              Send your indication and codes. We will show you what your payers require today.
             </p>
           </div>
           <DemoForm />
