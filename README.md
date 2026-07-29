@@ -185,11 +185,20 @@ this reason: the start command must not depend on the TypeScript loader, which
 is a development dependency. Drizzle skips migrations it has already applied, so
 a restart costs one query.
 
-Both services are on the free tier in the blueprint. Two consequences worth
-knowing before you rely on it: a free Postgres instance is deleted after 30
-days, and a free web service sleeps after 15 minutes idle, so the first request
-after a quiet period takes about a minute. Raise `plan:` on both to `basic-256mb`
-and `starter` when it stops being a demo.
+**The web service is on `standard`, and it has to be.** Measured on this
+codebase: the production build needs about 700 MB of heap and peaks near 1.7 GB
+resident, while the running server holds about 250 MB after serving every public
+route. Render's free and starter instances are both 512 MB, so they will run
+this app comfortably and cannot build it. On either, the deploy fails with
+`JavaScript heap out of memory` before it ever starts.
+
+If that cost is unwanted, the shape of the fix is to build somewhere with more
+memory and have Render run the result rather than build it. The application
+needs no changes for that.
+
+The database is on `free`, which is fine to begin with, with one caveat: a free
+Postgres instance is deleted after 30 days. Move it to a paid tier before it
+holds anything you would miss.
 
 Then, once, from the service shell:
 

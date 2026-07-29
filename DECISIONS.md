@@ -312,3 +312,29 @@ something prunes them, and then the service will not boot. It imports only
 application. Migrations run at start rather than as a pre-deploy step because
 pre-deploy commands need a paid Render instance type; Drizzle skips what it has
 already applied, so a restart costs one query against `__drizzle_migrations`.
+
+### The blueprint specifies a 2 GB instance because 512 MB cannot build this
+
+The first Render blueprint put the web service on the free tier. That was wrong,
+and it was wrong in a way worth writing down, because the numbers are not
+intuitive: this application runs in far less memory than it takes to build.
+
+Measured on this codebase. The production build peaks near 1.7 GB resident and
+fails at a 420 MB heap ceiling with `JavaScript heap out of memory`; it succeeds
+from 700 MB up. The running server holds about 250 MB after serving every public
+route. Render's free and starter instances are both 512 MB, which is ample for
+the second number and impossible for the first.
+
+Three things were tried before accepting the instance size. Building with
+Turbopack cut compile time from minutes to fifteen seconds but left peak memory
+at 1.58 GB, because the cost is in the compile itself rather than the bundler's
+JavaScript. Limiting static generation to a single worker moved peak memory by
+under two percent, for the same reason. Moving type checking and linting out of
+the build, which is a real reduction, still failed at 420 MB, so it buys nothing
+at the tier that matters and costs the guarantee that a deploy type checks.
+
+`NODE_OPTIONS=--max-old-space-size` is set explicitly in the blueprint. Node
+sizes its default heap from visible memory, which inside a container is the
+host's rather than the cgroup limit, so the default can be either too small to
+finish or large enough that the platform kills the process before V8 ever runs a
+final garbage collection.

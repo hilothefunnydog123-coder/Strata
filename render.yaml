@@ -5,19 +5,27 @@
 # resolved at startup from RENDER_EXTERNAL_URL, which is the only value the
 # platform knows before it has assigned a hostname.
 #
-# One Postgres database and one web service, both on the free tier. Two things
-# follow from free that are worth knowing before you rely on it:
+# The web service is on standard rather than free, and that is not a preference.
+# Measured on this codebase: the production build needs about 700 MB of heap and
+# peaks near 1.7 GB of resident memory, while the running server holds about
+# 250 MB after serving every public route. Free and starter are both 512 MB, so
+# they run this app comfortably and cannot build it. The build dies with
+# "JavaScript heap out of memory" and the deploy never starts.
 #
-#   - A free Postgres instance is deleted after 30 days. Move the database to a
-#     paid tier before it holds anything you would miss.
-#   - A free web service sleeps after 15 minutes idle, so the first request
-#     after a quiet period takes about a minute while it wakes.
+# If paying for standard is not wanted, the alternative is to build the image
+# somewhere with more memory and have Render run the result, rather than
+# building on Render. Nothing in the application needs changing for that.
 #
-# Migrations run from the start command rather than a pre-deploy command,
-# because pre-deploy needs a paid instance type. Drizzle records what it has
-# applied in __drizzle_migrations and skips those files, so running on every
-# boot is a no-op after the first. scripts/migrate.mjs is plain node for this
-# reason: the start command must not depend on a development dependency.
+# The database is on free, which is fine to begin with, with one caveat: a free
+# Postgres instance is deleted after 30 days. Move it to a paid tier before it
+# holds anything you would miss.
+#
+# Migrations run from the start command rather than a pre-deploy command, so
+# that this file still works unchanged if the instance type is lowered later.
+# Drizzle records what it has applied in __drizzle_migrations and skips those
+# files, so running on every boot is a no-op after the first.
+# scripts/migrate.mjs is plain node for this reason: the start command must not
+# depend on a development dependency.
 #
 # After the first deploy, create the first account from the service shell:
 #   SUPERADMIN_EMAIL=you@example.com pnpm provision:superadmin
@@ -32,7 +40,7 @@ services:
   - type: web
     name: strata
     runtime: node
-    plan: free
+    plan: standard
     branch: main
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
     startCommand: pnpm db:migrate && pnpm start
@@ -42,6 +50,11 @@ services:
         value: "22"
       - key: NODE_ENV
         value: production
+      # Node's default heap ceiling is a fraction of visible memory, which on a
+      # container reads as the host rather than the limit. Stating it keeps the
+      # build inside the instance instead of being killed by the platform.
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=1536
 
       - key: DATABASE_URL
         fromDatabase:
