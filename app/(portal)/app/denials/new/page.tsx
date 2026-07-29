@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import { forbidden } from 'next/navigation';
-import { assertCan, requirePrincipal, type Membership } from '@/lib/auth/guards';
-import { AuthorizationError } from '@/lib/auth/guards';
+import {
+  assertCanOrForbid,
+  requirePrincipal,
+  type Membership,
+} from '@/lib/auth/guards';
 import { syntheticTagRequired } from '@/lib/denials/upload';
 import { NewDenialForm } from './form';
 
@@ -21,12 +24,7 @@ export default async function NewDenialPage({
 
   if (!membership) forbidden();
 
-  try {
-    assertCan(principal, membership.organizationId, 'denial:create');
-  } catch (error) {
-    if (error instanceof AuthorizationError) forbidden();
-    throw error;
-  }
+  assertCanOrForbid(principal, membership.organizationId, 'denial:create');
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">

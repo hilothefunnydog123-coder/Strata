@@ -31,13 +31,13 @@
 /** Characters that mean the same thing but arrive in different shapes. */
 const CHARACTER_EQUIVALENTS: ReadonlyArray<[RegExp, string]> = [
   // Quotation marks and apostrophes: curly, straight, and their doubles.
-  [/[‘’‚‛′´`]/g, "'"],
-  [/[“”„‟″]/g, '"'],
+  [/[\u2018\u2019\u201a\u201b\u2032\u00b4`]/g, "'"],
+  [/[\u201c\u201d\u201e\u201f\u2033]/g, '"'],
   // Dashes and hyphens of every width, including the soft hyphen a PDF inserts
   // at a line break. Mapped to a plain hyphen rather than removed.
-  [/[‐‑‒–—―−­]/g, '-'],
+  [/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\u00ad]/g, '-'],
   // Ellipsis to three stops, which is how a legal quotation elides.
-  [/…/g, '...'],
+  [/\u2026/g, '...'],
   // Every flavour of space, including non-breaking and the thin spaces a
   // typesetter puts after a section symbol, to a single ordinary space.
   [/[   -   　]/g, ' '],

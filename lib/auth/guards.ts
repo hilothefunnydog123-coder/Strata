@@ -244,3 +244,37 @@ export function respondToAuthFailure(error: unknown): never {
   if (error instanceof AuthorizationError) forbidden();
   throw error;
 }
+
+/**
+ * The page level versions of the assertions above.
+ *
+ * Next renders a layout and the page beneath it in parallel, so a layout
+ * calling forbidden() does not stop the page from running and throwing first.
+ * A raw AuthorizationError escaping a page becomes a 500, which tells a user
+ * the application broke when in fact it worked exactly as intended.
+ *
+ * Every page therefore guards itself with one of these, and the layout guard
+ * stays as the thing that catches routes nobody remembered to check.
+ */
+export function assertCanOrForbid(
+  principal: Principal,
+  organizationId: string | null,
+  permission: Permission,
+): void {
+  try {
+    assertCan(principal, organizationId, permission);
+  } catch (error) {
+    respondToAuthFailure(error);
+  }
+}
+
+export function assertPlatformOrForbid(
+  principal: Principal,
+  permission: Permission,
+): void {
+  try {
+    assertPlatform(principal, permission);
+  } catch (error) {
+    respondToAuthFailure(error);
+  }
+}

@@ -41,7 +41,7 @@ export const PAGE_BREAK = '\f';
  */
 const HEADING_PATTERNS: ReadonlyArray<{ level: number; re: RegExp }> = [
   // "30.2 - Skilled Nursing Facility Level of Care" as CMS manuals number.
-  { level: 1, re: /^\d{1,3}(?:\.\d{1,3})?\s*[-–—]\s*\S.{0,110}$/ },
+  { level: 1, re: /^\d{1,3}(?:\.\d{1,3})?\s*[-\u2013\u2014]\s*\S.{0,110}$/ },
   // "§ 409.31 Level of care requirement." as the CFR numbers.
   { level: 1, re: /^§+\s*\d+\.\d+.{0,110}$/ },
   // "II. Applicable Law" or "IV. Analysis" as decisions number.

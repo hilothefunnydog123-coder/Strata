@@ -36,7 +36,7 @@ describe('normalizeForComparison', () => {
   it('folds typographic characters onto their plain equivalents', () => {
     expect(normalizeForComparison('the plan’s criteria')).toBe("the plan's criteria");
     expect(normalizeForComparison('“skilled care”')).toBe('"skilled care"');
-    expect(normalizeForComparison('42 CFR 422.101—the rule')).toBe(
+    expect(normalizeForComparison('42 CFR 422.101\u2014the rule')).toBe(
       '42 cfr 422.101-the rule',
     );
   });

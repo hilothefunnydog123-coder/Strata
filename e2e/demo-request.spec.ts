@@ -13,6 +13,13 @@ import { app } from './helpers';
 
 const STAMP = Date.now();
 
+// The form allows five submissions an hour per address. This suite runs several
+// times an hour from one address, so it starts from a known state rather than
+// the product limit being loosened to accommodate a test.
+test.beforeAll(() => {
+  app<number>('resetRateLimits');
+});
+
 interface DemoRow {
   id: string;
   name: string;

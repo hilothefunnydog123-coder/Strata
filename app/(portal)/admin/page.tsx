@@ -1,4 +1,4 @@
-import { requirePrincipal, assertPlatform } from '@/lib/auth/guards';
+import { assertPlatformOrForbid, requirePrincipal } from '@/lib/auth/guards';
 import { db } from '@/lib/db';
 import { count, eq } from 'drizzle-orm';
 import { denial, demoRequest, organization, sourceDocument, user } from '@/lib/db/schema';
@@ -8,7 +8,7 @@ export const metadata = { title: 'Operator overview' };
 
 export default async function AdminOverview() {
   const principal = await requirePrincipal();
-  assertPlatform(principal, 'admin:organizations');
+  assertPlatformOrForbid(principal, 'admin:organizations');
 
   const [orgs, users, denials, docs, newRequests] = await Promise.all([
     db.select({ n: count() }).from(organization).where(eq(organization.status, 'active')),

@@ -23,7 +23,8 @@
     "corpus:extract": "tsx scripts/corpus.ts extract",
     "corpus:verify": "tsx scripts/corpus.ts verify",
     "corpus:embed": "tsx scripts/corpus.ts embed",
-    "corpus:status": "tsx scripts/corpus.ts status"
+    "corpus:status": "tsx scripts/corpus.ts status",
+    "check:forbidden": "tsx scripts/check-forbidden.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",

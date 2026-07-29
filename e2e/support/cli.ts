@@ -21,6 +21,7 @@ import {
   demoRequest,
   denial,
   emailSend,
+  job,
   organization,
   user,
 } from '../../lib/db/schema';
@@ -129,6 +130,22 @@ const commands: Record<string, (args: Args) => Promise<unknown>> = {
     if (!target) throw new Error(`countRows does not know the table ${table}`);
     const [row] = await db.select({ n: count() }).from(target);
     return row?.n ?? 0;
+  },
+
+  /**
+   * Clear the demo form's rate limit buckets.
+   *
+   * The form allows five submissions an hour per address, which is right in
+   * production and wrong for a suite that runs several times an hour from one
+   * address. Tests start from a known state rather than the limit being raised
+   * to accommodate them.
+   */
+  async resetRateLimits() {
+    const deleted = await db
+      .delete(job)
+      .where(eq(job.kind, 'rate_limit'))
+      .returning({ id: job.id });
+    return deleted.length;
   },
 
   async setOrgStatus(args) {

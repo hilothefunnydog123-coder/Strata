@@ -51,6 +51,7 @@ jobs:
       - run: pnpm db:migrate
       - run: pnpm typecheck
       - run: pnpm lint
+      - run: pnpm check:forbidden
       - run: pnpm test
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm build

@@ -240,10 +240,10 @@ function wrapToWidth(
   // pdf-lib's standard fonts cannot encode characters outside WinAnsi, and a
   // stray typographic quote from a source document would throw mid-render.
   const safe = text
-    .replace(/[‘’‚‛]/g, "'")
-    .replace(/[“”„‟]/g, '"')
-    .replace(/[–—−]/g, '-')
-    .replace(/…/g, '...')
+    .replace(/[\u2018\u2019\u201a\u201b]/g, "'")
+    .replace(/[\u201c\u201d\u201e\u201f]/g, '"')
+    .replace(/[\u2013\u2014\u2212]/g, '-')
+    .replace(/\u2026/g, '...')
     .replace(/[^\x20-\xFF]/g, '');
 
   const words = safe.split(/\s+/).filter((w) => w.length > 0);
