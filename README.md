@@ -161,7 +161,51 @@ does not swallow a substantive difference.
 
 ## Deploying
 
-Vercel, with Neon for Postgres and Cloudflare R2 for documents.
+Nothing here is host specific: it is a standard Next.js server build plus a
+Postgres connection string. Two paths are written down because both have been
+followed end to end.
+
+### Render
+
+`render.yaml` in the repository root is a complete blueprint: one Postgres
+database, one web service, and the environment. Point Render at the repository
+and it reads the file.
+
+- Build: `corepack enable && pnpm install --frozen-lockfile && pnpm build`
+- Start: `pnpm start`
+- Pre-deploy: `pnpm db:migrate` (needs a paid instance type; on a free one, run
+  it once from the Render shell instead)
+
+Four values are asked for at deploy time rather than stored in the repository:
+
+| Variable | Value |
+| --- | --- |
+| `PHI_ENCRYPTION_KEY` | 32 bytes base64, from `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. Must differ from `BETTER_AUTH_SECRET`. |
+| `APP_URL` | The service URL, for example `https://strata.onrender.com` |
+| `BETTER_AUTH_URL` | The same URL. A mismatch here means sign in fails without an obvious reason, because cookies are issued against the wrong origin. |
+| `DEMO_REQUEST_TO` | Where inbound demo requests are delivered |
+
+`RESEND_API_KEY` and `ANTHROPIC_API_KEY` are optional. Without the first,
+outbound mail is recorded in `email_send` and reported as unsent. Without the
+second, drafting and extraction are unavailable and every other surface works.
+
+The service will not boot until the required variables parse. That is deliberate:
+`lib/env.ts` names the offending variable in the log rather than letting a half
+configured instance serve traffic.
+
+Then, once from the Render shell:
+
+```
+SUPERADMIN_EMAIL=you@example.com pnpm provision:superadmin
+```
+
+Render's disk is ephemeral, so `LOCAL_STORAGE_DIR` survives only until the next
+deploy. That is acceptable for synthetic mode. Attach a Render disk or set the
+four `R2_*` variables before storing anything worth keeping.
+
+### Vercel
+
+With Neon for Postgres and Cloudflare R2 for documents.
 
 1. Set every variable from `.env.example` in the Vercel project.
 2. `DATABASE_URL` pointing at Neon selects the serverless driver automatically.

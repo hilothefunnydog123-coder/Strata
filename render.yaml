@@ -1,0 +1,100 @@
+# Render blueprint.
+#
+# This describes the whole deployment: one Postgres database, one web service,
+# and the environment the service refuses to start without. lib/env.ts parses
+# every variable below with Zod before the first request is served, so a missing
+# value is a boot failure with a named cause rather than a runtime surprise.
+#
+# Three values are marked `sync: false`, which means Render asks for them at
+# deploy time instead of storing them here. They are the ones that must not live
+# in a git repository, or that depend on the URL Render assigns:
+#
+#   PHI_ENCRYPTION_KEY  32 bytes, base64. Generate with:
+#                         node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+#                       It must differ from BETTER_AUTH_SECRET, because clinical
+#                       columns get their own key: rotating or leaking a session
+#                       secret must not expose patient records.
+#   APP_URL             The service URL, for example https://strata.onrender.com
+#   BETTER_AUTH_URL     The same URL. Cookies and callbacks are issued against it,
+#                       so a mismatch means sign in silently fails.
+#
+# After the first deploy, create the first account:
+#   pnpm provision:superadmin
+# from the Render shell, with SUPERADMIN_EMAIL set.
+
+databases:
+  - name: strata-db
+    databaseName: strata
+    user: strata
+    plan: basic-256mb
+
+services:
+  - type: web
+    name: strata
+    runtime: node
+    plan: starter
+    branch: main
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    # Migrations run before the new instance takes traffic, so the schema is
+    # never behind the code that queries it. Pre-deploy commands need a paid
+    # instance type; on a free instance run `pnpm db:migrate` from the shell.
+    preDeployCommand: pnpm db:migrate
+    startCommand: pnpm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+
+      - key: DATABASE_URL
+        fromDatabase:
+          name: strata-db
+          property: connectionString
+
+      # At least 32 characters. Render generates and stores it.
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+
+      # Synthetic is the only supported mode until a BAA exists. In this mode
+      # every upload must be tagged synthetic, a banner shows on every
+      # authenticated page, and the LLM boundary refuses to transmit anything
+      # not marked synthetic. Switching to live additionally requires
+      # ANTHROPIC_BAA_CONFIRMED=true and R2 storage.
+      - key: PHI_MODE
+        value: synthetic
+
+      - key: PHI_ENCRYPTION_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: BETTER_AUTH_URL
+        sync: false
+
+      # Where inbound demo requests are delivered.
+      - key: DEMO_REQUEST_TO
+        sync: false
+
+      # Document storage. Render's disk is ephemeral, so this path survives only
+      # until the next deploy. Fine for synthetic mode; attach a Render disk or
+      # set the four R2_* variables before storing anything worth keeping.
+      - key: LOCAL_STORAGE_DIR
+        value: /tmp/strata-storage
+
+      # Optional. Without a Resend key, outbound mail is recorded in email_send
+      # and reported as not configured rather than silently dropped.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+      # Optional. Drafting and extraction are unavailable without it; every
+      # other surface works.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # Shared secret the job drain requires. Render generates it. A scheduled
+      # request to /api/cron/drain must carry it as `Authorization: Bearer <value>`;
+      # without the variable the drain answers 503 rather than running unprotected.
+      - key: CRON_SECRET
+        generateValue: true
