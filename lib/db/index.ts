@@ -28,13 +28,12 @@ import * as schema from './schema';
  */
 type Client = NodePgDatabase<typeof schema>;
 
-const isNeon = /neon\.tech|neon\.build/.test(env.DATABASE_URL);
-
 function createClient(): Client {
-  if (isNeon) {
-    return drizzleNeon(neon(env.DATABASE_URL), { schema }) as unknown as Client;
+  const url = env.DATABASE_URL;
+  if (/neon\.tech|neon\.build/.test(url)) {
+    return drizzleNeon(neon(url), { schema }) as unknown as Client;
   }
-  const pool = new Pool({ connectionString: env.DATABASE_URL, max: 10 });
+  const pool = new Pool({ connectionString: url, max: 10 });
   return drizzlePg(pool, { schema });
 }
 
@@ -42,9 +41,50 @@ declare global {
   var __medealDb: Client | undefined;
 }
 
-// Next.js reloads modules on every edit in development, which would otherwise
-// open a new pool each time until Postgres refuses connections.
-export const db: Client = globalThis.__medealDb ?? createClient();
-if (env.NODE_ENV !== 'production') globalThis.__medealDb = db;
+function client(): Client {
+  // Next.js reloads modules on every edit in development, which would otherwise
+  // open a new pool each time until Postgres refuses connections.
+  const existing = globalThis.__medealDb;
+  if (existing) return existing;
+
+  const created = createClient();
+  if (env.NODE_ENV !== 'production') globalThis.__medealDb = created;
+  return created;
+}
+
+/**
+ * The client, connected on first use rather than on import.
+ *
+ * This indirection is load bearing, not decoration. Building the client at
+ * module scope means importing this module reads DATABASE_URL, and `next build`
+ * imports every route module to collect its metadata. The build would therefore
+ * demand a database URL and a full runtime environment in order to emit static
+ * assets, which is both wrong in principle and, in practice, the reason a first
+ * deploy on a host without preconfigured variables cannot succeed.
+ *
+ * Importing a module should not open a socket. Now it does not: the first query
+ * does.
+ *
+ * Methods are bound because Drizzle's builders rely on `this`, and an unbound
+ * method handed out through a proxy loses it.
+ */
+export const db: Client = new Proxy({} as Client, {
+  get(_target, prop, receiver) {
+    const value = Reflect.get(client() as object, prop, receiver);
+    return typeof value === 'function' ? value.bind(client()) : value;
+  },
+  has(_target, prop) {
+    return prop in (client() as object);
+  },
+  ownKeys() {
+    return Reflect.ownKeys(client() as object);
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    const descriptor = Object.getOwnPropertyDescriptor(client() as object, prop);
+    // A proxy may not report a property as non-configurable when the target
+    // does not have it, which is the case for every property here.
+    return descriptor ? { ...descriptor, configurable: true } : undefined;
+  },
+});
 
 export { schema };

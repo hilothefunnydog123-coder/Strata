@@ -430,3 +430,31 @@ cost control that silently stops deploys costs more than it saves.
 Worth being precise about the limit: Netlify still starts a runner to evaluate
 `ignore`, so a cancelled build is cheap rather than free. Turning the contexts
 off in the dashboard stops it earlier.
+
+### Importing a module should not open a socket
+
+The first Netlify deploy failed, and the cause was worth more than a
+configuration fix. `lib/db/index.ts` built its client at module scope and
+`lib/auth/index.ts` called `betterAuth()` at module scope, so importing either
+read the environment. `next build` imports every route module to collect its
+metadata, which meant the build demanded a database URL and a session secret in
+order to emit static assets. Both are now built on first use behind a proxy.
+
+Pages behind a session also declare `dynamic = 'force-dynamic'`, at the layout
+level for the three portal trees and per page for the auth and account pages
+that have no layout of their own. They were already dynamic in effect. Saying so
+stops the build attempting to prerender them and abandoning the attempt only
+once a request API is touched, which is a detour that cost the build its
+environment independence.
+
+The build still requires the environment, and that is correct rather than a
+remaining defect. `/contact` renders the address demo requests are delivered to.
+A static page whose content comes from configuration needs that configuration
+when the content is produced. What changed is that only pages that genuinely
+consume a value now depend on one.
+
+`scripts/check-env.ts` runs first in `deploy:prepare` for the same reason. A
+missing variable used to surface two minutes into a build as a prerender error
+naming one page, leaving the real cause to be inferred. It now appears at the
+top of the log, listing every missing variable at once, before anything is
+compiled.

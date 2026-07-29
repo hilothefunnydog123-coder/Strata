@@ -26,7 +26,8 @@
     "corpus:status": "tsx scripts/corpus.ts status",
     "check:forbidden": "tsx scripts/check-forbidden.ts",
     "db:bootstrap": "tsx scripts/bootstrap.ts",
-    "deploy:prepare": "pnpm db:migrate && pnpm db:bootstrap"
+    "deploy:prepare": "pnpm check:env && pnpm db:migrate && pnpm db:bootstrap",
+    "check:env": "tsx scripts/check-env.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",

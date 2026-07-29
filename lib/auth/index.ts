@@ -29,7 +29,16 @@ import { env } from '@/lib/env';
 const THIRTY_MINUTES = 60 * 30;
 const TWELVE_HOURS = 60 * 60 * 12;
 
-export const auth = betterAuth({
+/**
+ * Built on first use, for the same reason the database client is: `next build`
+ * imports every route module, and constructing this at module scope reads the
+ * session secret and origin, so the build would require the full runtime
+ * environment before it could emit a single page.
+ *
+ * betterAuth() is called once and held. The proxy only defers when that happens.
+ */
+function createAuth() {
+  return betterAuth({
   appName: 'Medeal',
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
@@ -156,6 +165,33 @@ export const auth = betterAuth({
     }),
     nextCookies(),
   ],
+  });
+}
+
+type AuthInstance = ReturnType<typeof createAuth>;
+
+let instance: AuthInstance | undefined;
+
+function authInstance(): AuthInstance {
+  instance ??= createAuth();
+  return instance;
+}
+
+export const auth: AuthInstance = new Proxy({} as AuthInstance, {
+  get(_target, prop, receiver) {
+    const value = Reflect.get(authInstance() as object, prop, receiver);
+    return typeof value === 'function' ? value.bind(authInstance()) : value;
+  },
+  has(_target, prop) {
+    return prop in (authInstance() as object);
+  },
+  ownKeys() {
+    return Reflect.ownKeys(authInstance() as object);
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    const descriptor = Object.getOwnPropertyDescriptor(authInstance() as object, prop);
+    return descriptor ? { ...descriptor, configurable: true } : undefined;
+  },
 });
 
-export type Auth = typeof auth;
+export type Auth = AuthInstance;
