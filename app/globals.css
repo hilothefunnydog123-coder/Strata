@@ -1,0 +1,156 @@
+@import 'tailwindcss';
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Tokens
+
+   Five colours, each carrying exactly one meaning. Nothing here is decorative.
+   Contrast ratios against --paper are noted and were computed, not guessed.
+   The full rationale is in DESIGN.md.
+   ────────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* Ink: every piece of body text, every rule, every border. 17.6:1 on paper. */
+  --color-ink: #12100e;
+  /* Ink at reading weight for secondary text. Still 10.4:1, never light grey. */
+  --color-ink-2: #3d3934;
+  /* Rules and table borders. Structural, not text. */
+  --color-rule: #d6d2c9;
+  --color-rule-strong: #a8a299;
+
+  /* Paper: the ground. Two steps only, so panels read as paper on paper. */
+  --color-paper: #f6f5f1;
+  --color-paper-2: #ffffff;
+  --color-paper-sunk: #eceae4;
+
+  /* Denied: dollars withheld, deadlines inside seven days, rejections. 7.6:1 */
+  --color-denied: #9b1c1c;
+  --color-denied-wash: #f7e9e7;
+
+  /* Recovered: dollars returned, approvals, verified assertions. 8.2:1 */
+  --color-recovered: #0e5540;
+  --color-recovered-wash: #e4efe9;
+
+  /* Action: interactive elements only. Links, buttons, focus rings. 8.1:1 */
+  --color-action: #1b4a8f;
+  --color-action-wash: #e6ecf5;
+
+  /* Type roles */
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-document: var(--font-source-serif), ui-serif, Georgia, serif;
+
+  /* A tight scale. Application density is a feature, not an oversight. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.5rem;
+
+  --radius-sm: 2px;
+  --radius-md: 3px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Base
+   ────────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    /* Every figure in this product sits in a column next to another figure. */
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Identifiers are data. They align down a column or they are not identifiers. */
+  code,
+  kbd,
+  samp,
+  pre,
+  .id {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums slashed-zero;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-action);
+    outline-offset: 2px;
+  }
+
+  /* Focus has to stay visible when the element is already the action colour. */
+  .on-action:focus-visible {
+    outline-color: var(--color-paper-2);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-action-wash);
+    color: var(--color-ink);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 600;
+    letter-spacing: -0.011em;
+    text-wrap: balance;
+  }
+
+  a {
+    color: var(--color-action);
+    text-underline-offset: 2px;
+  }
+
+  table {
+    border-collapse: collapse;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+}
+
+@layer utilities {
+  /* Money and counts. Applied wherever a figure sits in a column. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The reading surface: appeal letters, published decisions, clinical records.
+     Deliberately unlike application chrome, because it is a document. */
+  .document {
+    font-family: var(--font-document);
+    font-size: 1rem;
+    line-height: 1.65;
+    color: var(--color-ink);
+  }
+
+  .rule-t {
+    border-top: 1px solid var(--color-rule);
+  }
+  .rule-b {
+    border-bottom: 1px solid var(--color-rule);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

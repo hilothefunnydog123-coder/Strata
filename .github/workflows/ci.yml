@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DATABASE_URL: postgres://medeal:medeal@127.0.0.1:5432/medeal_test
+  BETTER_AUTH_SECRET: ci_secret_not_used_outside_continuous_integration_0123
+  # Must match the port playwright.config.ts serves on: better-auth checks the
+  # request origin against these, so a mismatch fails every sign in in CI.
+  BETTER_AUTH_URL: http://127.0.0.1:3100
+  APP_URL: http://127.0.0.1:3100
+  DEMO_REQUEST_TO: ci@example.com
+  EMAIL_FROM: Medeal <ci@example.com>
+  PHI_MODE: synthetic
+  # Not a secret: this key only ever encrypts fabricated test rows in CI.
+  PHI_ENCRYPTION_KEY: Y2lfb25seV90aGlydHlfdHdvX2J5dGVfa2V5X2hlcmU=
+  LOCAL_STORAGE_DIR: .storage-ci
+  ANTHROPIC_BAA_CONFIRMED: 'false'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: medeal
+          POSTGRES_PASSWORD: medeal
+          POSTGRES_DB: medeal_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm check:forbidden
+      - run: pnpm test
+      - run: pnpm exec playwright install --with-deps chromium
+      # e2e builds and serves the app itself, so there is no separate build step:
+      # the suite runs against a production build or it does not run at all.
+      - run: pnpm e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
