@@ -35,14 +35,14 @@
 # operator is ever locked out.
 
 databases:
-  - name: strata-db
-    databaseName: strata
-    user: strata
+  - name: medeal-db
+    databaseName: medeal
+    user: medeal
     plan: free
 
 services:
   - type: web
-    name: strata
+    name: medeal
     runtime: node
     plan: free
     branch: main
@@ -56,7 +56,7 @@ services:
         value: production
       - key: DATABASE_URL
         fromDatabase:
-          name: strata-db
+          name: medeal-db
           property: connectionString
 
       # At least 32 characters. Render generates and stores it.
@@ -93,7 +93,7 @@ services:
       # until the next deploy. Fine for synthetic mode; attach a Render disk or
       # set the four R2_* variables before storing anything worth keeping.
       - key: LOCAL_STORAGE_DIR
-        value: /tmp/strata-storage
+        value: /tmp/medeal-storage
 
       # Shared secret the job drain requires. Render generates it. A scheduled
       # request to /api/cron/drain must carry it as `Authorization: Bearer <value>`;

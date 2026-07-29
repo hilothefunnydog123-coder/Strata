@@ -39,14 +39,14 @@ export function TwoFactorForm({ next }: { next?: string | undefined }) {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-16">
-      <p className="id text-xs uppercase tracking-widest text-ink-2">Strata</p>
+      <p className="id text-xs uppercase tracking-widest text-ink-2">Medeal</p>
       <h1 className="mt-4 text-2xl">
         {useBackup ? 'Enter a backup code' : 'Enter your code'}
       </h1>
       <p className="mt-2 text-sm text-ink-2">
         {useBackup
           ? 'Backup codes work once each. Using one does not disable your authenticator.'
-          : 'Open your authenticator app and enter the six digit code for Strata.'}
+          : 'Open your authenticator app and enter the six digit code for Medeal.'}
       </p>
 
       <form onSubmit={onSubmit} className="mt-8 space-y-5" noValidate>

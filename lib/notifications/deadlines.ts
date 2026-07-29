@@ -112,7 +112,7 @@ export async function sendDeadlineWarnings(): Promise<number> {
             '',
             `Open it: ${env.APP_URL}/app/denials/${row.id}`,
             '',
-            'Strata',
+            'Medeal',
           ].join('\n'),
         });
 

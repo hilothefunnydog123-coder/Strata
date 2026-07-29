@@ -4,7 +4,7 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: 'Security',
   description:
-    'How Strata handles protected health information: data classification, encryption, audit logging, log redaction, the model boundary, deletion, and business associate agreements.',
+    'How Medeal handles protected health information: data classification, encryption, audit logging, log redaction, the model boundary, deletion, and business associate agreements.',
 };
 
 /**
@@ -27,7 +27,7 @@ export default function Security() {
         <h2 className="font-semibold text-denied">Where we actually stand today</h2>
         <p className="mt-2 text-ink">
           We do not currently process protected health information for anyone.
-          Strata runs in synthetic mode: every uploaded document must be tagged
+          Medeal runs in synthetic mode: every uploaded document must be tagged
           as fabricated at upload, anything untagged is rejected, and a banner
           says so on every screen inside the application.
         </p>

@@ -112,7 +112,7 @@ export function EnrollTwoFactor({
     return (
       <div className="mt-8 space-y-6">
         <Panel className="p-4">
-          <h2 className="text-sm font-semibold">1. Add Strata to your authenticator</h2>
+          <h2 className="text-sm font-semibold">1. Add Medeal to your authenticator</h2>
           <p className="mt-1 text-sm text-ink-2">
             Enter this key in your authenticator app, or paste the full setup link.
           </p>

@@ -4,7 +4,7 @@ import { env } from '@/lib/env';
 
 export const metadata: Metadata = {
   title: 'Terms',
-  description: 'The terms on which Strata is offered.',
+  description: 'The terms on which Medeal is offered.',
 };
 
 export default function Terms() {
@@ -17,7 +17,7 @@ export default function Terms() {
         <h2 className="text-lg">These terms are not the contract</h2>
         <p className="mt-2 text-ink-2">
           Use of the application is governed by the services agreement signed
-          between Strata and your organisation, together with a business
+          between Medeal and your organisation, together with a business
           associate agreement. Where this page and that agreement disagree, the
           agreement wins. This page covers use of the public site and sets out
           how the service works, so nobody is surprised later.
@@ -25,9 +25,9 @@ export default function Terms() {
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg">What Strata is, and is not</h2>
+        <h2 className="text-lg">What Medeal is, and is not</h2>
         <p className="mt-2 text-ink-2">
-          Strata drafts appeals and routes them through clinical and legal
+          Medeal drafts appeals and routes them through clinical and legal
           review. It is a drafting and review service. It is not a law firm, it
           does not represent you, and using it does not create a solicitor client
           or attorney client relationship. The reviewers who check your appeals
@@ -75,7 +75,7 @@ export default function Terms() {
       <section className="mt-8">
         <h2 className="text-lg">Ending it</h2>
         <p className="mt-2 text-ink-2">
-          Your organisation can stop using Strata at any time and can require
+          Your organisation can stop using Medeal at any time and can require
           complete deletion of its data. Fees already earned on recoveries
           already made remain payable; nothing further accrues.
         </p>

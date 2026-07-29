@@ -30,7 +30,7 @@ const THIRTY_MINUTES = 60 * 30;
 const TWELVE_HOURS = 60 * 60 * 12;
 
 export const auth = betterAuth({
-  appName: 'Strata',
+  appName: 'Medeal',
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
 
@@ -150,7 +150,7 @@ export const auth = betterAuth({
       allowUserToCreateOrganization: false,
     }),
     twoFactor({
-      issuer: 'Strata',
+      issuer: 'Medeal',
       // A disabled account must not be able to complete a second factor either.
       skipVerificationOnEnable: false,
     }),

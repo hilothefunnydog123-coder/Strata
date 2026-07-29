@@ -4,7 +4,7 @@ import { env } from '@/lib/env';
 
 export const metadata: Metadata = {
   title: 'Contact',
-  description: 'How to reach Strata.',
+  description: 'How to reach Medeal.',
 };
 
 export default function Contact() {

@@ -80,19 +80,19 @@ describe('derivePhiKey', () => {
 describe('resolveOrigin', () => {
   it('prefers an explicit value over the platform one', () => {
     expect(
-      resolveOrigin('https://strata.example.com', 'https://strata.onrender.com', 'APP_URL'),
-    ).toBe('https://strata.example.com');
+      resolveOrigin('https://medeal.example.com', 'https://medeal.onrender.com', 'APP_URL'),
+    ).toBe('https://medeal.example.com');
   });
 
   it('falls back to the platform value on a first deploy', () => {
-    expect(resolveOrigin(undefined, 'https://strata.onrender.com', 'APP_URL')).toBe(
-      'https://strata.onrender.com',
+    expect(resolveOrigin(undefined, 'https://medeal.onrender.com', 'APP_URL')).toBe(
+      'https://medeal.onrender.com',
     );
   });
 
   it('strips a trailing slash, so joined paths do not double up', () => {
-    expect(resolveOrigin('https://strata.example.com/', undefined, 'APP_URL')).toBe(
-      'https://strata.example.com',
+    expect(resolveOrigin('https://medeal.example.com/', undefined, 'APP_URL')).toBe(
+      'https://medeal.example.com',
     );
   });
 
@@ -103,7 +103,7 @@ describe('resolveOrigin', () => {
   });
 
   it('refuses a value with no scheme, which would issue unusable cookies', () => {
-    expect(() => resolveOrigin('strata.onrender.com', undefined, 'APP_URL')).toThrow(
+    expect(() => resolveOrigin('medeal.onrender.com', undefined, 'APP_URL')).toThrow(
       /absolute URL/,
     );
   });

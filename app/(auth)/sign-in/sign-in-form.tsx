@@ -58,7 +58,7 @@ export function SignInForm({ next }: { next?: string | undefined }) {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-16">
-      <p className="id text-xs uppercase tracking-widest text-ink-2">Strata</p>
+      <p className="id text-xs uppercase tracking-widest text-ink-2">Medeal</p>
       <h1 className="mt-4 text-2xl">Sign in</h1>
       <p className="mt-2 text-sm text-ink-2">
         Accounts are created by your administrator. There is no self signup.

@@ -123,7 +123,7 @@ export async function submitDemoRequest(
 
   const confirmation = await send({
     to: input.email,
-    subject: 'Your Strata demo request',
+    subject: 'Your Medeal demo request',
     text: [
       `${input.name.split(' ')[0] ?? input.name},`,
       '',
@@ -137,7 +137,7 @@ export async function submitDemoRequest(
       'hand. We will work from a redacted copy until a business associate agreement',
       'is in place.',
       '',
-      'Strata',
+      'Medeal',
     ].join('\n'),
   });
 

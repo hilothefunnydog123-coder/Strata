@@ -33,11 +33,11 @@ const sourceSerif = Source_Serif_4({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Strata: appeal the denials you are writing off',
-    template: '%s | Strata',
+    default: 'Medeal: appeal the denials you are writing off',
+    template: '%s | Medeal',
   },
   description:
-    'Most denied claims are never appealed. Most that are appealed succeed. Strata drafts the appeal, cites every assertion to a published decision or a line in the record, and takes a share of what it recovers.',
+    'Most denied claims are never appealed. Most that are appealed succeed. Medeal drafts the appeal, cites every assertion to a published decision or a line in the record, and takes a share of what it recovers.',
   robots: { index: true, follow: true },
 };
 

@@ -2,9 +2,11 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Strata: appeal the denials you are writing off',
+  // Absolute, so the root layout's "%s | Medeal" template does not append the
+  // name to a title that already ends in it.
+  title: { absolute: 'Medeal: appeal the denials you are writing off' },
   description:
-    'Around six in ten denied claims are never appealed. Most that are appealed get overturned. Strata drafts the appeal, cites every assertion, and takes a share of what it recovers.',
+    'Around six in ten denied claims are never appealed. Most that are appealed get overturned. Medeal drafts the appeal, cites every assertion, and takes a share of what it recovers.',
 };
 
 /**
@@ -41,7 +43,7 @@ export default function Home() {
 
         <p className="mt-10 max-w-2xl text-lg">
           US hospitals write off roughly twenty billion dollars a year this way.
-          Strata closes the gap: you upload the denial letter and the record, and
+          Medeal closes the gap: you upload the denial letter and the record, and
           you get back a complete appeal in which every legal claim cites a
           published decision and every clinical claim cites a line in your own
           chart.
@@ -67,7 +69,7 @@ export default function Home() {
             When a Medicare appeal reaches the HHS Departmental Appeals Board, the
             decision gets published: which argument was made, which clinical facts
             mattered, how the adjudicator read the coverage rule, who won. That
-            corpus sits there, searchable by nobody. Strata reads it, indexes
+            corpus sits there, searchable by nobody. Medeal reads it, indexes
             every holding against the passage it came from, and retrieves the ones
             that decided a case like yours.
           </p>
@@ -83,7 +85,7 @@ export default function Home() {
               is challenged, they lose.
             </p>
             <p className="mt-3 max-w-2xl text-sm text-ink-2">
-              Strata recognises when a denial rests on non-Medicare proprietary
+              Medeal recognises when a denial rests on non-Medicare proprietary
               criteria and builds that argument, with the decisions where it
               prevailed attached.
             </p>
@@ -97,7 +99,7 @@ export default function Home() {
           <p className="mt-4 max-w-2xl text-ink-2">
             A letter that misstates a patient chart is your exposure. A letter
             citing a decision that does not say what it claims is ours. So no
-            assertion exists in a Strata appeal without a verbatim quote from a
+            assertion exists in a Medeal appeal without a verbatim quote from a
             source that has been checked, programmatically, to contain it.
           </p>
           <ul className="mt-6 max-w-2xl space-y-3 text-ink-2">

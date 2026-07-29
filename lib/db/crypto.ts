@@ -49,7 +49,7 @@ export function derivePhiKey(secret: string): Buffer {
     hkdfSync(
       'sha256',
       Buffer.from(secret, 'utf8'),
-      'strata-phi-column-key',
+      'medeal-phi-column-key',
       'aes-256-gcm/v1',
       32,
     ),

@@ -25,7 +25,7 @@ export default async function TwoFactorSetupPage() {
     <>
       <PhiBanner />
       <main className="mx-auto max-w-lg px-6 py-16">
-        <p className="id text-xs uppercase tracking-widest text-ink-2">Strata</p>
+        <p className="id text-xs uppercase tracking-widest text-ink-2">Medeal</p>
         <h1 className="mt-4 text-2xl">Set up two-factor authentication</h1>
         <p className="mt-2 text-sm text-ink-2">
           {required

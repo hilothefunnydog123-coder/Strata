@@ -68,7 +68,7 @@ export function acceptedTypeList(): string {
 export class UnsupportedDocumentError extends Error {
   constructor(contentType: string) {
     super(
-      `Strata cannot read ${contentType || 'that file type'} yet. Upload a PDF or a plain ` +
+      `Medeal cannot read ${contentType || 'that file type'} yet. Upload a PDF or a plain ` +
         `text file (${acceptedTypeList()}). A scanned image needs to go through OCR first, ` +
         'because a citation has to point at text we can quote.',
     );

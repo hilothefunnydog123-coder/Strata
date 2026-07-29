@@ -4,7 +4,7 @@ import { env } from '@/lib/env';
 
 export const metadata: Metadata = {
   title: 'Privacy',
-  description: 'What Strata collects, why, and what it does not do with it.',
+  description: 'What Medeal collects, why, and what it does not do with it.',
 };
 
 export default function Privacy() {

@@ -106,7 +106,7 @@ export function resolveOrigin(
   if (!value) {
     throw new Error(
       `${name} is not set and no platform URL was found. Set ${name} to the ` +
-        'absolute origin this app is served from, for example https://strata.onrender.com.',
+        'absolute origin this app is served from, for example https://medeal.onrender.com.',
     );
   }
 

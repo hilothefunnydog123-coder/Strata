@@ -4,7 +4,7 @@ Written for a hospital security reviewer. Each of the seven requirements is
 listed with the file and function that implements it, so you can read the code
 rather than take our word for it.
 
-**Start here, because it changes how you should read the rest.** Strata does not
+**Start here, because it changes how you should read the rest.** Medeal does not
 currently process protected health information for anyone. It runs in synthetic
 mode: every uploaded document must be affirmed as fabricated at upload, anything
 without that affirmation is rejected before a byte is stored, and a banner says

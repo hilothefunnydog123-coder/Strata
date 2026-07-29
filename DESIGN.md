@@ -91,7 +91,7 @@ The denial detail view is the application. Three panes:
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ Synthetic data only. This environment is not approved for patient info.      │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ STRATA  Appeals   Dashboard  Denials  Invoices  Team    Northgate  you  out  │
+│ MEDEAL  Appeals   Dashboard  Denials  Invoices  Team    Northgate  you  out  │
 ├───────────────────┬────────────────────────────────┬─────────────────────────┤
 │ CASE              │ APPEAL LETTER          v3      │ SOURCE                  │
 │                   │                                │                         │

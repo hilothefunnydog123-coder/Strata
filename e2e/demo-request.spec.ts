@@ -86,7 +86,7 @@ test.describe('demo request', () => {
     // The requester gets a confirmation telling them what to bring.
     const confirmation = sends.find((s) => s.toEmail === email);
     expect(confirmation, 'a confirmation was composed for the requester').toBeTruthy();
-    expect(confirmation!.subject).toBe('Your Strata demo request');
+    expect(confirmation!.subject).toBe('Your Medeal demo request');
     expect(confirmation!.body).toContain('Mercy Regional Health');
   });
 

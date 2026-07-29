@@ -23,7 +23,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             href="/"
             className="id text-sm font-semibold uppercase tracking-widest text-ink no-underline"
           >
-            Strata
+            Medeal
           </Link>
           <nav aria-label="Main" className="flex flex-wrap items-center gap-x-4 gap-y-1">
             {NAV.map((item) => (
@@ -55,7 +55,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <footer className="rule-t mt-16">
         <div className="mx-auto flex max-w-5xl flex-wrap justify-between gap-6 px-5 py-8 text-sm">
           <div>
-            <p className="id text-xs uppercase tracking-widest text-ink-2">Strata</p>
+            <p className="id text-xs uppercase tracking-widest text-ink-2">Medeal</p>
             <p className="mt-2 max-w-xs text-ink-2">
               Appeals for denied hospital claims, argued from published decisions
               and your own record.

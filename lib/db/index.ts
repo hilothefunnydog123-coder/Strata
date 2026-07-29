@@ -39,12 +39,12 @@ function createClient(): Client {
 }
 
 declare global {
-  var __strataDb: Client | undefined;
+  var __medealDb: Client | undefined;
 }
 
 // Next.js reloads modules on every edit in development, which would otherwise
 // open a new pool each time until Postgres refuses connections.
-export const db: Client = globalThis.__strataDb ?? createClient();
-if (env.NODE_ENV !== 'production') globalThis.__strataDb = db;
+export const db: Client = globalThis.__medealDb ?? createClient();
+if (env.NODE_ENV !== 'production') globalThis.__medealDb = db;
 
 export { schema };

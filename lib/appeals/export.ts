@@ -104,7 +104,7 @@ export async function toDocx(letter: RenderedLetter): Promise<Buffer> {
   }
 
   const document = new Document({
-    creator: 'Strata',
+    creator: 'Medeal',
     title: `Appeal ${letter.header.internalRef}`,
     description: 'Appeal of a denied claim, with citation appendix',
     sections: [{ properties: {}, children }],
@@ -130,7 +130,7 @@ const LEADING = 14;
 export async function toPdf(letter: RenderedLetter): Promise<Buffer> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Appeal ${letter.header.internalRef}`);
-  pdf.setCreator('Strata');
+  pdf.setCreator('Medeal');
 
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);

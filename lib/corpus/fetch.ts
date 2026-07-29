@@ -37,7 +37,7 @@ export class CrawlerNotConfiguredError extends Error {
 
 export function userAgent(): string {
   if (!env.CRAWLER_CONTACT) throw new CrawlerNotConfiguredError();
-  return `StrataCorpusBot/1.0 (+${env.CRAWLER_CONTACT})`;
+  return `MedealCorpusBot/1.0 (+${env.CRAWLER_CONTACT})`;
 }
 
 /* ─── Per host rate limiting ──────────────────────────────────────────────── */

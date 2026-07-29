@@ -41,7 +41,7 @@ export default async function UnsubscribePage({
 
   return (
     <main className="mx-auto max-w-lg px-6 py-24">
-      <p className="id text-xs uppercase tracking-widest text-ink-2">Strata</p>
+      <p className="id text-xs uppercase tracking-widest text-ink-2">Medeal</p>
       <h1 className="mt-4 text-2xl">
         {row ? 'You are unsubscribed' : 'That link has expired'}
       </h1>

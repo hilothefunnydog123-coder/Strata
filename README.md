@@ -1,4 +1,4 @@
-# Strata
+# Medeal
 
 Appeals for denied hospital claims, argued from published decisions and the
 hospital's own record.
@@ -9,7 +9,7 @@ claims. About 60 percent of denials are never appealed, because appealing costs
 justify it. Of the denials that are appealed, a large majority get overturned.
 Insurers deny claims they would lose on, betting nobody will challenge them.
 
-Strata takes a denial letter and the clinical record, identifies the denial
+Medeal takes a denial letter and the clinical record, identifies the denial
 type, retrieves the controlling coverage authority and the prior decisions where
 the argument prevailed, and drafts a complete appeal in which **every legal
 assertion cites a published decision or a regulation and every clinical

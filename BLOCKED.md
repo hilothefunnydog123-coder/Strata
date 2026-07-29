@@ -19,7 +19,7 @@ filled in).
 **What shipped instead:**
 
 - **Database.** A real PostgreSQL 16 instance runs locally. Migrations are
-  applied against it and the test suite runs against `strata_test`, so the
+  applied against it and the test suite runs against `medeal_test`, so the
   schema and every query are genuinely exercised. Switching to Neon is a change
   to `DATABASE_URL` and nothing else: `lib/db/index.ts` already selects the Neon
   serverless driver when the connection string points at Neon.

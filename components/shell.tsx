@@ -39,7 +39,7 @@ export function Shell({
             href="/"
             className="id text-xs font-semibold uppercase tracking-widest text-ink no-underline"
           >
-            Strata
+            Medeal
           </Link>
           <span className="text-xs uppercase tracking-wider text-ink-2">{surface}</span>
 

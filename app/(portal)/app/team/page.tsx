@@ -63,7 +63,7 @@ export default async function TeamPage({
     <div className="px-4 py-5">
       <h1 className="text-lg">Team at {membership.organizationName}</h1>
       <p className="mt-1 max-w-2xl text-sm text-ink-2">
-        Accounts are created by Strata rather than by signup. Ask us to add
+        Accounts are created by Medeal rather than by signup. Ask us to add
         someone and they will get a one-time password that they must change, and
         a second factor to enrol if their role can change a record.
       </p>

@@ -15,7 +15,7 @@ export default async function PasswordPage() {
     <>
       <PhiBanner />
       <main className="mx-auto max-w-sm px-6 py-16">
-        <p className="id text-xs uppercase tracking-widest text-ink-2">Strata</p>
+        <p className="id text-xs uppercase tracking-widest text-ink-2">Medeal</p>
         <h1 className="mt-4 text-2xl">
           {principal.mustChangePassword ? 'Choose a new password' : 'Change your password'}
         </h1>

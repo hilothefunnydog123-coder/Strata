@@ -10,14 +10,14 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DATABASE_URL: postgres://strata:strata@127.0.0.1:5432/strata_test
+  DATABASE_URL: postgres://medeal:medeal@127.0.0.1:5432/medeal_test
   BETTER_AUTH_SECRET: ci_secret_not_used_outside_continuous_integration_0123
   # Must match the port playwright.config.ts serves on: better-auth checks the
   # request origin against these, so a mismatch fails every sign in in CI.
   BETTER_AUTH_URL: http://127.0.0.1:3100
   APP_URL: http://127.0.0.1:3100
   DEMO_REQUEST_TO: ci@example.com
-  EMAIL_FROM: Strata <ci@example.com>
+  EMAIL_FROM: Medeal <ci@example.com>
   PHI_MODE: synthetic
   # Not a secret: this key only ever encrypts fabricated test rows in CI.
   PHI_ENCRYPTION_KEY: Y2lfb25seV90aGlydHlfdHdvX2J5dGVfa2V5X2hlcmU=
@@ -31,9 +31,9 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: strata
-          POSTGRES_PASSWORD: strata
-          POSTGRES_DB: strata_test
+          POSTGRES_USER: medeal
+          POSTGRES_PASSWORD: medeal
+          POSTGRES_DB: medeal_test
         ports: ['5432:5432']
         options: >-
           --health-cmd pg_isready
