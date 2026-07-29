@@ -39,9 +39,25 @@ describe('encryptField', () => {
   it('refuses a value whose ciphertext was altered', () => {
     const stored = encryptField('daily skilled need documented');
     const parts = stored.split('.');
-    // Flip the last character of the ciphertext.
-    const last = parts[3]!;
-    parts[3] = last.slice(0, -1) + (last.endsWith('A') ? 'B' : 'A');
+
+    // Flip a bit in the decoded bytes rather than editing the base64 text. An
+    // earlier version changed the last character, which is not always a change
+    // at all: the trailing character of a base64url string can carry unused
+    // bits, so two different characters can decode to the same bytes and the
+    // test passed or failed depending on the random key and IV.
+    const ciphertext = Buffer.from(parts[3]!, 'base64url');
+    ciphertext[0] = ciphertext[0]! ^ 0x01;
+    parts[3] = ciphertext.toString('base64url');
+
+    expect(() => decryptField(parts.join('.'))).toThrow();
+  });
+
+  it('refuses a value whose authentication tag was altered', () => {
+    const stored = encryptField('daily skilled need documented');
+    const parts = stored.split('.');
+    const tag = Buffer.from(parts[2]!, 'base64url');
+    tag[0] = tag[0]! ^ 0x01;
+    parts[2] = tag.toString('base64url');
     expect(() => decryptField(parts.join('.'))).toThrow();
   });
 });
@@ -78,33 +94,48 @@ describe('derivePhiKey', () => {
 });
 
 describe('resolveOrigin', () => {
-  it('prefers an explicit value over the platform one', () => {
+  it('prefers an explicit value over any platform one', () => {
     expect(
-      resolveOrigin('https://medeal.example.com', 'https://medeal.onrender.com', 'APP_URL'),
+      resolveOrigin('https://medeal.example.com', ['https://medeal.onrender.com'], 'APP_URL'),
     ).toBe('https://medeal.example.com');
   });
 
   it('falls back to the platform value on a first deploy', () => {
-    expect(resolveOrigin(undefined, 'https://medeal.onrender.com', 'APP_URL')).toBe(
+    expect(resolveOrigin(undefined, ['https://medeal.onrender.com'], 'APP_URL')).toBe(
       'https://medeal.onrender.com',
     );
   });
 
+  it('takes the first platform value that is set, skipping the empty ones', () => {
+    expect(
+      resolveOrigin(undefined, [undefined, undefined, 'https://medeal.netlify.app'], 'APP_URL'),
+    ).toBe('https://medeal.netlify.app');
+  });
+
+  it('prefers the per-deploy origin over the production one', () => {
+    // On a Netlify preview deploy these differ, and the browser is talking to
+    // the first. Issuing cookies against the second means a preview nobody can
+    // sign in to, which fails quietly rather than loudly.
+    const deployPrime = 'https://deploy-preview-7--medeal.netlify.app';
+    const production = 'https://medeal.netlify.app';
+    expect(resolveOrigin(undefined, [undefined, deployPrime, production], 'BETTER_AUTH_URL')).toBe(
+      deployPrime,
+    );
+  });
+
   it('strips a trailing slash, so joined paths do not double up', () => {
-    expect(resolveOrigin('https://medeal.example.com/', undefined, 'APP_URL')).toBe(
+    expect(resolveOrigin('https://medeal.example.com/', [], 'APP_URL')).toBe(
       'https://medeal.example.com',
     );
   });
 
-  it('refuses rather than guessing when neither is set', () => {
-    expect(() => resolveOrigin(undefined, undefined, 'BETTER_AUTH_URL')).toThrow(
+  it('refuses rather than guessing when nothing is set', () => {
+    expect(() => resolveOrigin(undefined, [undefined, undefined], 'BETTER_AUTH_URL')).toThrow(
       /BETTER_AUTH_URL is not set/,
     );
   });
 
   it('refuses a value with no scheme, which would issue unusable cookies', () => {
-    expect(() => resolveOrigin('medeal.onrender.com', undefined, 'APP_URL')).toThrow(
-      /absolute URL/,
-    );
+    expect(() => resolveOrigin('medeal.netlify.app', [], 'APP_URL')).toThrow(/absolute URL/);
   });
 });

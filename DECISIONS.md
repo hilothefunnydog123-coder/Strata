@@ -367,3 +367,44 @@ the database client pulls in `pg`, which needs `fs`. Next replaces the value
 with a literal per bundle, so the edge bundle eliminates the branch and never
 follows the import. It is a build-time constant rather than configuration, which
 is why it is read there rather than through `lib/env.ts`.
+
+### Netlify: three consequences of not having a server
+
+Adding Netlify alongside Render was mostly configuration, but three differences
+are structural rather than cosmetic, and each is handled rather than papered
+over.
+
+There is no start command, so migrations cannot run at boot. `pnpm
+deploy:prepare` runs them in the build, followed by the first-operator
+bootstrap. Both are idempotent, which is what makes running them on every deploy
+correct rather than merely tolerable: the migrator skips what it has applied,
+and the bootstrap does nothing unless the user table is empty. The bootstrap is
+now reachable two ways, from `instrumentation.ts` on a host that runs a server
+and from `scripts/bootstrap.ts` on one that does not, and both call the same
+guarded function rather than reimplementing the guard.
+
+The filesystem is not durable. `LOCAL_STORAGE_DIR` on a serverless host writes
+to a function's own `/tmp`, which is not shared between invocations and does not
+survive one, so an upload would be unreadable by the next request. This is not
+worth a code change: `lib/env.ts` already refuses local storage in
+`PHI_MODE=live`, and the same reasoning simply applies one host earlier. It is
+recorded in `netlify.toml` and the README instead.
+
+`resolveOrigin` now takes a list of platform candidates rather than one, and
+prefers `DEPLOY_PRIME_URL` over `URL`. On a preview deploy those differ, and the
+browser is talking to the first. Issuing cookies against the production origin
+would produce a preview deploy that accepts a password and then does nothing,
+which is the same silent failure the explicit-origin check was written to avoid.
+
+### A test that was passing by luck
+
+`tests/crypto.test.ts` checked that an altered ciphertext fails to decrypt by
+flipping the last character of the base64url text. That is not always an
+alteration: the trailing character of a base64 string can carry unused bits, so
+two different characters decode to the same bytes, and the test passed or failed
+depending on the random key and IV of that run. It failed once in a hundred-odd
+runs, which is exactly the kind of test that gets rerun until green and then
+believed.
+
+It now decodes to bytes, flips a bit, and re-encodes, and there is a matching
+test for a tampered authentication tag. Deterministic in both directions.

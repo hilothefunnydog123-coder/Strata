@@ -76,7 +76,7 @@ requirement 7, and it applies to every role that can change a record.
 pnpm typecheck          # TypeScript, strict, with noUncheckedIndexedAccess
 pnpm lint               # includes the three load-bearing rules, see below
 pnpm check:forbidden    # the mechanically checkable half of the design rules
-pnpm test               # 328 unit tests
+pnpm test               # 331 unit tests
 pnpm e2e                # Playwright against a real build and a real database
 ```
 
@@ -224,6 +224,37 @@ have them.
 Render's disk is ephemeral, so `LOCAL_STORAGE_DIR` survives only until the next
 deploy. That is acceptable in synthetic mode. Attach a Render disk or set the
 four `R2_*` variables before storing anything worth keeping.
+
+### Netlify
+
+`netlify.toml` configures it. Import the repository, and the only thing to set
+is `DATABASE_URL`.
+
+Netlify runs Next.js on serverless functions rather than a long lived server,
+which changes three things worth understanding before relying on it.
+
+**There is no start command**, so migrations cannot run at boot. The build runs
+`pnpm deploy:prepare`, which migrates and then runs the guarded first-operator
+bootstrap. Both are idempotent: the migrator skips what it has applied, and the
+bootstrap does nothing unless the user table is completely empty. The temporary
+password appears once, in the deploy log.
+
+**There is no Postgres.** Use Neon. `lib/db/index.ts` selects the Neon
+serverless HTTP driver automatically when `DATABASE_URL` contains `neon.tech`,
+which is the correct driver here: a connection pool held by a function that may
+be frozen between invocations is how serverless deployments exhaust a database's
+connection limit.
+
+**The filesystem is not durable.** `LOCAL_STORAGE_DIR` writes to a function's
+own `/tmp`, which is not shared between invocations and does not survive one, so
+an uploaded document would be unreadable by the next request. Set the four
+`R2_*` variables before uploading anything you expect to read back. Every other
+surface works without them.
+
+`APP_URL` and `BETTER_AUTH_URL` need no setting: `lib/env.ts` falls back to
+`DEPLOY_PRIME_URL` and then `URL`, preferring the per-deploy address so preview
+deploys issue cookies against the origin in the address bar rather than the
+production one.
 
 ### Vercel
 

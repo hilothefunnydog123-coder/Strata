@@ -70,12 +70,21 @@ const schema = z.object({
   CRAWLER_CONTACT: optionalString,
 
   /**
-   * Set by Render to the service's public URL. Read only as a fallback for
-   * APP_URL and BETTER_AUTH_URL, which are otherwise impossible to know before
-   * the first deploy assigns a hostname. This is the one variable here the
-   * operator does not set.
+   * Platform supplied origins, read only as a fallback for APP_URL and
+   * BETTER_AUTH_URL, which are otherwise impossible to know before a first
+   * deploy assigns a hostname. These are the variables here the operator does
+   * not set: Render provides the first, Netlify the second and third.
+   *
+   * URL is Netlify's canonical site address. DEPLOY_PRIME_URL is the address of
+   * this particular deploy, which on a branch or preview deploy differs from
+   * URL, and is what a browser will actually be talking to. Preferring it means
+   * cookies are issued against the origin in the address bar rather than the
+   * production one, which is the difference between a preview deploy you can
+   * sign in to and one you cannot.
    */
   RENDER_EXTERNAL_URL: optionalString,
+  DEPLOY_PRIME_URL: optionalString,
+  URL: optionalString,
 });
 
 export type Env = Omit<z.infer<typeof schema>, 'APP_URL' | 'BETTER_AUTH_URL'> & {
@@ -99,14 +108,14 @@ export type Env = Omit<z.infer<typeof schema>, 'APP_URL' | 'BETTER_AUTH_URL'> & 
  */
 export function resolveOrigin(
   explicit: string | undefined,
-  platform: string | undefined,
+  platform: readonly (string | undefined)[],
   name: string,
 ): string {
-  const value = explicit ?? platform;
+  const value = explicit ?? platform.find((candidate) => Boolean(candidate));
   if (!value) {
     throw new Error(
       `${name} is not set and no platform URL was found. Set ${name} to the ` +
-        'absolute origin this app is served from, for example https://medeal.onrender.com.',
+        'absolute origin this app is served from, for example https://medeal.netlify.app.',
     );
   }
 
@@ -187,12 +196,19 @@ function parse(): Env {
     );
   }
 
+  // Ordered by how specific each is to the deploy actually being served.
+  const platformOrigins = [
+    env.RENDER_EXTERNAL_URL,
+    env.DEPLOY_PRIME_URL,
+    env.URL,
+  ] as const;
+
   return Object.freeze({
     ...env,
-    APP_URL: resolveOrigin(env.APP_URL, env.RENDER_EXTERNAL_URL, 'APP_URL'),
+    APP_URL: resolveOrigin(env.APP_URL, platformOrigins, 'APP_URL'),
     BETTER_AUTH_URL: resolveOrigin(
       env.BETTER_AUTH_URL,
-      env.RENDER_EXTERNAL_URL,
+      platformOrigins,
       'BETTER_AUTH_URL',
     ),
     phiLive: env.PHI_MODE === 'live',

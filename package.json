@@ -24,7 +24,9 @@
     "corpus:verify": "tsx scripts/corpus.ts verify",
     "corpus:embed": "tsx scripts/corpus.ts embed",
     "corpus:status": "tsx scripts/corpus.ts status",
-    "check:forbidden": "tsx scripts/check-forbidden.ts"
+    "check:forbidden": "tsx scripts/check-forbidden.ts",
+    "db:bootstrap": "tsx scripts/bootstrap.ts",
+    "deploy:prepare": "pnpm db:migrate && pnpm db:bootstrap"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",

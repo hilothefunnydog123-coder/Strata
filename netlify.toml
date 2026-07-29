@@ -1,0 +1,48 @@
+# Netlify configuration.
+#
+# Netlify runs Next.js on serverless functions rather than a long lived server,
+# which changes three things about this application. None of them are fatal and
+# all three are handled here or noted so they are not discovered later.
+#
+#   1. There is no start command, so migrations cannot run at boot. They run in
+#      the build instead, along with the guarded first-operator bootstrap, via
+#      `pnpm deploy:prepare`. Both are idempotent, so running on every deploy is
+#      correct: the migrator skips what it has applied, and the bootstrap does
+#      nothing unless the user table is completely empty.
+#
+#   2. There is no startup hook a server process can own, so the bootstrap in
+#      instrumentation.ts may not run, or may run per cold start. That is why it
+#      is also a build step. The temporary password is printed once, in the
+#      deploy log.
+#
+#   3. The filesystem is not durable. LOCAL_STORAGE_DIR writes to a function's
+#      own /tmp, which is not shared between invocations and does not survive
+#      one, so an uploaded document would be unreadable by the next request.
+#      Set the four R2_* variables before uploading anything you expect to read
+#      back. lib/env.ts already refuses to start in PHI_MODE=live without them;
+#      this is the same reasoning applied one host earlier.
+#
+# Postgres: Netlify does not provide one. Use Neon. lib/db/index.ts selects the
+# Neon serverless HTTP driver automatically when DATABASE_URL contains
+# neon.tech, which is the right driver here: a connection pool held by a
+# function that may be frozen between invocations is how serverless deployments
+# exhaust a database's connection limit.
+#
+# APP_URL and BETTER_AUTH_URL do not need setting. lib/env.ts falls back to
+# DEPLOY_PRIME_URL and then URL, both of which Netlify provides, preferring the
+# per-deploy address so that preview deploys issue cookies against the origin in
+# the address bar rather than the production one.
+
+[build]
+  command = "pnpm deploy:prepare && pnpm build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # Netlify's default is npm. This repository has a pnpm lockfile and a pinned
+  # packageManager, and installing with the wrong one produces a tree that does
+  # not match the lockfile.
+  NETLIFY_USE_PNPM = "true"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
