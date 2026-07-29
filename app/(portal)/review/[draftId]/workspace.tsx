@@ -194,19 +194,32 @@ function ChecklistControl({
   const [text, setText] = useState(assertion.text);
   const [quote, setQuote] = useState(assertion.verbatimQuote);
 
+  // Associated by id, so each control has a real label rather than a heading
+  // that happens to sit above it. Unassociated labels are invisible to a screen
+  // reader and to anything else matching by label.
+  const textId = `assertion-${assertion.id}-text`;
+  const quoteId = `assertion-${assertion.id}-quote`;
+
   if (editing) {
     return (
       <div className="w-72 shrink-0 border border-action bg-paper-2 p-2">
-        <label className="block text-2xs font-semibold uppercase tracking-wider text-ink-2">
+        <label
+          htmlFor={textId}
+          className="block text-2xs font-semibold uppercase tracking-wider text-ink-2"
+        >
           Assertion text
         </label>
         <Textarea
+          id={textId}
           rows={4}
           className="mt-1 text-xs"
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
-        <label className="mt-2 block text-2xs font-semibold uppercase tracking-wider text-ink-2">
+        <label
+          htmlFor={quoteId}
+          className="mt-2 block text-2xs font-semibold uppercase tracking-wider text-ink-2"
+        >
           Quoted passage
         </label>
         <p className="mt-0.5 text-2xs text-ink-2">
@@ -214,6 +227,7 @@ function ChecklistControl({
           before the edit is saved.
         </p>
         <Textarea
+          id={quoteId}
           rows={4}
           className="mt-1 text-xs"
           value={quote}

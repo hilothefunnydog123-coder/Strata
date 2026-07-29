@@ -173,9 +173,17 @@ export function formatRate(rateBps: BasisPoints): string {
   return `${whole}.${String(fraction).padStart(2, '0').replace(/0$/, '')}%`;
 }
 
-/** Invoice numbers are sequential per organisation, and readable aloud. */
+/**
+ * Invoice numbers: sequential per organisation, readable aloud, globally unique.
+ *
+ * The slug is used whole rather than truncated. An earlier version cut it to
+ * eight characters, which meant two organisations whose slugs shared a prefix
+ * produced the same number and collided on the unique constraint. The slug is
+ * already unique by its own constraint, so using all of it makes the number
+ * unique for free.
+ */
 export function invoiceNumber(orgSlug: string, periodStart: Date, sequence: number): string {
   const year = periodStart.getUTCFullYear();
   const month = String(periodStart.getUTCMonth() + 1).padStart(2, '0');
-  return `${orgSlug.toUpperCase().slice(0, 8)}-${year}${month}-${String(sequence).padStart(3, '0')}`;
+  return `${orgSlug.toUpperCase()}-${year}${month}-${String(sequence).padStart(3, '0')}`;
 }

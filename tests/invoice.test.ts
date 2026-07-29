@@ -226,9 +226,17 @@ describe('formatRate', () => {
 });
 
 describe('invoiceNumber', () => {
+  it('does not collide between organisations whose slugs share a prefix', () => {
+    // The slug is unique, so using all of it makes the number unique too. An
+    // earlier version truncated to eight characters and these two collided.
+    const a = invoiceNumber('northgate-regional', new Date('2026-01-01T00:00:00Z'), 1);
+    const b = invoiceNumber('northgate-southside', new Date('2026-01-01T00:00:00Z'), 1);
+    expect(a).not.toBe(b);
+  });
+
   it('is readable and sorts by period', () => {
     expect(invoiceNumber('northgate', new Date('2026-01-01T00:00:00Z'), 1)).toBe(
-      'NORTHGAT-202601-001',
+      'NORTHGATE-202601-001',
     );
     expect(invoiceNumber('mercy', new Date('2026-11-01T00:00:00Z'), 42)).toBe(
       'MERCY-202611-042',
