@@ -487,3 +487,25 @@ content, which is a worse answer than a blank.
 
 `lib/db` and `lib/auth` check the same status and refuse before constructing
 anything, so the empty strings are unreachable rather than merely unused.
+
+### The build skip skipped the first build
+
+The cost control cancelled the deploy it was supposed to be protecting. Netlify
+set `CACHED_COMMIT_REF` and `COMMIT_REF` to the same commit, having no earlier
+successful build to measure against, and `git diff` between a commit and itself
+reports no changes, which the script read as a documentation-only push.
+
+The bug is not the comparison, it is the assumption underneath it: that two
+refs always describe a range. Identical refs mean there is nothing to compare,
+which is a different thing from nothing having changed, and it also describes
+every manual retry of the same commit. So the retry button could never have
+worked either.
+
+Three guards now precede the diff, and all three build: refs absent, refs
+identical, and a cached commit that is not present in the clone, which Netlify
+makes possible by cloning with `--filter=blob:none`. That last one previously
+would have had git fail and the script decide on an error.
+
+The original note said this script fails toward building. It did not, in the
+one case that mattered most, which was the first build. Stating a principle is
+not implementing it.
