@@ -30,15 +30,27 @@ const schema = z.object({
   BETTER_AUTH_SECRET: z
     .string()
     .min(32, 'BETTER_AUTH_SECRET must be at least 32 characters'),
-  BETTER_AUTH_URL: z.string().url('BETTER_AUTH_URL must be an absolute URL'),
+  // Optional here, but not optional in effect: resolveOrigin below fills both
+  // from the platform's own URL variable and the parse fails if neither exists.
+  BETTER_AUTH_URL: z
+    .string()
+    .url('BETTER_AUTH_URL must be an absolute URL')
+    .optional(),
 
   ANTHROPIC_API_KEY: optionalString,
   ANTHROPIC_BAA_CONFIRMED: boolish,
 
   PHI_MODE: z.enum(['synthetic', 'live']).default('synthetic'),
+  // Key material rather than the key: lib/db/crypto.ts turns this into the 32
+  // bytes AES-256-GCM needs. The minimum length is enforced here so that a
+  // short passphrase cannot be stretched into something that looks strong.
   PHI_ENCRYPTION_KEY: z
     .string()
-    .min(1, 'PHI_ENCRYPTION_KEY is required, including in synthetic mode'),
+    .min(
+      32,
+      'PHI_ENCRYPTION_KEY is required, including in synthetic mode, and must be ' +
+        'at least 32 characters',
+    ),
 
   RESEND_API_KEY: optionalString,
   EMAIL_FROM: optionalString,
@@ -52,18 +64,62 @@ const schema = z.object({
   LOCAL_STORAGE_DIR: optionalString,
 
   SUPERADMIN_EMAIL: optionalString,
-  APP_URL: z.string().url('APP_URL must be an absolute URL'),
+  APP_URL: z.string().url('APP_URL must be an absolute URL').optional(),
   CRON_SECRET: optionalString,
 
   CRAWLER_CONTACT: optionalString,
+
+  /**
+   * Set by Render to the service's public URL. Read only as a fallback for
+   * APP_URL and BETTER_AUTH_URL, which are otherwise impossible to know before
+   * the first deploy assigns a hostname. This is the one variable here the
+   * operator does not set.
+   */
+  RENDER_EXTERNAL_URL: optionalString,
 });
 
-export type Env = z.infer<typeof schema> & {
+export type Env = Omit<z.infer<typeof schema>, 'APP_URL' | 'BETTER_AUTH_URL'> & {
+  /** Always resolved: from the variable if set, otherwise from the platform. */
+  readonly APP_URL: string;
+  readonly BETTER_AUTH_URL: string;
   /** True when uploaded content may contain real patient data. */
   readonly phiLive: boolean;
   /** True when documents are stored in R2 rather than on local disk. */
   readonly storageIsR2: boolean;
 };
+
+/**
+ * The origin the app answers on.
+ *
+ * Explicit configuration wins. Failing that we take the platform's own value,
+ * which is the only thing that knows the hostname on a first deploy. Failing
+ * both, this is a configuration error rather than a guess: a wrong origin here
+ * does not throw, it silently issues cookies nobody can use, and a sign in page
+ * that accepts a password and then does nothing is far worse than a refusal.
+ */
+export function resolveOrigin(
+  explicit: string | undefined,
+  platform: string | undefined,
+  name: string,
+): string {
+  const value = explicit ?? platform;
+  if (!value) {
+    throw new Error(
+      `${name} is not set and no platform URL was found. Set ${name} to the ` +
+        'absolute origin this app is served from, for example https://strata.onrender.com.',
+    );
+  }
+
+  try {
+    new URL(value);
+  } catch {
+    throw new Error(
+      `${name} must be an absolute URL including the scheme, got ${JSON.stringify(value)}.`,
+    );
+  }
+
+  return value.replace(/\/+$/, '');
+}
 
 function parse(): Env {
   const parsed = schema.safeParse(process.env);
@@ -101,14 +157,6 @@ function parse(): Env {
     );
   }
 
-  const phiKeyBytes = Buffer.from(env.PHI_ENCRYPTION_KEY, 'base64');
-  if (phiKeyBytes.byteLength !== 32) {
-    throw new Error(
-      `PHI_ENCRYPTION_KEY must decode to exactly 32 bytes, got ${phiKeyBytes.byteLength}. ` +
-        'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64\'))"',
-    );
-  }
-
   const r2Fields = [
     env.R2_ACCOUNT_ID,
     env.R2_ACCESS_KEY_ID,
@@ -141,6 +189,12 @@ function parse(): Env {
 
   return Object.freeze({
     ...env,
+    APP_URL: resolveOrigin(env.APP_URL, env.RENDER_EXTERNAL_URL, 'APP_URL'),
+    BETTER_AUTH_URL: resolveOrigin(
+      env.BETTER_AUTH_URL,
+      env.RENDER_EXTERNAL_URL,
+      'BETTER_AUTH_URL',
+    ),
     phiLive: env.PHI_MODE === 'live',
     storageIsR2: r2Configured,
   });

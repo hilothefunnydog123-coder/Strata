@@ -74,6 +74,10 @@ const eslintConfig = [
       'drizzle.config.ts',
       'next.config.ts',
       'scripts/**/*.ts',
+      // The migration runner is plain JavaScript so it can run in a production
+      // container without the TypeScript loader, which is a dev dependency. It
+      // cannot import lib/env.ts for the same reason.
+      'scripts/**/*.mjs',
       'tests/**/*.ts',
       'vitest.config.ts',
       'playwright.config.ts',

@@ -268,3 +268,47 @@ A server left over from an earlier run serves the previous build, so a fix
 appears not to work and the wrong thing gets debugged. That happened once and
 cost real time. `reuseExistingServer` is false, and the extra minute per run is
 worth not chasing that ghost again.
+
+### Deployment asks for nothing that can be generated
+
+The Render blueprint has no fields to fill in. That is not convenience for its
+own sake: every value a human types into a deploy form is a value that can be
+typed wrong, and two of them fail in ways that do not announce themselves.
+
+Three changes made it possible.
+
+`PHI_ENCRYPTION_KEY` became key material rather than the key. It previously had
+to base64 decode to exactly 32 bytes, which no platform's secret generator
+produces on request. Now `derivePhiKey` in `lib/db/crypto.ts` uses a 32 byte
+base64 value verbatim, so keys generated the documented way keep decrypting
+rows written under them, and runs anything else through HKDF-SHA256. The salt
+and info string bind the result to this purpose, and `lib/env.ts` still enforces
+a 32 character minimum on the input, so a short passphrase cannot be stretched
+into something that looks strong. The check that it differs from
+`BETTER_AUTH_SECRET` is unchanged.
+
+`APP_URL` and `BETTER_AUTH_URL` fall back to `RENDER_EXTERNAL_URL`. Neither can
+be known before a first deploy assigns a hostname, so requiring them means
+either deploying twice or guessing. A wrong `BETTER_AUTH_URL` is the worse
+failure of the two: it does not throw, it issues cookies against an origin the
+browser will not send back, and the symptom is a sign in form that accepts a
+password and silently does nothing. `resolveOrigin` prefers explicit
+configuration, takes the platform value otherwise, and refuses rather than
+guessing when neither exists.
+
+The derivation lives in `lib/db/crypto.ts` and not in `lib/env.ts`, which is
+where it was first written. `lib/env.ts` is reachable from the middleware and
+client bundles, where `node:crypto` does not exist, and the build failed with an
+unhandled scheme error for `node:` URIs. Encryption is server only and so is the
+key. `lib/env.ts` keeps the validation, which is pure.
+
+### The migration runner is plain JavaScript
+
+`scripts/migrate.mjs` replaced `scripts/migrate.ts` because it now runs as the
+first half of the production start command, and `tsx` is a development
+dependency. A start command that depends on a dev dependency works until
+something prunes them, and then the service will not boot. It imports only
+`drizzle-orm` and `pg`, both runtime dependencies, and nothing from the
+application. Migrations run at start rather than as a pre-deploy step because
+pre-deploy commands need a paid Render instance type; Drizzle skips what it has
+already applied, so a restart costs one query against `__drizzle_migrations`.

@@ -16,7 +16,7 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx scripts/migrate.ts",
+    "db:migrate": "node --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/migrate.mjs",
     "provision:superadmin": "tsx scripts/provision-superadmin.ts",
     "corpus:fetch": "tsx scripts/corpus.ts fetch",
     "corpus:parse": "tsx scripts/corpus.ts parse",

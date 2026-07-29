@@ -11,15 +11,64 @@
  * The version prefix exists so a future key rotation can decrypt old rows while
  * writing new ones under a new scheme.
  */
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  hkdfSync,
+  randomBytes,
+} from 'node:crypto';
 import { customType } from 'drizzle-orm/pg-core';
 import { env } from '@/lib/env';
 
 const VERSION = 'v1';
 const IV_BYTES = 12;
 
+/**
+ * A 32 byte key from whatever the operator supplied.
+ *
+ * Two accepted forms, because the deployment story and the security story pull
+ * in different directions. A value that base64 decodes to exactly 32 bytes is
+ * used verbatim, so a key generated the documented way keeps decrypting rows
+ * written under it. Anything else is run through HKDF-SHA256, which lets a
+ * platform generated secret of arbitrary shape serve as key material without
+ * anyone having to produce base64 by hand on a first deploy.
+ *
+ * HKDF rather than a bare hash: the salt and info string bind the derived key
+ * to this purpose, so the same secret used for something else would not produce
+ * the same key. lib/env.ts enforces the minimum input length.
+ *
+ * This lives here rather than in lib/env.ts because env is imported from the
+ * edge and client bundles, where node:crypto does not exist. Encryption is
+ * server only, and so is the key.
+ */
+export function derivePhiKey(secret: string): Buffer {
+  const decoded = Buffer.from(secret, 'base64');
+  if (decoded.byteLength === 32) return decoded;
+
+  return Buffer.from(
+    hkdfSync(
+      'sha256',
+      Buffer.from(secret, 'utf8'),
+      'strata-phi-column-key',
+      'aes-256-gcm/v1',
+      32,
+    ),
+  );
+}
+
+/**
+ * Derived once and held, because HKDF on every column of every row is waste.
+ * Keyed by the secret so a test that changes the variable is not served a key
+ * belonging to the previous one.
+ */
+let cachedKey: { secret: string; bytes: Buffer } | undefined;
+
 function key(): Buffer {
-  return Buffer.from(env.PHI_ENCRYPTION_KEY, 'base64');
+  const secret = env.PHI_ENCRYPTION_KEY;
+  if (cachedKey?.secret !== secret) {
+    cachedKey = { secret, bytes: derivePhiKey(secret) };
+  }
+  return cachedKey.bytes;
 }
 
 export function encryptField(plaintext: string): string {
