@@ -12,7 +12,7 @@ export default function DemoPage() {
     <div className="mx-auto grid max-w-5xl gap-12 px-5 py-14 lg:grid-cols-[1fr_360px]">
       <div>
         <h1 className="text-3xl">Request a demo</h1>
-        <p className="mt-4 max-w-xl text-ink-2">
+        <p className="mt-4 max-w-xl font-semibold">
           Thirty minutes. Bring one real denial letter and the clinical record
           that goes with it, and we run it through the system while you watch.
         </p>
@@ -22,7 +22,7 @@ export default function DemoPage() {
       <aside className="lg:pt-16">
         <div className="border border-rule bg-paper-2 p-5">
           <h2 className="text-sm font-semibold">What happens on the call</h2>
-          <ol className="mt-3 space-y-3 text-sm text-ink-2">
+          <ol className="mt-3 space-y-3 text-sm font-semibold">
             <li>
               <span className="id text-xs text-ink">01</span>
               <p className="mt-0.5">
@@ -49,7 +49,7 @@ export default function DemoPage() {
 
         <div className="mt-4 border border-rule bg-paper-2 p-5">
           <h2 className="text-sm font-semibold">Before a contract is signed</h2>
-          <p className="mt-2 text-sm text-ink-2">
+          <p className="mt-2 text-sm font-semibold">
             We are not yet operating under a business associate agreement, so we
             work from a redacted copy of your documents. Nothing you bring to a
             demo needs to contain patient identifiers.

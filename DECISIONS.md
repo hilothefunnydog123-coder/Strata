@@ -509,3 +509,23 @@ would have had git fail and the script decide on an error.
 The original note said this script fails toward building. It did not, in the
 one case that mattered most, which was the first build. Stating a principle is
 not implementing it.
+
+### The public pages carry weight instead of grey
+
+Secondary text on the marketing pages was a lighter grey at a smaller size. It
+is now full strength ink at semibold, same sizes, so nothing moves. Emphasis
+inside those passages went to bold, because the first pass left highlighted
+spans lighter than the body around them, which inverted the hierarchy it was
+meant to create.
+
+This is closer to the original design brief rather than a departure from it.
+That brief forbade low contrast grey and asked for 7:1 throughout; a second ink
+tone for long passages was a compromise that crept back in.
+
+The unconfigured banner is gone from the public pages. It was right that a
+half configured deployment should say so, and wrong about where. Those pages are
+static marketing that reads correctly whether or not a database exists, so a
+warning across them told a visitor something true and useless about a page that
+was working perfectly, and told anyone being shown the product that it was
+broken. The explanation now lives only where it is load bearing: on sign in,
+where the alternative is a form that takes a password and fails.

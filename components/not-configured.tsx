@@ -1,40 +1,13 @@
 import { envStatus } from '@/lib/env';
 
 /**
- * The banner an unconfigured deployment wears.
+ * The body of a page that cannot render without configuration.
  *
- * A deployment with no environment set renders its public pages so that the
- * design and the copy can be looked at, which is the whole point of a first
- * deploy. What it must not do is let anyone mistake that for a working
- * application, so it says what is missing, on every page, without ceremony.
- *
- * Rendered by the root layout, so no page can forget it. Returns nothing at all
- * once the deployment is configured, which is the ordinary case.
- */
-export function NotConfiguredBanner() {
-  const status = envStatus();
-  if (status.configured) return null;
-
-  return (
-    <div className="border-b-2 border-denied bg-denied-wash px-5 py-2.5">
-      <p className="mx-auto max-w-5xl text-sm">
-        <span className="font-semibold text-denied">Not configured.</span>{' '}
-        <span className="text-ink">
-          This deployment has no database and no secrets, so nothing beyond these
-          public pages works: sign in, uploads and appeals are all unavailable.
-          Set{' '}
-        </span>
-        <span className="id text-xs">{status.missing.join(', ')}</span>
-        <span className="text-ink"> and deploy again.</span>
-      </p>
-    </div>
-  );
-}
-
-/**
- * The body of a page that cannot render without configuration. Says the same
- * thing as the banner at more length, in the place the working surface would
- * have been, so a dead link leads to an explanation rather than a stack trace.
+ * Shown in the place the working surface would have been, so a dead link leads
+ * to an explanation rather than a stack trace. There is deliberately no banner
+ * on the public pages: those are static marketing that reads correctly whether
+ * or not a database exists, and a warning across them tells a visitor something
+ * true but useless about a page that is working perfectly.
  */
 export function NotConfiguredPage({ surface }: { surface: string }) {
   const status = envStatus();

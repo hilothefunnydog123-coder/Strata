@@ -11,7 +11,7 @@ export default function Contact() {
   return (
     <div className="mx-auto max-w-2xl px-5 py-14">
       <h1 className="text-3xl">Contact</h1>
-      <p className="mt-4 text-ink-2">
+      <p className="mt-4 font-semibold">
         The fastest route is the demo request form, which reaches a person
         directly and gets a reply within one business day.
       </p>
@@ -31,7 +31,7 @@ export default function Contact() {
         </div>
         <div className="grid gap-1 py-3 sm:grid-cols-[180px_1fr]">
           <dt className="text-sm font-medium">Security review</dt>
-          <dd className="text-ink-2">
+          <dd className="font-semibold">
             Start with the{' '}
             <Link href="/security">security page</Link>. It is written for your
             reviewer rather than for a buyer.

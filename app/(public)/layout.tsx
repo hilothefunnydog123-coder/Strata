@@ -55,8 +55,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <footer className="rule-t mt-16">
         <div className="mx-auto flex max-w-5xl flex-wrap justify-between gap-6 px-5 py-8 text-sm">
           <div>
-            <p className="id text-xs uppercase tracking-widest text-ink-2">Medeal</p>
-            <p className="mt-2 max-w-xs text-ink-2">
+            <p className="id text-xs uppercase tracking-widest font-semibold">Medeal</p>
+            <p className="mt-2 max-w-xs font-semibold">
               Appeals for denied hospital claims, argued from published decisions
               and your own record.
             </p>

@@ -11,11 +11,11 @@ export default function Terms() {
   return (
     <div className="mx-auto max-w-2xl px-5 py-14">
       <h1 className="text-3xl">Terms</h1>
-      <p className="mt-3 text-sm text-ink-2">Last updated 28 July 2026.</p>
+      <p className="mt-3 text-sm font-semibold">Last updated 28 July 2026.</p>
 
       <section className="mt-8">
         <h2 className="text-lg">These terms are not the contract</h2>
-        <p className="mt-2 text-ink-2">
+        <p className="mt-2 font-semibold">
           Use of the application is governed by the services agreement signed
           between Medeal and your organisation, together with a business
           associate agreement. Where this page and that agreement disagree, the
@@ -26,7 +26,7 @@ export default function Terms() {
 
       <section className="mt-8">
         <h2 className="text-lg">What Medeal is, and is not</h2>
-        <p className="mt-2 text-ink-2">
+        <p className="mt-2 font-semibold">
           Medeal drafts appeals and routes them through clinical and legal
           review. It is a drafting and review service. It is not a law firm, it
           does not represent you, and using it does not create a solicitor client
@@ -34,7 +34,7 @@ export default function Terms() {
           are checking assertions against sources; they are not giving your
           organisation legal advice about its position.
         </p>
-        <p className="mt-2 text-ink-2">
+        <p className="mt-2 font-semibold">
           The decision to file any appeal, and everything asserted in it, remains
           yours. Both review gates must pass before an appeal can be exported,
           and you sign and file it.
@@ -43,7 +43,7 @@ export default function Terms() {
 
       <section className="mt-8">
         <h2 className="text-lg">Accuracy, and what we do about it</h2>
-        <p className="mt-2 text-ink-2">
+        <p className="mt-2 font-semibold">
           Every assertion in a generated appeal carries a verbatim quote from a
           source that has been checked programmatically to contain it. A draft
           with any unverified assertion is discarded and regenerated rather than
@@ -54,7 +54,7 @@ export default function Terms() {
 
       <section className="mt-8">
         <h2 className="text-lg">Fees</h2>
-        <p className="mt-2 text-ink-2">
+        <p className="mt-2 font-semibold">
           A percentage of amounts actually recovered, at the rate in your
           agreement, and nothing otherwise. Invoices are computed from recorded
           outcomes with remittance evidence attached. See{' '}
@@ -64,7 +64,7 @@ export default function Terms() {
 
       <section className="mt-8">
         <h2 className="text-lg">Accounts</h2>
-        <p className="mt-2 text-ink-2">
+        <p className="mt-2 font-semibold">
           There is no self service signup. Accounts are created by an operator at
           your organisation&apos;s request, and your organisation&apos;s administrator
           controls who holds one. You are responsible for what is done under an
@@ -74,7 +74,7 @@ export default function Terms() {
 
       <section className="mt-8">
         <h2 className="text-lg">Ending it</h2>
-        <p className="mt-2 text-ink-2">
+        <p className="mt-2 font-semibold">
           Your organisation can stop using Medeal at any time and can require
           complete deletion of its data. Fees already earned on recoveries
           already made remain payable; nothing further accrues.
@@ -83,7 +83,7 @@ export default function Terms() {
 
       <section className="mt-8">
         <h2 className="text-lg">Questions</h2>
-        <p className="mt-2 text-ink-2">
+        <p className="mt-2 font-semibold">
           <span className="id">{env.DEMO_REQUEST_TO}</span>
         </p>
       </section>

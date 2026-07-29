@@ -59,7 +59,7 @@ export default function HowItWorks() {
   return (
     <div className="mx-auto max-w-3xl px-5 py-14">
       <h1 className="text-3xl">How it works</h1>
-      <p className="mt-4 text-lg text-ink-2">
+      <p className="mt-4 text-lg font-semibold">
         Nine steps, two of which are people. The humans in the loop are not
         something we are working towards removing. They are why a hospital can
         put its name on the letter.
@@ -68,16 +68,16 @@ export default function HowItWorks() {
       <ol className="mt-10 space-y-8">
         {STEPS.map((step) => (
           <li key={step.n} className="rule-t pt-5">
-            <p className="id text-xs text-ink-2">{step.n}</p>
+            <p className="id text-xs font-semibold">{step.n}</p>
             <h2 className="mt-1 text-lg">{step.title}</h2>
-            <p className="mt-2 text-ink-2">{step.body}</p>
+            <p className="mt-2 font-semibold">{step.body}</p>
           </li>
         ))}
       </ol>
 
       <section className="mt-14 border border-rule bg-paper-2 p-5">
         <h2 className="text-lg">What we will not do</h2>
-        <ul className="mt-3 space-y-2 text-ink-2">
+        <ul className="mt-3 space-y-2 font-semibold">
           <li>
             We do not assert anything about a patient that is not quoted from
             your record.

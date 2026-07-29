@@ -26,7 +26,7 @@ export default function Home() {
         <div className="mt-10 grid max-w-3xl gap-px border border-rule bg-rule sm:grid-cols-2">
           <div className="bg-paper-2 p-5">
             <p className="tnum text-5xl font-semibold text-denied">60%</p>
-            <p className="mt-2 text-sm text-ink-2">
+            <p className="mt-2 text-sm font-semibold">
               of denied claims are never appealed at all. Appealing costs 30 to 60
               minutes of clinical staff time, and most single denials are too
               small to be worth it.
@@ -34,7 +34,7 @@ export default function Home() {
           </div>
           <div className="bg-paper-2 p-5">
             <p className="tnum text-5xl font-semibold text-recovered">Most</p>
-            <p className="mt-2 text-sm text-ink-2">
+            <p className="mt-2 text-sm font-semibold">
               of the appeals that do get filed are overturned. The economics of
               not appealing are what the denial is betting on, not the merits.
             </p>
@@ -65,7 +65,7 @@ export default function Home() {
       <section className="rule-t bg-paper-2">
         <div className="mx-auto max-w-5xl px-5 py-14">
           <h2 className="text-2xl">The arguments that win are public record</h2>
-          <p className="mt-4 max-w-2xl text-ink-2">
+          <p className="mt-4 max-w-2xl font-semibold">
             When a Medicare appeal reaches the HHS Departmental Appeals Board, the
             decision gets published: which argument was made, which clinical facts
             mattered, how the adjudicator read the coverage rule, who won. That
@@ -75,7 +75,7 @@ export default function Home() {
           </p>
 
           <div className="mt-8 border border-rule bg-paper p-5">
-            <p className="id text-xs uppercase tracking-wider text-ink-2">
+            <p className="id text-xs uppercase tracking-wider font-semibold">
               42 CFR 422.101(b)
             </p>
             <p className="document mt-3 max-w-2xl">
@@ -84,7 +84,7 @@ export default function Home() {
               apply proprietary internal criteria that are exactly that. Where it
               is challenged, they lose.
             </p>
-            <p className="mt-3 max-w-2xl text-sm text-ink-2">
+            <p className="mt-3 max-w-2xl text-sm font-semibold">
               Medeal recognises when a denial rests on non-Medicare proprietary
               criteria and builds that argument, with the decisions where it
               prevailed attached.
@@ -96,27 +96,27 @@ export default function Home() {
       <section className="rule-t">
         <div className="mx-auto max-w-5xl px-5 py-14">
           <h2 className="text-2xl">Every sentence traces to its source</h2>
-          <p className="mt-4 max-w-2xl text-ink-2">
+          <p className="mt-4 max-w-2xl font-semibold">
             A letter that misstates a patient chart is your exposure. A letter
             citing a decision that does not say what it claims is ours. So no
             assertion exists in a Medeal appeal without a verbatim quote from a
             source that has been checked, programmatically, to contain it.
           </p>
-          <ul className="mt-6 max-w-2xl space-y-3 text-ink-2">
+          <ul className="mt-6 max-w-2xl space-y-3 font-semibold">
             <li className="rule-t pt-3">
-              <span className="font-medium text-ink">Click any sentence</span> in
+              <span className="font-bold">Click any sentence</span> in
               the letter and the exact paragraph of the published decision, or the
               exact line of your record, opens beside it, highlighted.
             </li>
             <li className="rule-t pt-3">
-              <span className="font-medium text-ink">
+              <span className="font-bold">
                 Failed checks are discarded, never repaired.
               </span>{' '}
               A draft containing an unverified claim is thrown out and regenerated
               rather than patched. Nobody reviews a letter that did not pass.
             </li>
             <li className="rule-t pt-3">
-              <span className="font-medium text-ink">Gaps are stated plainly.</span>{' '}
+              <span className="font-bold">Gaps are stated plainly.</span>{' '}
               Where a coverage criterion has no support in your record, you get
               told which one, before drafting, instead of getting language that
               papers over it.
@@ -128,7 +128,7 @@ export default function Home() {
       <section className="rule-t bg-paper-2">
         <div className="mx-auto max-w-5xl px-5 py-14">
           <h2 className="text-2xl">You pay out of what we recover</h2>
-          <p className="mt-4 max-w-2xl text-ink-2">
+          <p className="mt-4 max-w-2xl font-semibold">
             No subscription, no seat licence, no implementation fee. A percentage
             of dollars actually recovered, and nothing at all otherwise. If an
             appeal does not land, it costs you the time you did not spend on it.
@@ -144,7 +144,7 @@ export default function Home() {
       <section className="rule-t">
         <div className="mx-auto max-w-5xl px-5 py-14">
           <h2 className="text-2xl">Start with one denial</h2>
-          <p className="mt-4 max-w-2xl text-ink-2">
+          <p className="mt-4 max-w-2xl font-semibold">
             Bring a denial letter and the matching record to a 30 minute call. We
             run it, and you see the drafted appeal with every citation resolvable.
             Until a business associate agreement is in place we work from a

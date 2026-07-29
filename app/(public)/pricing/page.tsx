@@ -21,26 +21,26 @@ export default function Pricing() {
         <dl className="mt-4 divide-y divide-rule border-y border-rule">
           <div className="grid gap-1 py-3 sm:grid-cols-[220px_1fr]">
             <dt className="text-sm font-medium">To start</dt>
-            <dd className="text-ink-2">
+            <dd className="font-semibold">
               Nothing. No implementation fee, no minimum, no annual commitment.
             </dd>
           </div>
           <div className="grid gap-1 py-3 sm:grid-cols-[220px_1fr]">
             <dt className="text-sm font-medium">Per seat</dt>
-            <dd className="text-ink-2">
+            <dd className="font-semibold">
               Nothing. Add every denials specialist you have.
             </dd>
           </div>
           <div className="grid gap-1 py-3 sm:grid-cols-[220px_1fr]">
             <dt className="text-sm font-medium">Per appeal filed</dt>
-            <dd className="text-ink-2">
+            <dd className="font-semibold">
               Nothing. An appeal that loses costs you the time you did not spend
               writing it.
             </dd>
           </div>
           <div className="grid gap-1 py-3 sm:grid-cols-[220px_1fr]">
             <dt className="text-sm font-medium">Per dollar recovered</dt>
-            <dd className="text-ink-2">
+            <dd className="font-semibold">
               An agreed percentage, set in your contract and shown on every
               invoice. Invoices are computed from recorded outcomes with
               remittance evidence attached, so you can check the arithmetic
@@ -52,14 +52,14 @@ export default function Pricing() {
 
       <section className="mt-12">
         <h2 className="text-lg">Why it is structured this way</h2>
-        <p className="mt-3 text-ink-2">
+        <p className="mt-3 font-semibold">
           The reason 60 percent of denials go unappealed is that the expected
           value of appealing is negative once you count staff time. A
           subscription does not change that arithmetic, it just moves the cost
           earlier. A contingency fee changes it: appealing a small denial is
           worth doing, because it costs you nothing unless it works.
         </p>
-        <p className="mt-3 text-ink-2">
+        <p className="mt-3 font-semibold">
           It also means we are only paid when we are right. An appeal that
           overstates the record does not get overturned, so the incentive on us
           is the same as the incentive on you.
