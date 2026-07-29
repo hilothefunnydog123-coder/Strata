@@ -71,6 +71,10 @@ const eslintConfig = [
     files: [
       'lib/env.ts',
       'lib/log/index.ts',
+      // Reads NEXT_RUNTIME only, which webpack replaces with a literal per
+      // bundle so that node-only code is eliminated from the edge bundle. That
+      // is a build-time constant, not configuration.
+      'instrumentation.ts',
       'drizzle.config.ts',
       'next.config.ts',
       'scripts/**/*.ts',

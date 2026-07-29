@@ -185,29 +185,35 @@ this reason: the start command must not depend on the TypeScript loader, which
 is a development dependency. Drizzle skips migrations it has already applied, so
 a restart costs one query.
 
-**The web service is on `standard`, and it has to be.** Measured on this
-codebase: the production build needs about 700 MB of heap and peaks near 1.7 GB
-resident, while the running server holds about 250 MB after serving every public
-route. Render's free and starter instances are both 512 MB, so they will run
-this app comfortably and cannot build it. On either, the deploy fails with
-`JavaScript heap out of memory` before it ever starts.
+Both services are on the free tier, which is enough to build and run this. For
+the record, since it is counterintuitive: building this app takes about 700 MB
+of heap and peaks near 1.7 GB resident, well beyond a free instance's 512 MB,
+and it builds on Render anyway, because Render's build environment is not
+bounded by the instance size. The running server holds about 250 MB.
 
-If that cost is unwanted, the shape of the fix is to build somewhere with more
-memory and have Render run the result rather than build it. The application
-needs no changes for that.
+Two consequences of free worth knowing: a free Postgres instance is deleted
+after 30 days, so move it to a paid tier before it holds anything you would
+miss, and a free web service sleeps after 15 minutes idle, so the first request
+after a quiet period takes about a minute.
 
-The database is on `free`, which is fine to begin with, with one caveat: a free
-Postgres instance is deleted after 30 days. Move it to a paid tier before it
-holds anything you would miss.
+**The first account creates itself.** There is no signup route, so a fresh
+deployment would otherwise be impossible to sign in to, and a free Render plan
+has no shell to run `pnpm provision:superadmin` from. So `lib/auth/bootstrap.ts`
+runs at startup and creates the operator named by `SUPERADMIN_EMAIL`, printing a
+temporary password to the deploy log once.
 
-Then, once, from the service shell:
+It is guarded on the user table being completely empty, not on "no superadmin
+exists". The moment any account exists it is inert forever, so it cannot be a
+route to an account on a running system and cannot resurrect an operator who was
+deliberately deactivated.
 
-```
-SUPERADMIN_EMAIL=you@example.com pnpm provision:superadmin
-```
-
-It prints a temporary password once. First sign in forces a password change,
-then two-factor enrolment, before any surface opens.
+Find the password in the deploy log, sign in, and change it. First sign in
+forces a password change, then two-factor enrolment, before any surface opens.
+The password sits in that log for as long as the log is retained, which is the
+tradeoff for a shell-less host; what limits it is that the account cannot be
+used without replacing the password. On a plan with a shell,
+`pnpm provision:superadmin` issues a fresh temporary password at any time, which
+is the recovery path if the operator is locked out.
 
 `RESEND_API_KEY` and `ANTHROPIC_API_KEY` are left out of the blueprint rather
 than set blank. Without the first, outbound mail is recorded in `email_send` and

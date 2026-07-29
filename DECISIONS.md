@@ -313,28 +313,57 @@ application. Migrations run at start rather than as a pre-deploy step because
 pre-deploy commands need a paid Render instance type; Drizzle skips what it has
 already applied, so a restart costs one query against `__drizzle_migrations`.
 
-### The blueprint specifies a 2 GB instance because 512 MB cannot build this
+### Build memory: a measurement that was right and a conclusion that was wrong
 
-The first Render blueprint put the web service on the free tier. That was wrong,
-and it was wrong in a way worth writing down, because the numbers are not
-intuitive: this application runs in far less memory than it takes to build.
+Worth keeping as written, because the reasoning failed in an instructive way.
 
-Measured on this codebase. The production build peaks near 1.7 GB resident and
-fails at a 420 MB heap ceiling with `JavaScript heap out of memory`; it succeeds
-from 700 MB up. The running server holds about 250 MB after serving every public
-route. Render's free and starter instances are both 512 MB, which is ample for
-the second number and impossible for the first.
+The measurement stands. This application's production build peaks near 1.7 GB
+resident and fails at a 420 MB heap ceiling with `JavaScript heap out of
+memory`, succeeding from 700 MB up, while the running server holds about 250 MB
+after serving every public route. Three reductions were tried and none of them
+help. Turbopack cut compile time from minutes to fifteen seconds and left peak
+memory at 1.58 GB. Limiting static generation to one worker moved it under two
+percent. Moving type checking and linting out of the build still failed at
+420 MB. The cost is the compile itself.
 
-Three things were tried before accepting the instance size. Building with
-Turbopack cut compile time from minutes to fifteen seconds but left peak memory
-at 1.58 GB, because the cost is in the compile itself rather than the bundler's
-JavaScript. Limiting static generation to a single worker moved peak memory by
-under two percent, for the same reason. Moving type checking and linting out of
-the build, which is a real reduction, still failed at 420 MB, so it buys nothing
-at the tier that matters and costs the guarantee that a deploy type checks.
+The conclusion drawn from it, that a 512 MB Render instance therefore cannot
+deploy this, was wrong, and the deployment that contradicted it was already
+running. Render does not build on the instance. Build resources and instance
+resources are separate, so an app can require more memory to build than the tier
+it runs on provides. The blueprint is back on the free tier for both services.
 
-`NODE_OPTIONS=--max-old-space-size` is set explicitly in the blueprint. Node
-sizes its default heap from visible memory, which inside a container is the
-host's rather than the cgroup limit, so the default can be either too small to
-finish or large enough that the platform kills the process before V8 ever runs a
-final garbage collection.
+The general error is worth naming: a local measurement was treated as a fact
+about someone else's platform. It was evidence about this machine. Confirming
+what the deployment actually did would have cost one question and would have
+skipped the whole detour.
+
+### The first operator account creates itself
+
+There is no signup route, on purpose, so a fresh deployment has nobody who can
+sign in. `pnpm provision:superadmin` solves that where a shell exists, and a
+free Render plan has no shell, which leaves the application deployed, healthy,
+and impossible to enter.
+
+So `lib/auth/bootstrap.ts` runs from `instrumentation.ts` at startup. The guard
+is that the user table must be completely empty, not that no superadmin exists.
+That distinction is the whole safety argument: the moment any account exists
+this is inert forever, so it can never be a way to obtain an account on a
+running system, and it cannot resurrect an operator account that was
+deliberately deactivated. Without `SUPERADMIN_EMAIL` it does nothing at all.
+
+The temporary password goes to the startup log, because on a shell-less host
+that is the only channel back to the operator. Anyone who can read the deploy
+log can read it for as long as the log is retained. What bounds the damage is
+that the account cannot be used as it stands: `mustChangePassword` is set, so
+the first sign in leads to a forced change, and superadmin is above read only,
+so two factor enrolment follows immediately. Someone reading the log later finds
+a password that has already been replaced, and using it before then means
+changing it, which is not quiet.
+
+`instrumentation.ts` guards the import with `process.env.NEXT_RUNTIME`. That is
+not defensive style, it is what makes it compile: `register()` is bundled for
+the edge runtime as well as node because this application has middleware, and
+the database client pulls in `pg`, which needs `fs`. Next replaces the value
+with a literal per bundle, so the edge bundle eliminates the branch and never
+follows the import. It is a build-time constant rather than configuration, which
+is why it is read there rather than through `lib/env.ts`.
