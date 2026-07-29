@@ -15,6 +15,7 @@ import { headers } from 'next/headers';
 import { forbidden, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { auth } from '@/lib/auth';
+import { envStatus } from '@/lib/env';
 import {
   can,
   canEnter,
@@ -74,6 +75,11 @@ export class AuthenticationError extends Error {
  * and three components still makes one session lookup per request.
  */
 export const getPrincipal = cache(async (): Promise<Principal | null> => {
+  // An unconfigured deployment has no sessions, because it has no database to
+  // hold them. Answering "nobody is signed in" is the truthful answer and lets
+  // pages that only need to know whether someone is signed in render normally.
+  if (!envStatus().configured) return null;
+
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
 

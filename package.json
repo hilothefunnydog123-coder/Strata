@@ -26,7 +26,7 @@
     "corpus:status": "tsx scripts/corpus.ts status",
     "check:forbidden": "tsx scripts/check-forbidden.ts",
     "db:bootstrap": "tsx scripts/bootstrap.ts",
-    "deploy:prepare": "pnpm check:env && pnpm db:migrate && pnpm db:bootstrap",
+    "deploy:prepare": "pnpm check:env && (pnpm db:migrate && pnpm db:bootstrap || echo \"Skipping migrations: not configured.\")",
     "check:env": "tsx scripts/check-env.ts"
   },
   "dependencies": {

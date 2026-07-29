@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getPrincipal } from '@/lib/auth/guards';
+import { envStatus } from '@/lib/env';
+import { NotConfiguredPage } from '@/components/not-configured';
 import { SignInForm } from './sign-in-form';
 import { landingFor } from '@/lib/auth/landing';
 
@@ -14,6 +16,10 @@ export default async function SignInPage({
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
+  // Nothing to sign in to without a database. Offering the form anyway would
+  // take a password and fail on submit, which is a worse answer than saying so.
+  if (!envStatus().configured) return <NotConfiguredPage surface="Signing in" />;
+
   const principal = await getPrincipal();
   const { next } = await searchParams;
 

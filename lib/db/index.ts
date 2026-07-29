@@ -13,7 +13,7 @@ import {
 } from 'drizzle-orm/node-postgres';
 import { neon } from '@neondatabase/serverless';
 import { Pool } from 'pg';
-import { env } from '@/lib/env';
+import { env, envStatus, NotConfiguredError } from '@/lib/env';
 import * as schema from './schema';
 
 /**
@@ -42,6 +42,11 @@ declare global {
 }
 
 function client(): Client {
+  const status = envStatus();
+  if (!status.configured) {
+    throw new NotConfiguredError('The database', status.missing);
+  }
+
   // Next.js reloads modules on every edit in development, which would otherwise
   // open a new pool each time until Postgres refuses connections.
   const existing = globalThis.__medealDb;

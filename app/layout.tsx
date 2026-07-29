@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { NotConfiguredBanner } from '@/components/not-configured';
 import { IBM_Plex_Mono, Public_Sans, Source_Serif_4 } from 'next/font/google';
 import './globals.css';
 
@@ -55,7 +56,10 @@ export default function RootLayout({
       lang="en"
       className={`${publicSans.variable} ${plexMono.variable} ${sourceSerif.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <NotConfiguredBanner />
+        {children}
+      </body>
     </html>
   );
 }

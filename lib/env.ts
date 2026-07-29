@@ -130,17 +130,133 @@ export function resolveOrigin(
   return value.replace(/\/+$/, '');
 }
 
-function parse(): Env {
-  const parsed = schema.safeParse(process.env);
+/**
+ * Raised when something that needs configuration is reached in a deployment
+ * that has none. Distinct from a crash: it means "not set up yet", and the
+ * surfaces that can answer it do.
+ */
+export class NotConfiguredError extends Error {
+  readonly missing: readonly string[];
 
-  if (!parsed.success) {
+  constructor(what: string, missing: readonly string[]) {
+    super(
+      `${what} needs configuration this deployment does not have. Missing: ` +
+        `${missing.join(', ')}. Set them and deploy again.`,
+    );
+    this.name = 'NotConfiguredError';
+    this.missing = missing;
+  }
+}
+
+export interface EnvStatus {
+  configured: boolean;
+  /** Names of the required variables that are absent. Empty when configured. */
+  missing: readonly string[];
+}
+
+let statusCache: EnvStatus | undefined;
+
+/**
+ * Whether this deployment is configured, without throwing if it is not.
+ *
+ * A brand new deployment has no variables set, and refusing to start means
+ * nobody can see whether the thing deploys at all. So an environment that is
+ * merely absent yields an unconfigured deployment: public pages render, a
+ * banner says plainly that it is not set up, and anything touching the database
+ * or a session answers with that rather than a stack trace.
+ *
+ * The safety of this rests on one condition, enforced below: unconfigured mode
+ * is only available when there is no DATABASE_URL. No database means no data,
+ * which means there is nothing a half configured instance could expose. The
+ * dangerous shape, a real database reachable while the encryption key or the
+ * session secret is missing, is not degraded, it is refused exactly as before.
+ */
+export function envStatus(): EnvStatus {
+  if (statusCache) return statusCache;
+
+  const parsed = schema.safeParse(process.env);
+  if (parsed.success) {
+    statusCache = { configured: true, missing: [] };
+    return statusCache;
+  }
+
+  const missing = parsed.error.issues.map((issue) => String(issue.path[0] ?? '(root)'));
+
+  // A database present alongside missing secrets is a misconfiguration, not an
+  // unconfigured deployment. Refuse it.
+  if (process.env.DATABASE_URL) {
     const lines = parsed.error.issues.map(
       (issue) => `  ${issue.path.join('.') || '(root)'}: ${issue.message}`,
     );
     throw new Error(
       `Environment is not valid, so the app will not start.\n${lines.join('\n')}\n` +
-        'Copy .env.example to .env.local and fill in the values listed above.',
+        'DATABASE_URL is set, so this is a partly configured deployment rather than a\n' +
+        'new one. Set the variables above, or unset DATABASE_URL to run unconfigured.',
     );
+  }
+
+  statusCache = { configured: false, missing };
+  return statusCache;
+}
+
+/**
+ * The environment of a deployment that has none.
+ *
+ * Empty strings rather than a sentinel, and rather than throwing on every read.
+ * Pages that display a configured value render nothing, which reads as absent
+ * because the banner above them has already said the deployment is not set up.
+ * Inventing a plausible looking address or account number instead would be
+ * fabricating content, which is worse than a blank.
+ *
+ * The types stay honest: these fields are strings and they are strings. Nothing
+ * that would act on them can be reached, because the database and the auth
+ * instance check the same status and refuse before either is used.
+ */
+function unconfigured(): Env {
+  const nodeEnv = process.env.NODE_ENV;
+  const origin =
+    process.env.RENDER_EXTERNAL_URL ??
+    process.env.DEPLOY_PRIME_URL ??
+    process.env.URL ??
+    'http://localhost:3000';
+
+  return Object.freeze({
+    NODE_ENV:
+      nodeEnv === 'production' || nodeEnv === 'test' ? nodeEnv : 'development',
+    DATABASE_URL: '',
+    BETTER_AUTH_SECRET: '',
+    ANTHROPIC_API_KEY: undefined,
+    ANTHROPIC_BAA_CONFIRMED: false,
+    PHI_MODE: 'synthetic' as const,
+    PHI_ENCRYPTION_KEY: '',
+    RESEND_API_KEY: undefined,
+    EMAIL_FROM: undefined,
+    DEMO_REQUEST_TO: '',
+    MAILING_ADDRESS: undefined,
+    R2_ACCOUNT_ID: undefined,
+    R2_ACCESS_KEY_ID: undefined,
+    R2_SECRET_ACCESS_KEY: undefined,
+    R2_BUCKET: undefined,
+    LOCAL_STORAGE_DIR: undefined,
+    SUPERADMIN_EMAIL: undefined,
+    CRON_SECRET: undefined,
+    CRAWLER_CONTACT: undefined,
+    RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL,
+    DEPLOY_PRIME_URL: process.env.DEPLOY_PRIME_URL,
+    URL: process.env.URL,
+    APP_URL: origin.replace(/\/+$/, ''),
+    BETTER_AUTH_URL: origin.replace(/\/+$/, ''),
+    phiLive: false,
+    storageIsR2: false,
+  });
+}
+
+function parse(): Env {
+  const parsed = schema.safeParse(process.env);
+
+  if (!parsed.success) {
+    envStatus(); // Throws here if a database is present alongside missing secrets.
+    return unconfigured();
   }
 
   const env = parsed.data;

@@ -458,3 +458,32 @@ missing variable used to surface two minutes into a build as a prerender error
 naming one page, leaving the real cause to be inferred. It now appears at the
 top of the log, listing every missing variable at once, before anything is
 compiled.
+
+### An unconfigured deployment serves its public pages
+
+Refusing to start without an environment is right for a production instance and
+wrong for a first deploy, where the point is to see whether the thing deploys
+and what it looks like. Setting up a database in order to find that out is the
+wrong order.
+
+So absence and misconfiguration are now different states. A deployment with
+nothing set is unconfigured: it builds, it starts, it serves every public page,
+and a banner on every one of them names the variables that are missing. Sign in
+answers with the same explanation rather than offering a form that cannot work.
+The portals redirect there. Nothing pretends to function.
+
+The safety of this rests on one condition, and it is enforced in `envStatus()`
+rather than documented and hoped for: unconfigured mode is available only when
+there is no `DATABASE_URL`. No database means no data, which means a half
+running instance has nothing it could expose. The genuinely dangerous shape, a
+reachable database while the encryption key or session secret is missing, is not
+degraded, it throws exactly as it did before. That case is now a louder error
+than it used to be, because it says which of the two situations it is in.
+
+The unconfigured environment uses empty strings rather than invented values.
+A page that would show a configured address shows nothing, under a banner
+explaining why. Inventing a plausible looking address would be fabricating
+content, which is a worse answer than a blank.
+
+`lib/db` and `lib/auth` check the same status and refuse before constructing
+anything, so the empty strings are unreachable rather than merely unused.

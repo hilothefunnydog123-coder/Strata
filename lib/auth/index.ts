@@ -24,7 +24,7 @@ import { nextCookies } from 'better-auth/next-js';
 import { organization, twoFactor } from 'better-auth/plugins';
 import { db } from '@/lib/db';
 import * as schema from '@/lib/db/schema';
-import { env } from '@/lib/env';
+import { env, envStatus, NotConfiguredError } from '@/lib/env';
 
 const THIRTY_MINUTES = 60 * 30;
 const TWELVE_HOURS = 60 * 60 * 12;
@@ -173,6 +173,10 @@ type AuthInstance = ReturnType<typeof createAuth>;
 let instance: AuthInstance | undefined;
 
 function authInstance(): AuthInstance {
+  const status = envStatus();
+  if (!status.configured) {
+    throw new NotConfiguredError('Authentication', status.missing);
+  }
   instance ??= createAuth();
   return instance;
 }

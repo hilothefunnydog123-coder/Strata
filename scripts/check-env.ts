@@ -14,9 +14,24 @@
  * missing, before a single second is spent compiling.
  */
 import 'dotenv/config';
-import { assertEnv } from '../lib/env';
+import { assertEnv, envStatus } from '../lib/env';
 
 try {
+  // A deployment with nothing set is a new one. Let the build through so there
+  // is something to look at, and say clearly what it will and will not do.
+  // envStatus() throws rather than returning here if a database is reachable
+  // while secrets are missing, which is the shape that must not be waved past.
+  const status = envStatus();
+  if (!status.configured) {
+    process.stdout.write(
+      `\nNot configured: ${status.missing.join(', ')} are not set.\n\n` +
+        'Building anyway. The deploy will serve its public pages behind a banner\n' +
+        'saying so. Sign in, uploads and appeals need the variables above; set\n' +
+        'them and deploy again and the first operator account is created then.\n\n',
+    );
+    process.exit(0);
+  }
+
   const env = assertEnv();
   process.stdout.write(
     `Environment is valid. PHI mode ${env.PHI_MODE}, storage ` +

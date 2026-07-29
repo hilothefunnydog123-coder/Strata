@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { env } from '@/lib/env';
+import { env, envStatus } from '@/lib/env';
 
 export const metadata: Metadata = {
   title: 'Contact',
@@ -25,7 +25,9 @@ export default function Contact() {
         </div>
         <div className="grid gap-1 py-3 sm:grid-cols-[180px_1fr]">
           <dt className="text-sm font-medium">Anything else</dt>
-          <dd className="id text-sm">{env.DEMO_REQUEST_TO}</dd>
+          <dd className="id text-sm">
+            {envStatus().configured ? env.DEMO_REQUEST_TO : 'not configured yet'}
+          </dd>
         </div>
         <div className="grid gap-1 py-3 sm:grid-cols-[180px_1fr]">
           <dt className="text-sm font-medium">Security review</dt>

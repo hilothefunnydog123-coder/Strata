@@ -5,10 +5,27 @@
  * Validating the environment here means a misconfigured deployment fails to
  * start, loudly, rather than serving traffic and failing on whichever page
  * happens to read the missing variable first.
+ *
+ * A deployment with nothing set at all is a different case and is not fatal: it
+ * serves its public pages behind a banner saying it is not configured, so that
+ * a first deploy can be looked at. The distinction is enforced in envStatus().
  */
 export async function register(): Promise<void> {
-  const { assertEnv } = await import('@/lib/env');
+  const { assertEnv, envStatus } = await import('@/lib/env');
   const { log } = await import('@/lib/log');
+
+  const status = envStatus();
+  if (!status.configured) {
+    // Deliberately not fatal. A deployment with nothing set is a new one, and
+    // it serves its public pages behind a banner saying so. envStatus() has
+    // already refused the dangerous shape: a reachable database alongside
+    // missing secrets throws rather than degrading.
+    log.warn(
+      'This deployment is not configured and is serving public pages only. ' +
+        `Missing: ${status.missing.join(', ')}.`,
+    );
+    return;
+  }
 
   const env = assertEnv();
 
