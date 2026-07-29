@@ -18,6 +18,7 @@
  */
 import { relations, sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   index,
   integer,
@@ -298,6 +299,26 @@ export const twoFactor = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
   },
   (t) => [index('two_factor_user_idx').on(t.userId)],
+);
+
+/**
+ * better-auth's rate limit counters.
+ *
+ * Kept in the database rather than in memory. On serverless, where this runs in
+ * production, a module level counter is per-instance and therefore not a limit
+ * at all: an attacker gets the allowance multiplied by however many instances
+ * happen to be warm. The same reasoning is in lib/rate-limit.ts, which uses the
+ * job table for the same purpose on the public form.
+ */
+export const rateLimit = pgTable(
+  'rate_limit',
+  {
+    id: text('id').primaryKey(),
+    key: text('key').notNull(),
+    count: integer('count').notNull().default(0),
+    lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
+  },
+  (t) => [uniqueIndex('rate_limit_key_idx').on(t.key)],
 );
 
 export const organization = pgTable(

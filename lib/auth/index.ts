@@ -45,6 +45,7 @@ export const auth = betterAuth({
       organization: schema.organization,
       member: schema.member,
       invitation: schema.invitation,
+      rateLimit: schema.rateLimit,
     },
   }),
 
@@ -104,6 +105,10 @@ export const auth = betterAuth({
    */
   rateLimit: {
     enabled: true,
+    // In the database, not in memory. On serverless a module level counter is
+    // per-instance, so the effective allowance is multiplied by however many
+    // instances happen to be warm, which is not a limit.
+    storage: 'database',
     window: 60,
     max: 100,
     customRules: {

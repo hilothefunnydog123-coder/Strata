@@ -181,6 +181,11 @@ check.
 3. **Not deployed.** No Vercel or Neon credentials. `README.md` has the deploy
    steps; none of them requires a code change.
 
-4. **The e2e suite covers authentication, authorisation, and the demo request.**
-   It does not yet cover the generate-review-approve-export-invoice chain end to
-   end, because that chain needs a model key to produce a draft to review.
+4. **The e2e suite covers the workflow gates but not generation.**
+   `e2e/workflow.spec.ts` builds a draft directly through the same tables
+   generation writes to, then exercises everything downstream: both review gates,
+   the export block, rejection returning the case with notes visible, an edit
+   being refused when its quote is not in the source, and a recorded win
+   producing an invoice at the organisation's rate to the cent. What it does not
+   cover is whether the model produces a good draft, because that needs a key
+   this environment does not have. The gap is stated rather than papered over.

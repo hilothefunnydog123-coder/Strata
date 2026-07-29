@@ -12,8 +12,10 @@ concurrency:
 env:
   DATABASE_URL: postgres://strata:strata@127.0.0.1:5432/strata_test
   BETTER_AUTH_SECRET: ci_secret_not_used_outside_continuous_integration_0123
-  BETTER_AUTH_URL: http://localhost:3000
-  APP_URL: http://localhost:3000
+  # Must match the port playwright.config.ts serves on: better-auth checks the
+  # request origin against these, so a mismatch fails every sign in in CI.
+  BETTER_AUTH_URL: http://127.0.0.1:3100
+  APP_URL: http://127.0.0.1:3100
   DEMO_REQUEST_TO: ci@example.com
   EMAIL_FROM: Strata <ci@example.com>
   PHI_MODE: synthetic
@@ -54,7 +56,8 @@ jobs:
       - run: pnpm check:forbidden
       - run: pnpm test
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm build
+      # e2e builds and serves the app itself, so there is no separate build step:
+      # the suite runs against a production build or it does not run at all.
       - run: pnpm e2e
       - uses: actions/upload-artifact@v4
         if: failure()

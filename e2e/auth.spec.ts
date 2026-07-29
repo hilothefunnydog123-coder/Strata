@@ -29,7 +29,15 @@ interface Seeded {
 let seeded: Seeded;
 
 test.beforeAll(() => {
+  app<number>('resetRateLimits');
   seeded = app<Seeded>('seedOrgAndRoles', { stamp: STAMP });
+});
+
+// Each test signs in and often enrols a second factor. The real per-address
+// limits are right to notice a burst of that from one address, so the suite
+// clears its own state rather than asking for the limits to be raised.
+test.beforeEach(() => {
+  app<number>('resetRateLimits');
 });
 
 /**

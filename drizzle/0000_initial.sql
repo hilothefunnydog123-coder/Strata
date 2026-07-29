@@ -308,6 +308,13 @@ CREATE TABLE "outcome" (
 	CONSTRAINT "outcome_denial_id_unique" UNIQUE("denial_id")
 );
 --> statement-breakpoint
+CREATE TABLE "rate_limit" (
+	"id" text PRIMARY KEY NOT NULL,
+	"key" text NOT NULL,
+	"count" integer DEFAULT 0 NOT NULL,
+	"last_request" bigint NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "review_action" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"appeal_draft_id" uuid NOT NULL,
@@ -478,6 +485,7 @@ CREATE UNIQUE INDEX "member_org_user_idx" ON "member" USING btree ("organization
 CREATE INDEX "member_user_idx" ON "member" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "organization_status_idx" ON "organization" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "outcome_denial_idx" ON "outcome" USING btree ("denial_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "rate_limit_key_idx" ON "rate_limit" USING btree ("key");--> statement-breakpoint
 CREATE INDEX "review_action_draft_idx" ON "review_action" USING btree ("appeal_draft_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "reviewer_assignment_idx" ON "reviewer_assignment" USING btree ("user_id","organization_id");--> statement-breakpoint
 CREATE INDEX "reviewer_assignment_org_idx" ON "reviewer_assignment" USING btree ("organization_id");--> statement-breakpoint
