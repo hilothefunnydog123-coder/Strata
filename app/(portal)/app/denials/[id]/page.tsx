@@ -15,6 +15,8 @@ import { daysUntil, STATUS_LABELS, type Status } from '@/lib/appeals/workflow';
 import { LetterView } from '@/components/appeal/letter-view';
 import { EmptyState, Money, PanelHeader, Tag } from '@/components/ui/primitives';
 import { GenerateButton } from './generate-button';
+import { OutcomeForm } from './outcome-form';
+import { SubmitForm } from './submit-form';
 import { ExportButtons } from './export-buttons';
 
 export const metadata: Metadata = { title: 'Denial' };
@@ -46,12 +48,21 @@ export default async function DenialDetailPage({
       ?.role ?? null;
   const mayGenerate = can(principal.platformRole, orgRole, 'draft:generate');
   const mayExport = can(principal.platformRole, orgRole, 'draft:export');
+  const mayRecordOutcome = can(principal.platformRole, orgRole, 'outcome:record');
 
   const status = detail.denial.status as Status;
   const days = daysUntil(detail.denial.appealDeadline);
   const approvals = detail.draft
     ? await hasBothApprovals(detail.draft.id)
     : { clinical: false, legal: false, both: false };
+
+  // The outcome form appears once the appeal has actually been filed, or once
+  // an outcome exists, so a specialist cannot record a result for something
+  // that never went out.
+  const canRecordOutcome =
+    mayRecordOutcome &&
+    (detail.outcome !== null ||
+      (['submitted', 'decided', 'invoiced'] as Status[]).includes(status));
 
   return (
     <div className="grid gap-px bg-rule xl:grid-cols-[280px_1fr]">
@@ -183,6 +194,26 @@ export default async function DenialDetailPage({
             ) : null}
           </div>
         </div>
+
+        {status === 'approved' && mayExport ? <SubmitForm denialId={id} /> : null}
+
+        {canRecordOutcome ? (
+          <div className="border-b border-rule p-4">
+            <OutcomeForm
+              denialId={id}
+              existing={
+                detail.outcome
+                  ? {
+                      result: detail.outcome.result,
+                      decidedAt: detail.outcome.decidedAt.toISOString().slice(0, 10),
+                      amountRecoveredCents: detail.outcome.amountRecoveredCents,
+                      invoiced: detail.outcome.invoiceId !== null,
+                    }
+                  : null
+              }
+            />
+          </div>
+        ) : null}
 
         {detail.draft && detail.assertions.length > 0 ? (
           <LetterView

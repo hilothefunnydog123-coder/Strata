@@ -114,3 +114,157 @@ for document surfaces. Public Sans is the typeface of the US Web Design System,
 which is what federal agencies publish in. For a product whose whole argument
 rests on federal coverage rules, borrowing the government's own typeface is a
 reasoned choice rather than a taste call. Full rationale in `DESIGN.md`.
+
+---
+
+## M2: authentication and authorisation
+
+### Rate limits were retuned, twice, because the defaults would lock out a hospital
+
+better-auth defaults to three sign-in attempts per ten seconds, keyed by client
+address. That is right for consumer software and wrong here: a denials
+department sits behind one NAT gateway, so the whole floor shares an address,
+and the fourth person to start their shift would be locked out by the first
+three. The same default applies to two-factor enrolment, which would stop the
+fourth person being onboarded in a batch.
+
+Both are now twenty and ten per minute respectively. That is still far below
+what credential stuffing needs to be worth doing, and the stronger protection is
+at the account level anyway: every role that can change a record must hold a
+second factor, and better-auth locks that factor after repeated wrong codes.
+
+Found by the test suite tripping the limit, which is a good argument for tests
+that use the product the way a busy office does.
+
+The interface fix mattered as much as the limit: a rate limited response was
+being reported as "that email and password do not match", which sends someone
+hunting for a typo that is not there. It now says what actually happened.
+
+### Every page guards itself, not just its layout
+
+Next renders a layout and the page beneath it in parallel. A layout calling
+`forbidden()` therefore does not stop the page from running and throwing first,
+and a raw `AuthorizationError` escaping a page becomes a 500. A user refused
+access was being told the application had broken.
+
+`assertCanOrForbid` and `assertPlatformOrForbid` in `lib/auth/guards.ts` are
+what pages call now. The layout guard stays, as the thing that catches a route
+nobody remembered to check.
+
+### The e2e authorisation test fetches from inside the browser session
+
+`context.request` in Playwright did not carry the session cookie in this setup,
+so every authorised request looked unauthenticated. Rather than work around it
+with an explicit cookie header, the test now issues the fetch from inside the
+signed-in page. That is closer to the thing being tested anyway: it is the
+browser's own credentials against a real route, and redirects are followed so
+the assertion can check both the status and the address it landed on.
+
+---
+
+## M4: the public site
+
+### The honeypot is not in the Zod schema
+
+It was, at first, as `z.string().max(0)`. That meant a filled honeypot came back
+as a validation error, which tells whoever wrote the bot exactly which field
+caught them, and it broke the "answer as though it worked" behaviour the
+honeypot depends on.
+
+It is now read separately, before any validation runs, and a filled honeypot
+gets the same success screen a person gets while nothing is stored.
+
+### The demo request is stored before the notification is sent
+
+So a mail provider outage costs a notification and never a lead. `notified_at`
+stays null when the send did not land, which is what the operator console
+filters on and what the recovery query in `lib/email/send.ts` documents.
+
+---
+
+## M5: the corpus
+
+### Retrieval does not hard filter on service type
+
+The strongest argument in this domain, that 42 CFR 422.101(b) forbids a Medicare
+Advantage plan from applying criteria more restrictive than Traditional
+Medicare, does not depend on the prior decision having involved skilled nursing.
+A decision holding that a plan may not substitute proprietary criteria is
+authority for that proposition whatever service it arose from.
+
+So service type is one scored signal among several rather than a filter, and
+every proprietary criteria holding stays in the candidate set regardless of
+facet. The interface labels why each result was retrieved, so a specialist
+seeing a decision about a different service knows it is deliberate.
+
+This is also my answer to question 3 of section 19, and it is the reason the
+answer is "keep the initial focus". Full reasoning in `CORPUS.md` section 1.
+
+### The Medicare Coverage Database was deliberately not built
+
+LCD data sits behind a click-through AMA licence, because the local coverage
+data sets contain CPT and HCPCS coding information copyrighted by the American
+Medical Association. Accepting that licence programmatically would be a build
+script agreeing to AMA terms on the company's behalf, which is not a decision a
+build script gets to make. Section 18 of the specification says not to build
+around a legally restricted source, so there is no MCD fetcher.
+
+The `lcd` and `ncd` values stay in the `source_type` enum so the schema does not
+have to change on the day someone with authority reads that licence and signs it.
+
+---
+
+## M6 to M11: the application
+
+### Analytics and operations are different questions, and only one may touch PHI
+
+"Show me my organisation's appeals" and "how are all our customers doing" look
+similar and are not. The first is scoped to one organisation, answered for
+people already entitled to read those records, and audited. The second crosses
+organisations and has no business touching a clinical column.
+
+`lib/analytics/guard.ts` makes the second kind declare the tables it reads and
+throws if any is classified PHI. `invoice` is on the allowlist because it holds
+money and an organisation id and nothing about a patient. `outcome` is not, even
+though it also holds money, because it hangs off a denial. Cross-organisation
+revenue reporting therefore reads invoices, which is the right source anyway.
+
+### The gap check is deliberately mechanical
+
+A criterion is unsupported when no extracted fact claims to support it. That is
+a set difference, not a judgment, so it is computed in code rather than asked of
+a model. Asking a model whether a record "adequately" supports a criterion
+invites exactly the softening the whole feature exists to prevent.
+
+### The drafting prompt asks for assertions, not a letter
+
+A model asked to write a persuasive letter and cite its sources writes the
+letter first and attaches citations to it. A model asked to produce assertions,
+each with the identifier of its source and the exact words it relies on, cannot
+write a sentence that has no source, because the sentence and its source are the
+same object. The letter is rendered from those rows afterwards.
+
+### Money is integer cents from the form field to the invoice
+
+The intake form takes typed dollars and converts to integer cents inside the Zod
+transform, so no float ever exists. Contingency rates are basis points for the
+same reason. Rounding is toward the customer: `feeForRecovery` floors, so a half
+cent goes to them. The invoice total is the sum of the line fees rather than the
+rate applied to the summed total, because those differ by a cent or two and an
+invoice whose total does not equal the sum of its lines generates a phone call.
+
+### Pure text helpers live apart from database access
+
+`lib/email/substitute.ts` exists because the campaign composer needs a live
+preview in the browser, and importing `substitute` from the module that also
+opens a database connection dragged the Postgres driver into the client bundle.
+That was caught as a build failure, which is the right place to catch it, but
+the underlying point stands on its own: text functions should not sit next to
+database access.
+
+### Playwright never reuses a running server
+
+A server left over from an earlier run serves the previous build, so a fix
+appears not to work and the wrong thing gets debugged. That happened once and
+cost real time. `reuseExistingServer` is false, and the extra minute per run is
+worth not chasing that ghost again.

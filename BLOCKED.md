@@ -95,3 +95,64 @@ is a convenience label.
 
 **To unblock:** push the tag from a machine with unrestricted access, or accept
 the branch as the archive marker.
+
+---
+
+## 4. The end to end chain past drafting has never run
+
+**What is missing:** an `ANTHROPIC_API_KEY`, which is entry 1.
+
+**What this costs:** generation, and therefore everything downstream of it, has
+not been exercised against a live model. Classification, clinical fact
+extraction, retrieval, the gap check, and drafting are all written and
+typechecked; the verification they feed is heavily tested in isolation
+(24 tests, mostly rejections). What has not happened is the whole chain running
+once: upload, generate, review, approve, export, record an outcome, produce an
+invoice.
+
+**What I did instead of pretending:** the parts that can be verified without a
+model are verified.
+
+- `tests/verify.test.ts` proves the verifier rejects every category of bad
+  quote: a changed word, a dropped negation, a silently elided qualifying
+  clause, reordered words, and a punctuation change that flips the meaning. That
+  is the half of the invariant that protects the customer.
+- `tests/invoice.test.ts` proves the fee arithmetic, including the rounding
+  direction and that an outcome cannot be billed twice.
+- The e2e suite covers authentication, the full authorisation matrix by request,
+  and the demo request end to end against a real build and database.
+
+**To unblock:** set `ANTHROPIC_API_KEY`, populate the corpus (entry 2), then run
+the chain. No code change is required.
+
+---
+
+## 5. Not deployed
+
+**What is missing:** Vercel and Neon credentials.
+
+`README.md` has the deploy steps. `lib/db/index.ts` already selects the Neon
+serverless driver from the connection string, so moving to Neon is a change to
+`DATABASE_URL` and nothing else. None of the deploy steps requires a code change.
+
+M12's acceptance criterion, "the entire flow works on the deployed URL in
+synthetic mode", is therefore not met. What is met is that the entire flow works
+on a real production build, served by `next start`, against a real PostgreSQL
+database, which is what the e2e suite runs against on every invocation.
+
+---
+
+## Summary
+
+| Blocked | Why | Needs |
+| --- | --- | --- |
+| Corpus ingestion | Government hosts blocked at the egress proxy | Egress for `hhs.gov`, `ecfr.gov`, `cms.gov` |
+| Live generation | No Anthropic key | `ANTHROPIC_API_KEY` |
+| Delivered email | No Resend key, and `api.resend.com` blocked | `RESEND_API_KEY`, `EMAIL_FROM`, egress |
+| Object storage | No R2 credentials | The four `R2_*` variables |
+| Deployment | No Vercel or Neon credentials | Both |
+| LCD and NCD data | AMA click-through licence | A human decision, not an engineering one |
+| Git tag push | Proxy answers 403 to tag pushes | Nothing: the archive branch carries the commit |
+
+Nothing on this list is a code problem, and nothing on it required a workaround
+that would have to be undone later.

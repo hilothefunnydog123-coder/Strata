@@ -232,3 +232,42 @@ Every item in the brief's section 14, and where it stands:
 | Inter 400 as the whole type system | Three families, four weights, three distinct roles. |
 | Testimonial cards with circular avatars | None. There are no testimonials. |
 | Cream plus high-contrast serif plus terracotta | Cooled paper, serif confined to documents, cold blue accent. |
+
+---
+
+## 9. What got built, against the plan
+
+Written after the fact, because a design document that never records what
+actually happened is a wish list.
+
+**Held.** The three pane detail view is the shape described in section 4, and
+the assertion-to-source link works as specified: click a sentence, the source
+panel opens at the exact quoted characters with a wash behind them and the rest
+of the passage around it for context. The offsets are recomputed from the same
+comparison the citation invariant rests on, so a passage that somehow no longer
+contains its quote shows no highlight and says so, rather than highlighting the
+wrong thing.
+
+**Held.** The dashboard leads with one number. Total recovered is set at
+`text-7xl` and alone; everything else is a fifth of that size in a row of tiles
+underneath.
+
+**Held.** Colour never appears without meaning. The check in
+`scripts/check-forbidden.ts` catches gradients, blur, and purple mechanically;
+the discipline about not using the action colour decoratively is held by review
+rather than by a script, and section 6 records where it slipped in the first
+draft.
+
+**Changed.** The review checklist originally used a check mark character.
+Correct typographically, but the forbidden-pattern check flagged it inside the
+emoji range, and rather than widen the exemption I drew the tick as an SVG. It
+is a better control anyway: it takes `currentColor`, so it inverts correctly on
+the filled state without a second rule.
+
+**Changed.** The required-field asterisk moved outside the `<label>` element.
+Text inside a label becomes the control's label text, so the asterisk was making
+the field's accessible name "New password*". That broke every lookup by label,
+for a screen reader user and for the test suite alike. The required state is
+carried by the `required` attribute on the control, which is what assistive
+technology announces anyway. Caught by a test failing, which is the cheapest
+place to catch an accessibility bug.
