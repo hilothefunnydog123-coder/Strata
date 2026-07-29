@@ -408,3 +408,25 @@ believed.
 
 It now decodes to bytes, flips a bit, and re-encodes, and there is a matching
 test for a tampered authentication tag. Deterministic in both directions.
+
+### Deploys are opt-in, because build minutes are metered
+
+A repository under active development pushes far more often than it needs
+deploying, and on Netlify every push to the production branch spends build
+minutes whether or not anything user-visible changed.
+
+Three things now stand between a push and a bill. Branch deploys and deploy
+previews are cancelled by context in `netlify.toml`, so work in progress costs
+nothing. Production builds run `scripts/netlify-should-build.sh`, which skips
+the build when a push touched only documentation, since the artifact would be
+identical. And the working rule is that `main` moves when a deploy is wanted
+rather than whenever a commit exists.
+
+The script inverts the way you would expect an exit code to read: Netlify treats
+exit 0 as cancel and non-zero as proceed. It fails toward building. No cached
+commit to compare against, or a git command that errors, both proceed, because a
+cost control that silently stops deploys costs more than it saves.
+
+Worth being precise about the limit: Netlify still starts a runner to evaluate
+`ignore`, so a cancelled build is cheap rather than free. Turning the contexts
+off in the dashboard stops it earlier.

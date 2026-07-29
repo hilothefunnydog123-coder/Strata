@@ -36,6 +36,10 @@
 [build]
   command = "pnpm deploy:prepare && pnpm build"
   publish = ".next"
+  # Skips the build when a push changed nothing but documentation, because the
+  # deployed artifact would be identical. Exit 0 cancels, non-zero proceeds,
+  # which is the opposite of the intuitive reading. See the script.
+  ignore = "sh ./scripts/netlify-should-build.sh"
 
 [build.environment]
   NODE_VERSION = "22"
@@ -46,3 +50,18 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Build minutes are metered, and a repository under active development pushes
+# far more often than it needs deploying. These two contexts are off by default:
+# a branch push and a pull request each cost nothing until someone asks for a
+# deploy. Delete a block to turn that context back on.
+#
+# Netlify still starts a runner to evaluate `ignore`, so this is close to free
+# rather than exactly free. The dashboard settings under Build and deploy,
+# Branches and deploy contexts, stop it earlier if that matters.
+
+[context.branch-deploy]
+  ignore = "exit 0"
+
+[context.deploy-preview]
+  ignore = "exit 0"

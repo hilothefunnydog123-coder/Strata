@@ -251,6 +251,13 @@ an uploaded document would be unreadable by the next request. Set the four
 `R2_*` variables before uploading anything you expect to read back. Every other
 surface works without them.
 
+**Build minutes.** `netlify.toml` turns off branch deploys and deploy previews,
+and skips production builds whose push changed nothing but documentation. Day to
+day work should land on a branch, and `main` should move only when a deploy is
+wanted, because a push to `main` is what costs a build. The dashboard settings
+under Build and deploy, Branches and deploy contexts, stop a build earlier than
+`ignore` does if that matters.
+
 `APP_URL` and `BETTER_AUTH_URL` need no setting: `lib/env.ts` falls back to
 `DEPLOY_PRIME_URL` and then `URL`, preferring the per-deploy address so preview
 deploys issue cookies against the origin in the address bar rather than the
