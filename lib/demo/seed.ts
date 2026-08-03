@@ -45,6 +45,7 @@ import {
 } from '@/lib/db/schema';
 import { provisionUser } from '@/lib/auth/provision';
 import { verifyQuote } from '@/lib/appeals/verify';
+import type { Section } from '@/lib/appeals/assertion';
 import { calculateInvoice, invoiceNumber } from '@/lib/billing/invoice';
 import { storage, sha256 } from '@/lib/storage';
 
@@ -532,7 +533,7 @@ export async function seedDemo(options: { reset?: boolean } = {}): Promise<SeedR
 
   const assertionSpecs = [
     {
-      section: 'The standard applied is not the Medicare standard',
+      section: 'standard' as Section,
       kind: 'legal' as const,
       text: 'A Medicare Advantage plan may not apply coverage criteria more restrictive than those used in Traditional Medicare, nor deny a service on the basis of internal or proprietary clinical criteria.',
       sourceKind: 'source_span' as const,
@@ -542,7 +543,7 @@ export async function seedDemo(options: { reset?: boolean } = {}): Promise<SeedR
       to: 'Traditional Medicare coverage\npolicies.'.replace('\n', ' '),
     },
     {
-      section: 'The standard applied is not the Medicare standard',
+      section: 'standard' as Section,
       kind: 'legal' as const,
       text: 'Coverage of skilled nursing facility care turns on whether skilled care is needed, not on whether the beneficiary demonstrates measurable improvement.',
       sourceKind: 'holding' as const,
@@ -552,7 +553,7 @@ export async function seedDemo(options: { reset?: boolean } = {}): Promise<SeedR
       to: 'Traditional Medicare applies.',
     },
     {
-      section: 'The record documents a daily skilled need',
+      section: 'application' as Section,
       kind: 'clinical' as const,
       text: 'The beneficiary required daily skilled nursing services throughout the denied period.',
       sourceKind: 'clinical_fact' as const,
@@ -562,7 +563,7 @@ export async function seedDemo(options: { reset?: boolean } = {}): Promise<SeedR
       to: 'administration daily',
     },
     {
-      section: 'The record documents a daily skilled need',
+      section: 'application' as Section,
       kind: 'clinical' as const,
       text: 'The attending physician certified a continuing daily skilled need that could only be met on an inpatient basis.',
       sourceKind: 'clinical_fact' as const,
@@ -572,7 +573,7 @@ export async function seedDemo(options: { reset?: boolean } = {}): Promise<SeedR
       to: 'on an inpatient basis.',
     },
     {
-      section: 'The practical matter requirement is satisfied',
+      section: 'argument' as Section,
       kind: 'legal' as const,
       text: 'Where the record establishes a daily need for services that can practically be furnished only in an inpatient setting, the practical matter requirement is met.',
       sourceKind: 'holding' as const,
@@ -582,7 +583,7 @@ export async function seedDemo(options: { reset?: boolean } = {}): Promise<SeedR
       to: 'requirement is satisfied.',
     },
     {
-      section: 'The plateau finding does not survive the record',
+      section: 'argument' as Section,
       kind: 'clinical' as const,
       text: 'Limited therapy progress in the denied period is documented as a consequence of active infection, not of exhausted rehabilitation potential.',
       sourceKind: 'clinical_fact' as const,

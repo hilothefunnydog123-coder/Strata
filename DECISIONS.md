@@ -631,3 +631,23 @@ the transition, so the result had genuinely not rendered yet. Waiting for the
 rendered notice rather than the network showed the password every time. Both
 speculative changes were reverted rather than left in as harmless, because a
 change with a wrong reason attached is worse than no change.
+
+### The seeded letter rendered empty, and the type system should have said so
+
+The demonstration wrote its own section names, sentences like "The record
+documents a daily skilled need". The letter view groups by a fixed vocabulary,
+`identification`, `standard`, `application`, `argument`, `relief`, and filters
+assertions whose section is not one of them. Every seeded assertion was
+therefore filtered out: the header counted six assertions and the letter below
+it was blank.
+
+The seed is at fault, not the view. What made it possible is that
+`assertion.section` is a text column, so nothing rejected an unknown value at
+any layer. Real drafts are safe because `lib/appeals/generate.ts` builds them
+through the `Section` type, and the seed had simply bypassed that by writing raw
+strings.
+
+The seed's sections are now typed as `Section`, which makes the same mistake a
+compile error rather than a blank page. Worth noting the shape of this one: a
+count that says six and a list that shows none is the same silent-wrong class as
+the subquery bugs, and it took a screenshot to notice.
