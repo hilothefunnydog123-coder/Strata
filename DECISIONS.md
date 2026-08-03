@@ -529,3 +529,26 @@ warning across them told a visitor something true and useless about a page that
 was working perfectly, and told anyone being shown the product that it was
 broken. The explanation now lives only where it is load bearing: on sign in,
 where the alternative is a form that takes a password and fails.
+
+### The demonstration seeds real verification over synthetic content
+
+`scripts/seed-demo.ts` exists because a deployment with an empty corpus and no
+model key is impossible to evaluate, and the gap between "the product is built"
+and "here, look at it" was doing real damage in conversations.
+
+The design rule is the one that matters: the content is invented, the checking
+is not. Every quote the script writes is produced by slicing it out of the
+passage it cites, so it cannot drift through a typo, and is then put through the
+production `verifyQuote` against the real source text. If any quote fails, the
+script refuses to write anything. The letter view's click-to-source, the
+highlight offsets and the reviewer checklist are therefore exercising the same
+code paths on this data that they would on a real case.
+
+A demonstration that stubbed the verification would be demonstrating the one
+thing this product cannot afford to fake.
+
+Two honesty markers are built in. The regulation passages are genuine federal
+text and cited as such; the two appeal decisions are written for the
+demonstration and cited as DEMO-DAB-0001 and DEMO-DAB-0002 so they cannot be
+mistaken for precedent. Every denial is tagged synthetic, so the same upload
+rule that protects real records applies to the demonstration too.

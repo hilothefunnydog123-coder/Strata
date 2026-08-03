@@ -70,6 +70,28 @@ application will make you change it and enrol two-factor before it lets you do
 anything else. That is not a first-run inconvenience; it is compliance
 requirement 7, and it applies to every role that can change a record.
 
+### A working demonstration
+
+```bash
+pnpm seed:demo            # a hospital, four denials, a verified draft, an invoice
+pnpm seed:demo --reset    # delete it and make it again
+```
+
+Creates Northgate Regional Medical Center with four denials at different stages,
+one of them carrying a six assertion draft part way through clinical review, plus
+a decided case with its outcome and the invoice computed from it. Four accounts
+are provisioned and their one time passwords printed: hospital admin, appeal
+specialist, clinical reviewer, legal reviewer.
+
+Everything it writes is synthetic and tagged as such. The verification is not:
+every quote is checked with the same `verifyQuote` that runs in production,
+against the real source text, and the script refuses to write anything that
+fails. A demonstration that faked that check would be demonstrating nothing.
+
+The two regulation passages are genuine federal text. The two appeal decisions
+are written for the demonstration and cited as `DEMO-DAB-0001` and
+`DEMO-DAB-0002` so nobody mistakes them for real precedent.
+
 ### Checks
 
 ```bash

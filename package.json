@@ -27,7 +27,8 @@
     "check:forbidden": "tsx scripts/check-forbidden.ts",
     "db:bootstrap": "tsx scripts/bootstrap.ts",
     "deploy:prepare": "pnpm check:env && (pnpm db:migrate && pnpm db:bootstrap || echo \"Skipping migrations: not configured.\")",
-    "check:env": "tsx scripts/check-env.ts"
+    "check:env": "tsx scripts/check-env.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",
