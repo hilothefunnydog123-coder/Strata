@@ -37,12 +37,12 @@ export default async function UsersPage() {
             memberships: sql<string>`coalesce((
               select string_agg(o.name || ' (' || m.role || ')', ', ')
               from member m join organization o on o.id = m.organization_id
-              where m.user_id = ${user.id}
+              where m.user_id = "user"."id"
             ), '')`,
             reviewerOrgs: sql<string>`coalesce((
               select string_agg(o.name, ', ')
               from reviewer_assignment ra join organization o on o.id = ra.organization_id
-              where ra.user_id = ${user.id}
+              where ra.user_id = "user"."id"
             ), '')`,
           })
           .from(user)

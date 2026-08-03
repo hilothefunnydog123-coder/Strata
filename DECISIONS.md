@@ -599,3 +599,35 @@ There is now a module level cache consulted first, with the global kept only for
 the hot reload case it was written for. The same measurement afterwards peaks at
 sixteen. On a hosted database with a connection ceiling this would have looked
 like the database falling over under trivial load.
+
+### Walking the onboarding, and one more ambiguous column
+
+The demonstration seed answers "can I see it working". It does not answer "what
+is it like to set a customer up", so the operator path was walked end to end in
+a browser with nothing pre-seeded: provision the operator, create the hospital,
+create its first user, hand over the password, sign in as that user, file a
+denial.
+
+It works, and it is quick. Roughly eight and a half seconds of machine time
+across the whole sequence, the slowest single step being the denial intake at
+2.2 seconds including two file uploads.
+
+One fault was found and fixed. `/admin/users` returned 500 with `column
+reference "id" is ambiguous`, the same drizzle interpolation problem as the
+others: `${user.id}` renders as a bare `"id"` and the subquery joins `member`
+to `organization`, both of which have one. Qualified now.
+
+One piece of friction is real and left as is for the moment: creating an
+organisation does not derive the slug from the name, so an operator types it
+twice in different shapes. Worth fixing when the console next gets attention;
+not worth a schema change today.
+
+Two hypotheses were pursued and both were wrong, which is worth recording
+because the changes looked plausible. The provisioning form appeared not to
+render the one time password, and `router.refresh()` and then `revalidatePath`
+were each blamed and each removed. Neither was the cause. The test harness was
+reading the DOM after the network went idle, which happens before React commits
+the transition, so the result had genuinely not rendered yet. Waiting for the
+rendered notice rather than the network showed the password every time. Both
+speculative changes were reverted rather than left in as harmless, because a
+change with a wrong reason attached is worse than no change.
