@@ -280,10 +280,18 @@ wanted, because a push to `main` is what costs a build. The dashboard settings
 under Build and deploy, Branches and deploy contexts, stop a build earlier than
 `ignore` does if that matters.
 
-`APP_URL` and `BETTER_AUTH_URL` need no setting: `lib/env.ts` falls back to
-`DEPLOY_PRIME_URL` and then `URL`, preferring the per-deploy address so preview
-deploys issue cookies against the origin in the address bar rather than the
-production one.
+**`APP_URL` and `BETTER_AUTH_URL` must both be set**, to the site's own address.
+Netlify's `URL` and `DEPLOY_PRIME_URL` are build variables: present while the
+site compiles, absent in the deployed function, which is where the app reads
+them. Without them the deploy starts and then fails with `APP_URL is not set and
+no platform URL was found`.
+
+`BETTER_AUTH_URL` has to match the origin in the address bar. A mismatch does
+not error; it issues cookies the browser will not send back, so sign in accepts
+a password and silently does nothing.
+
+On Render neither needs setting, because `RENDER_EXTERNAL_URL` is present in the
+running service rather than only during the build.
 
 ### Vercel
 

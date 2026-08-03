@@ -72,15 +72,22 @@ const schema = z.object({
   /**
    * Platform supplied origins, read only as a fallback for APP_URL and
    * BETTER_AUTH_URL, which are otherwise impossible to know before a first
-   * deploy assigns a hostname. These are the variables here the operator does
-   * not set: Render provides the first, Netlify the second and third.
+   * deploy assigns a hostname.
    *
-   * URL is Netlify's canonical site address. DEPLOY_PRIME_URL is the address of
-   * this particular deploy, which on a branch or preview deploy differs from
-   * URL, and is what a browser will actually be talking to. Preferring it means
-   * cookies are issued against the origin in the address bar rather than the
-   * production one, which is the difference between a preview deploy you can
-   * sign in to and one you cannot.
+   * RENDER_EXTERNAL_URL is present in the running service, so the fallback
+   * genuinely works there and neither variable needs setting.
+   *
+   * Netlify's URL and DEPLOY_PRIME_URL are build variables. They are set while
+   * the site compiles and are **not** present in the deployed function, which
+   * is where this code runs, so on Netlify both APP_URL and BETTER_AUTH_URL
+   * must be set explicitly. They are read here anyway because a build time
+   * caller such as scripts/check-env.ts does see them, and because a platform
+   * that does expose them at runtime costs nothing to support.
+   *
+   * DEPLOY_PRIME_URL is preferred over URL where both exist: on a preview
+   * deploy they differ, and the browser is talking to the first. Issuing
+   * cookies against the production origin instead gives a preview that accepts
+   * a password and then does nothing.
    */
   RENDER_EXTERNAL_URL: optionalString,
   DEPLOY_PRIME_URL: optionalString,

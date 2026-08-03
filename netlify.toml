@@ -28,10 +28,13 @@
 # function that may be frozen between invocations is how serverless deployments
 # exhaust a database's connection limit.
 #
-# APP_URL and BETTER_AUTH_URL do not need setting. lib/env.ts falls back to
-# DEPLOY_PRIME_URL and then URL, both of which Netlify provides, preferring the
-# per-deploy address so that preview deploys issue cookies against the origin in
-# the address bar rather than the production one.
+# APP_URL and BETTER_AUTH_URL must both be set here, to the site's own address.
+# Netlify's URL and DEPLOY_PRIME_URL are build variables: present while the site
+# compiles, absent in the deployed function, which is where the app reads them.
+# Without them the instrumentation hook refuses to start with "APP_URL is not
+# set and no platform URL was found". BETTER_AUTH_URL in particular has to match
+# the origin in the address bar, because a mismatch does not error, it issues
+# cookies the browser will not send back and sign in silently does nothing.
 
 [build]
   command = "pnpm deploy:prepare && pnpm build"

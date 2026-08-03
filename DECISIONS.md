@@ -651,3 +651,25 @@ The seed's sections are now typed as `Section`, which makes the same mistake a
 compile error rather than a blank page. Worth noting the shape of this one: a
 count that says six and a list that shows none is the same silent-wrong class as
 the subquery bugs, and it took a screenshot to notice.
+
+### Netlify's URL variables are build time only
+
+`APP_URL` and `BETTER_AUTH_URL` were documented as optional on Netlify, on the
+strength of a fallback to `DEPLOY_PRIME_URL` and then `URL`. The first real
+deploy with a valid environment failed on exactly that: `APP_URL is not set and
+no platform URL was found`.
+
+Those two are Netlify **build** variables. They are present while the site
+compiles and absent in the deployed function, which is where `instrumentation.ts`
+reads them. The fallback was never going to fire at runtime there.
+
+It does fire on Render, where `RENDER_EXTERNAL_URL` is present in the running
+service, so the mechanism is kept and the claim narrowed: optional on Render,
+required on Netlify. The values are still read from the build environment
+because a build time caller such as `scripts/check-env.ts` genuinely sees them.
+
+The instructive part is that this failed loudly, which is the good case. The
+adjacent failure would have been silent: a `BETTER_AUTH_URL` that is set but
+wrong does not throw, it issues cookies against an origin the browser will not
+send back, and sign in accepts a password and does nothing at all. That is why
+`resolveOrigin` refuses rather than guessing when it has nothing.
