@@ -30,7 +30,8 @@ analytics queries.**
 | `lib/db/schema.ts` → `PHI_TABLES`, `isPhiTable()` | The classification itself. Ten tables are listed: `denial`, `denial_document`, `denial_span`, `clinical_fact`, `appeal_draft`, `assertion`, `assertion_review`, `review_action`, `submission`, `outcome`. |
 | `lib/db/crypto.ts` → `encryptedText` | A Drizzle custom column type. AES-256-GCM on the way in, decrypt on the way out. Encryption is a property of the column definition, so no query has to remember it. |
 | `lib/db/crypto.ts` → `encryptField()`, `decryptField()` | The cipher. Stored form is `v1.<iv>.<tag>.<ciphertext>`, all base64url. The version prefix exists so a future key rotation can read old rows while writing new ones. |
-| `lib/env.ts` → `parse()` | Requires `PHI_ENCRYPTION_KEY`, requires it to decode to exactly 32 bytes, and **rejects the configuration if it equals `BETTER_AUTH_SECRET`**. PHI gets its own key so rotating or leaking a session secret does not expose clinical records. |
+| `lib/env.ts` → `parse()` | Requires `PHI_ENCRYPTION_KEY`, requires at least 32 characters, and **rejects the configuration if it equals `BETTER_AUTH_SECRET`**. PHI gets its own key so rotating or leaking a session secret does not expose clinical records. |
+| `lib/db/crypto.ts` → `derivePhiKey()` | Turns that value into the 32 bytes AES-256-GCM needs. A value that base64 decodes to exactly 32 bytes is used verbatim, so keys generated the documented way keep decrypting rows written under them. Anything else is run through HKDF-SHA256 with a salt and info string bound to this purpose, which lets a hosting platform's generated secret serve as key material. |
 | `lib/analytics/guard.ts` → `assertAnalyticsSafe()`, `analyticsQuery()` | Cross-organisation metrics declare the tables they read. Naming a PHI table throws `PhiInAnalyticsError` at call time. |
 
 Which columns are encrypted: `denial.denial_basis_text`, `denial_span.text`,
