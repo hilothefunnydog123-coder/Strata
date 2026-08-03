@@ -36,11 +36,11 @@ export default async function OrganizationsPage() {
         contingencyRateBps: organization.contingencyRateBps,
         createdAt: organization.createdAt,
         members: sql<number>`(
-          select count(*)::int from member m where m.organization_id = ${organization.id}
+          select count(*)::int from member m where m.organization_id = "organization"."id"
         )`,
         feesCents: sql<number>`(
           select coalesce(sum(i.fee_cents), 0)::int from invoice i
-          where i.organization_id = ${organization.id}
+          where i.organization_id = "organization"."id"
         )`,
       })
       .from(organization)

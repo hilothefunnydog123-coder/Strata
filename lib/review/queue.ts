@@ -76,16 +76,16 @@ export async function reviewQueue(
       version: appealDraft.version,
       gaps: appealDraft.documentationGaps,
       assertionCount: sql<number>`(
-        select count(*)::int from assertion a where a.appeal_draft_id = ${appealDraft.id}
+        select count(*)::int from assertion a where a.appeal_draft_id = "appeal_draft"."id"
       )`,
       clinicalApproved: sql<boolean>`exists (
         select 1 from review_action ra
-        where ra.appeal_draft_id = ${appealDraft.id}
+        where ra.appeal_draft_id = "appeal_draft"."id"
           and ra.review_type = 'clinical' and ra.action = 'approved'
       )`,
       legalApproved: sql<boolean>`exists (
         select 1 from review_action ra
-        where ra.appeal_draft_id = ${appealDraft.id}
+        where ra.appeal_draft_id = "appeal_draft"."id"
           and ra.review_type = 'legal' and ra.action = 'approved'
       )`,
     })

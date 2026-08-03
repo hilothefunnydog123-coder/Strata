@@ -552,3 +552,50 @@ text and cited as such; the two appeal decisions are written for the
 demonstration and cited as DEMO-DAB-0001 and DEMO-DAB-0002 so they cannot be
 mistaken for precedent. Every denial is tagged synthetic, so the same upload
 rule that protects real records applies to the demonstration too.
+
+### A correlated subquery bound to the wrong table
+
+Seeding the demonstration surfaced four bugs that an empty database had been
+hiding, all from one root cause, and one of them was silent.
+
+Drizzle renders an interpolated column inside a `sql` template as a bare
+identifier: `${organization.id}` becomes `"id"`, not `"organization"."id"`. At
+the top level of a query that is unambiguous. Inside a correlated subquery it is
+not. `select count(*) from member m where m.organization_id = "id"` resolves
+`"id"` against `member`, so the condition compares a row to itself and matches
+nothing.
+
+Where the two columns had different types the database refused outright: the
+organisations console page returned 500 with `operator does not exist: text =
+uuid`, because `"id"` had bound to `invoice.id`. Where the types happened to
+agree there was no error at all, just wrong numbers. The review queue reported
+zero assertions on a draft holding six, and the campaign counters reported zero
+sent, zero queued, zero skipped, forever.
+
+The silent case is the one worth remembering. A reviewer opening a draft that
+says "0 assertions" concludes the drafting failed, when in fact the letter is
+there and the count is lying.
+
+Every instance now writes the qualified identifier literally. Fixed in the
+organisations page, the email console's campaign and contact counters, and the
+review queue's assertion count and approval flags.
+
+None of this was reachable with an empty database, which is exactly why the
+demonstration seed earned its place: the first data in the system found four
+faults in an hour.
+
+### The database pool was rebuilt on every query
+
+Found while measuring why a page failed under the demonstration: connections
+peaked at ninety six from a handful of page views, then Postgres refused.
+
+Making the client lazy, to keep secrets out of the build, left the cache behind.
+`client()` consulted `globalThis.__medealDb`, which is only ever populated
+outside production, so in production nothing was cached and every property
+access through the proxy built a fresh pool of ten. The development path worked
+precisely because it had a cache, and the production path silently had none.
+
+There is now a module level cache consulted first, with the global kept only for
+the hot reload case it was written for. The same measurement afterwards peaks at
+sixteen. On a hosted database with a connection ceiling this would have looked
+like the database falling over under trivial load.

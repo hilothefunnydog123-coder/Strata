@@ -37,15 +37,15 @@ export default async function EmailPage() {
             startedAt: campaign.startedAt,
             sent: sql<number>`(
               select count(*)::int from email_send es
-              where es.campaign_id = ${campaign.id} and es.status = 'sent'
+              where es.campaign_id = "campaign"."id" and es.status = 'sent'
             )`,
             queued: sql<number>`(
               select count(*)::int from email_send es
-              where es.campaign_id = ${campaign.id} and es.status = 'queued'
+              where es.campaign_id = "campaign"."id" and es.status = 'queued'
             )`,
             skipped: sql<number>`(
               select count(*)::int from email_send es
-              where es.campaign_id = ${campaign.id} and es.status = 'skipped_unsubscribed'
+              where es.campaign_id = "campaign"."id" and es.status = 'skipped_unsubscribed'
             )`,
           })
           .from(campaign)
@@ -59,7 +59,7 @@ export default async function EmailPage() {
             title: contact.title,
             unsubscribedAt: contact.unsubscribedAt,
             sends: sql<number>`(
-              select count(*)::int from email_send es where es.contact_id = ${contact.id}
+              select count(*)::int from email_send es where es.contact_id = "contact"."id"
             )`,
           })
           .from(contact)

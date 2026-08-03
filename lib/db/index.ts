@@ -41,20 +41,40 @@ declare global {
   var __medealDb: Client | undefined;
 }
 
+/**
+ * The pool, opened once.
+ *
+ * This module level cache is not an optimisation, it is the thing that stops
+ * the process opening a connection pool per query. `client()` runs on every
+ * property access through the proxy below, so without somewhere to keep the
+ * result, a single request builds several pools of ten connections each and a
+ * few page loads exhaust the database. An earlier version cached only in
+ * development, on the theory that the development cache existed for hot reload,
+ * and production quietly had no cache at all. Measured: ninety six connections
+ * from a handful of page views, then refusals.
+ */
+let cached: Client | undefined;
+
 function client(): Client {
+  if (cached) return cached;
+
   const status = envStatus();
   if (!status.configured) {
     throw new NotConfiguredError('The database', status.missing);
   }
 
   // Next.js reloads modules on every edit in development, which would otherwise
-  // open a new pool each time until Postgres refuses connections.
+  // open a new pool each time until Postgres refuses connections. The global
+  // survives a reload; the module level cache above does not.
   const existing = globalThis.__medealDb;
-  if (existing) return existing;
+  if (existing) {
+    cached = existing;
+    return cached;
+  }
 
-  const created = createClient();
-  if (env.NODE_ENV !== 'production') globalThis.__medealDb = created;
-  return created;
+  cached = createClient();
+  if (env.NODE_ENV !== 'production') globalThis.__medealDb = cached;
+  return cached;
 }
 
 /**
