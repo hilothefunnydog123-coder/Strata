@@ -15,6 +15,13 @@
       "when": 1785858545410,
       "tag": "0001_document_text_source",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785870024117,
+      "tag": "0002_span_extraction_checkpoint",
+      "breakpoints": true
     }
   ]
 }

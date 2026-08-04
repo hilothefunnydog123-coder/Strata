@@ -455,6 +455,21 @@ export const sourceSpan = pgTable(
     text: text('text').notNull(),
     /** Section trail, for example ["Analysis", "Skilled care requirement"]. */
     headingPath: jsonb('heading_path').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    /**
+     * Set when this span has been through the extractor, in the same
+     * transaction that writes whatever holdings came out of it.
+     *
+     * The checkpoint is per span rather than per document because a document is
+     * too coarse a unit to resume from. A CMS manual chapter is hundreds of
+     * spans and dozens of model calls, and a free tier's per minute allowance
+     * runs out partway through every time. Checkpointing per document meant the
+     * run that ran out at minute four started again from nothing on the next
+     * attempt, and would keep doing that forever: the work between two rate
+     * limits was always smaller than the whole chapter. With this, each attempt
+     * keeps what it managed, and the chapter finishes across however many runs
+     * it takes.
+     */
+    extractedAt: timestamp('extracted_at', { withTimezone: true }),
     createdAt: now(),
   },
   (t) => [

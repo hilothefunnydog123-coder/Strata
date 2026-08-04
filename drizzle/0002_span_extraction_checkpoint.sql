@@ -1,0 +1,1 @@
+ALTER TABLE "source_span" ADD COLUMN "extracted_at" timestamp with time zone;

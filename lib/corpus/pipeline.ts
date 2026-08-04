@@ -10,7 +10,7 @@
  * Idempotence comes from the content hash. A document whose bytes have not
  * changed is skipped, which is what makes re-running the whole pipeline safe.
  */
-import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { holding, sourceDocument, sourceSpan } from '@/lib/db/schema';
 import { log } from '@/lib/log';
@@ -137,9 +137,13 @@ export async function parseStage(): Promise<StageResult> {
         })),
       );
 
+      // Re-parsing replaced every span, so whatever was extracted from the old
+      // ones is gone with them and the document has to go through the extractor
+      // again. Without clearing this, a document re-parsed after a parser fix
+      // would keep its completed flag and never be looked at again.
       await db
         .update(sourceDocument)
-        .set({ parsedAt: new Date() })
+        .set({ parsedAt: new Date(), extractedAt: null })
         .where(eq(sourceDocument.id, document.id));
 
       result.processed += 1;
@@ -170,28 +174,38 @@ export async function extractStage(limit = 100): Promise<StageResult> {
 
   for (const document of pending) {
     try {
+      // Only the spans not already done. On a first attempt that is all of
+      // them; on a resumed one it is what the last attempt did not reach.
       const spans = await db
         .select()
         .from(sourceSpan)
-        .where(eq(sourceSpan.sourceDocumentId, document.id))
+        .where(
+          and(
+            eq(sourceSpan.sourceDocumentId, document.id),
+            isNull(sourceSpan.extractedAt),
+          ),
+        )
         .orderBy(sourceSpan.ordinal);
 
       const byOrdinal = new Map(spans.map((s) => [s.ordinal, s]));
 
-      // Clear anything a previous interrupted run left behind, exactly as the
-      // parse stage does with spans.
-      //
-      // Without this, a document whose fourth batch fails keeps the holdings
-      // from its first three and never gets extracted_at set, so the next run
-      // extracts those same three batches again and inserts a second copy of
-      // every holding. Nothing downstream would catch it: the duplicates verify
-      // cleanly, because they are genuine quotes from a genuine span. The
-      // corpus would just quietly gain weight, and a retrieval that surfaces
-      // the same authority three times looks like three sources agreeing.
-      //
-      // A document that has already been extracted is not selected above, so
-      // this can only ever delete the debris of a failed run.
-      await db.delete(holding).where(eq(holding.sourceDocumentId, document.id));
+      const alreadyDone = await db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(sourceSpan)
+        .where(
+          and(
+            eq(sourceSpan.sourceDocumentId, document.id),
+            isNotNull(sourceSpan.extractedAt),
+          ),
+        );
+
+      if ((alreadyDone[0]?.n ?? 0) > 0) {
+        log.info('resuming a document from where it stopped', {
+          citation: document.citation,
+          done: alreadyDone[0]!.n,
+          remaining: spans.length,
+        });
+      }
 
       let kept = 0;
 
@@ -221,11 +235,18 @@ export async function extractStage(limit = 100): Promise<StageResult> {
           if (halves === null) {
             // One span the provider will not accept at any size. Skipping it
             // loses whatever it held, so it is recorded by ordinal rather than
-            // counted: someone can go and look at that passage.
+            // counted: someone can go and look at that passage. Marked done, or
+            // every future run would retry it and fail the same way.
             result.notes.push(
               `${document.citation}: span ${batch[0]?.ordinal} is too large for the model ` +
                 'to accept on its own and was skipped. Nothing was extracted from it.',
             );
+            if (batch[0]) {
+              await db
+                .update(sourceSpan)
+                .set({ extractedAt: new Date() })
+                .where(eq(sourceSpan.id, batch[0].id));
+            }
             continue;
           }
 
@@ -238,6 +259,17 @@ export async function extractStage(limit = 100): Promise<StageResult> {
           continue;
         }
 
+        // The holdings and the checkpoint commit together or not at all.
+        //
+        // Split apart, the two orderings fail in opposite directions and both
+        // are silent: mark first and a crash in between loses holdings from a
+        // span nothing will look at again, insert first and a crash leaves
+        // holdings whose span is still pending, so the next run extracts it
+        // again and writes a second copy. Duplicates are the worse of the two,
+        // because they verify perfectly, being genuine quotes from a genuine
+        // span, and retrieval offering the same authority three times reads as
+        // three sources agreeing.
+        const rows: (typeof holding.$inferInsert)[] = [];
         for (const extracted of response.value.holdings) {
           const span = byOrdinal.get(extracted.spanOrdinal);
           if (!span) {
@@ -247,7 +279,7 @@ export async function extractStage(limit = 100): Promise<StageResult> {
             continue;
           }
 
-          await db.insert(holding).values({
+          rows.push({
             sourceDocumentId: document.id,
             spanId: span.id,
             verbatimQuote: extracted.verbatimQuote,
@@ -258,8 +290,17 @@ export async function extractStage(limit = 100): Promise<StageResult> {
             payerType: extracted.payerType,
             denialBasis: extracted.denialBasis,
           });
-          kept += 1;
         }
+
+        const batchIds = batch.map((s) => s.id);
+        await db.transaction(async (tx) => {
+          if (rows.length > 0) await tx.insert(holding).values(rows);
+          await tx
+            .update(sourceSpan)
+            .set({ extractedAt: new Date() })
+            .where(inArray(sourceSpan.id, batchIds));
+        });
+        kept += rows.length;
       }
 
       await db
@@ -275,6 +316,13 @@ export async function extractStage(limit = 100): Promise<StageResult> {
       }
     } catch (error) {
       result.failed += 1;
+      // Whatever batches did commit are kept, and their spans are checkpointed,
+      // so this document resumes rather than restarts. Saying so here matters:
+      // the same line used to mean all of this document's work was gone.
+      result.notes.push(
+        `${document.citation}: stopped partway through. Re-running resumes from the ` +
+          'next unextracted passage rather than starting the document again.',
+      );
       log.error('could not extract holdings', { citation: document.citation, error });
     }
   }

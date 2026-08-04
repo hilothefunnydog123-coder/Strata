@@ -119,6 +119,29 @@ Title: ${title}
 ${body}`;
 }
 
+/**
+ * How much room the answer gets.
+ *
+ * This is not the free parameter it looks like. Providers bill a request
+ * against a per minute token allowance before running it, and the reservation
+ * counts the completion cap as though it will be used in full: a request is
+ * charged prompt plus max_tokens whether or not the model writes a word.
+ *
+ * That is what actually caused the first live extraction to fail. The cap here
+ * was 8192, which on a free tier is most of a minute's entire allowance before
+ * a single span of the manual had been added to it. The prompt looked like the
+ * problem because it is the part that varies, and halving the batch helped just
+ * enough to look like the right fix, but a batch of one span carrying an 8192
+ * token reservation was still most of the way to the limit on its own.
+ *
+ * 2048 is generous for what comes back. A batch yields a handful of holdings,
+ * each a quote and three short fields, and the largest real response measured
+ * was under 900 tokens. A truncated response is not a silent corruption either:
+ * it is unparseable JSON, which fails the batch loudly rather than producing a
+ * short list that looks complete.
+ */
+export const EXTRACTION_MAX_OUTPUT_TOKENS = 2048;
+
 export async function extractHoldings(
   citation: string,
   title: string,
@@ -132,7 +155,7 @@ export async function extractHoldings(
     // Published government decisions. There is no patient data in this corpus,
     // which is why extraction can run in synthetic mode.
     containsPhi: false,
-    maxTokens: 8192,
+    maxTokens: EXTRACTION_MAX_OUTPUT_TOKENS,
   });
 }
 
@@ -157,12 +180,20 @@ export const SPANS_PER_EXTRACTION_CALL = 25;
  * The number is characters rather than tokens because tokens cannot be counted
  * without the model's tokeniser, and a tokeniser that disagrees with the
  * provider's is worse than an honest approximation. English legal prose runs
- * about 3.6 characters per token, so this is roughly 5,000 tokens, which fits
- * inside the per request allowance of every free tier checked. Raise it for a
- * paid account with a large context, where fewer, larger calls are faster and
- * give the model more of the document at once.
+ * about 3.6 characters per token, so this is roughly 2,800 tokens.
+ *
+ * Sized against the smallest allowance worth supporting rather than the largest
+ * that works. Groq's free tier is 12,000 tokens a minute, and a request is
+ * charged its prompt plus its completion cap, so this plus
+ * EXTRACTION_MAX_OUTPUT_TOKENS is about 4,900 and two calls fit in a minute
+ * with room to spare. The first attempt at this constant was 18,000 characters,
+ * which was chosen by reasoning about context windows rather than about per
+ * minute allowances, and it produced a run that split every single batch.
+ *
+ * Raise it for a paid account, where fewer and larger calls are faster and give
+ * the model more of the document at once.
  */
-export const CHARS_PER_EXTRACTION_CALL = 18_000;
+export const CHARS_PER_EXTRACTION_CALL = 10_000;
 
 /**
  * Group spans into calls that respect both limits.

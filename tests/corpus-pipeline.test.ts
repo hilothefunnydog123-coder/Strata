@@ -259,9 +259,17 @@ function refusingLargeBatches(alsoRefuse?: (user: string) => boolean): typeof co
   }) as typeof complete;
 }
 
-/** Run the extract stage again from nothing, as a re-run after a failure does. */
+/**
+ * Put every document back to unextracted, spans included.
+ *
+ * Both halves are needed now that the checkpoint is per span. Clearing only the
+ * document flag leaves every span marked done, so the next extract stage finds
+ * nothing to do and reports success having called the model zero times, which
+ * is the most convincing kind of green test there is.
+ */
 async function reExtract(): Promise<void> {
   await db.update(sourceDocument).set({ extractedAt: null });
+  await db.update(sourceSpan).set({ extractedAt: null });
 }
 
 /** The corpus tables, emptied so a re-run measures this run. */
@@ -387,7 +395,7 @@ describe('the stages after the fetch', () => {
     // The previous test broke the stored quote deliberately. Re-running the
     // extraction from scratch restores a real one rather than a typed copy.
     await db.delete(holding);
-    await db.update(sourceDocument).set({ extractedAt: null });
+    await reExtract();
     await extractStage();
     await verifyStage();
 
@@ -540,5 +548,59 @@ describe('a run interrupted partway through a document', () => {
 
     const after = await db.select().from(holding);
     expect(after).toHaveLength(clean.length);
+  }, 60_000);
+
+  it('resumes from the passage it stopped at rather than the start', async () => {
+    // The reason the checkpoint is per span and not per document. A CMS manual
+    // chapter is dozens of model calls and a free tier's per minute allowance
+    // runs out partway through every attempt. Restarting the document each time
+    // is not slow, it is non terminating: the work done between two rate limits
+    // is always less than the whole chapter, so it never finishes.
+    await db.delete(holding);
+    await reExtract();
+
+    let wrote = false;
+    const dropping = refusingLargeBatches();
+    vi.mocked(complete).mockImplementation((async (request: CompleteRequest) => {
+      if (wrote) throw new Error('rate limited');
+      const response = (await dropping(request)) as { value: { holdings: unknown[] } };
+      if (response.value.holdings.length > 0) wrote = true;
+      return response;
+    }) as typeof complete);
+    await extractStage();
+
+    const done = await db
+      .select()
+      .from(sourceSpan)
+      .where(sql`${sourceSpan.extractedAt} is not null`);
+    const pending = await db
+      .select()
+      .from(sourceSpan)
+      .where(sql`${sourceSpan.extractedAt} is null`);
+
+    // Partway: some passages banked, some still to do. If either side were
+    // empty this test would prove nothing about resuming.
+    expect(done.length).toBeGreaterThan(0);
+    expect(pending.length).toBeGreaterThan(0);
+
+    // The second attempt must only look at what is left.
+    let seen = 0;
+    const counting = refusingLargeBatches();
+    vi.mocked(complete).mockImplementation((async (request: CompleteRequest) => {
+      seen += spanCount(request.user);
+      return counting(request);
+    }) as typeof complete);
+    await extractStage();
+
+    // Spans get re-sent when a batch is split, so this cannot be an equality.
+    // What matters is that the passages already banked were not sent again,
+    // which a restart would have done.
+    expect(seen).toBeLessThan(done.length + pending.length);
+
+    const remaining = await db
+      .select()
+      .from(sourceSpan)
+      .where(sql`${sourceSpan.extractedAt} is null`);
+    expect(remaining).toHaveLength(0);
   }, 60_000);
 });

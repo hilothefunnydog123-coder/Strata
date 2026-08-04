@@ -374,8 +374,22 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
     }
     // The error is logged through the redacting logger, which strips anything
     // the SDK attached from the request body.
-    log.error('model call failed', { stage: request.stage, error });
-    throw asReadableError(error);
+    const readable = asReadableError(error);
+
+    if (readable instanceof ModelRequestTooLargeError) {
+      // Routine, and usually handled by the caller sending less. Logging it at
+      // error level buried a working run in stack traces: the first corpus run
+      // to actually make progress printed six of these, each one indicating the
+      // splitting logic doing its job, and read like six failures.
+      log.info('model refused the request as too large', {
+        stage: request.stage,
+        tokens: inputTokens,
+      });
+    } else {
+      log.error('model call failed', { stage: request.stage, error });
+    }
+
+    throw readable;
   }
 }
 
