@@ -18,19 +18,26 @@
  *   3. In PHI_MODE=synthetic, every call must be declared synthetic by its
  *      caller. A caller that cannot make that promise cannot make the call.
  *
- * Why the provider is a variable rather than a hard dependency: the second gate
- * is about a contract, not a vendor, and the cheapest way to get that contract
- * differs by company size. A free development tier trains on what you send it,
- * which is fine for fabricated documents and unlawful for a patient record, and
- * the same three gates express both cases. Everything downstream of complete()
- * is provider agnostic already, because it only ever sees a parsed object.
+ * Why the provider is configuration rather than a hard dependency: the second
+ * gate is about a contract, not a vendor, and the cheapest way to get that
+ * contract differs by company size. A free development tier trains on what you
+ * send it, which is fine for fabricated documents and unlawful for a patient
+ * record, and the same three gates express both cases.
+ *
+ * The wire protocol is the OpenAI chat completions shape, which Groq, Together,
+ * Cerebras, OpenRouter, a local llama.cpp server, Google's Gemini endpoint and
+ * Vertex AI all speak. So moving between them, including from a free tier to
+ * whichever provider will sign a Business Associate Agreement, is two
+ * environment variables rather than a code change. Everything downstream of
+ * complete() was already provider agnostic, because it only ever sees a parsed
+ * object.
  *
  * What is recorded: a hash of the input, the token counts, the latency, the
  * cost. Never the prompt and never the completion. An llm_call row is for spend
  * reporting, and a table of prompts would be a second uncontrolled copy of the
  * clinical record.
  */
-import { GoogleGenAI } from '@google/genai';
+import OpenAI from 'openai';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { db } from '@/lib/db';
@@ -105,7 +112,7 @@ export interface LlmResponse<T> {
   latencyMs: number;
 }
 
-let client: GoogleGenAI | null = null;
+let client: OpenAI | null = null;
 
 /**
  * Run the gates and return a client, or throw explaining which gate closed.
@@ -113,7 +120,7 @@ let client: GoogleGenAI | null = null;
  * Separated from the call itself so tests can exercise the policy without a
  * network, and so the failure messages stay in one readable place.
  */
-export function assertTransmissionPermitted(containsPhi: boolean): GoogleGenAI {
+export function assertTransmissionPermitted(containsPhi: boolean): OpenAI {
   if (!env.MODEL_API_KEY) {
     throw new LlmBoundaryError(
       'MODEL_API_KEY is not configured, so no model call can be made. Set it in ' +
@@ -138,7 +145,7 @@ export function assertTransmissionPermitted(containsPhi: boolean): GoogleGenAI {
     );
   }
 
-  client ??= new GoogleGenAI({ apiKey: env.MODEL_API_KEY });
+  client ??= new OpenAI({ apiKey: env.MODEL_API_KEY, baseURL: env.MODEL_BASE_URL });
   return client;
 }
 
@@ -200,10 +207,10 @@ export function asReadableError(error: unknown): unknown {
   if (status === 401 || status === 403) {
     return new LlmBoundaryError(
       `The model provider rejected the API key (HTTP ${status}). MODEL_API_KEY is set, ` +
-        'so this is not a missing key: it is the wrong one, or it belongs to a project ' +
-        'without model access enabled. Check it at https://aistudio.google.com, and ' +
-        'verify it on its own with:\n' +
-        '  curl "https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY"',
+        'so this is not a missing key: it is the wrong one, or it does not belong to ' +
+        'the provider MODEL_BASE_URL points at. Those two have to match. Verify the key ' +
+        'on its own with:\n' +
+        `  curl ${env.MODEL_BASE_URL}/models -H "Authorization: Bearer YOUR_KEY"`,
     );
   }
 
@@ -234,7 +241,7 @@ export function asReadableError(error: unknown): unknown {
  * text completion.
  */
 export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T>> {
-  const genai = assertTransmissionPermitted(request.containsPhi);
+  const provider = assertTransmissionPermitted(request.containsPhi);
 
   const inputHash = createHash('sha256')
     .update(`${request.system}\n\n${request.user}`)
@@ -246,24 +253,26 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
   let ok = false;
 
   try {
-    const response = await genai.models.generateContent({
+    const response = await provider.chat.completions.create({
       model: modelName(),
-      contents: [{ role: 'user', parts: [{ text: request.user }] }],
-      config: {
-        systemInstruction: request.system,
-        maxOutputTokens: request.maxTokens ?? 4096,
-        temperature: request.temperature ?? 0,
-        // Asking for JSON at the API level rather than only in the prompt. The
-        // fence stripping above stays regardless: it costs nothing and a model
-        // that ignores the response type should not take an appeal down.
-        responseMimeType: 'application/json',
-      },
+      messages: [
+        { role: 'system', content: request.system },
+        { role: 'user', content: request.user },
+      ],
+      max_tokens: request.maxTokens ?? 4096,
+      temperature: request.temperature ?? 0,
+      // Ask for JSON at the API level rather than only in the prompt. Not every
+      // provider or model honours this, which is why the fence stripping below
+      // stays: it costs nothing, and a model that ignores the response format
+      // should not take an appeal down. MODEL_JSON_MODE=false turns it off for
+      // a provider that rejects the field outright.
+      ...(env.MODEL_JSON_MODE ? { response_format: { type: 'json_object' as const } } : {}),
     });
 
-    inputTokens = response.usageMetadata?.promptTokenCount ?? 0;
-    outputTokens = response.usageMetadata?.candidatesTokenCount ?? 0;
+    inputTokens = response.usage?.prompt_tokens ?? 0;
+    outputTokens = response.usage?.completion_tokens ?? 0;
 
-    const text = response.text ?? '';
+    const text = response.choices[0]?.message?.content ?? '';
     if (text.trim().length === 0) {
       // An empty completion usually means the response was stopped by a safety
       // filter or hit the output cap. Either way there is nothing to parse, and

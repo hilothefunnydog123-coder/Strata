@@ -119,9 +119,13 @@ files. There is no parameter that skips it.
 
 **Met and enforced.** `lib/llm/client.ts`. The `no-restricted-imports` rule in
 `eslint.config.mjs` makes importing the model SDK anywhere else a build failure.
-Verify with `grep -rn "@google/genai" app lib scripts`. Which provider sits
+Verify with `grep -rn "from 'openai'" app lib scripts`. Which provider sits
 behind that file is a configuration decision, not an architectural one: the
-signature every caller sees is `complete()` returning a Zod parsed object.
+signature every caller sees is `complete()` returning a Zod parsed object, and
+the wire protocol is the OpenAI chat completions shape that Groq, Together,
+Cerebras, OpenRouter, Gemini, Vertex AI and a local llama.cpp server all speak.
+Moving providers, including moving to whichever one will sign a Business
+Associate Agreement, is `MODEL_BASE_URL` and `MODEL_NAME`.
 
 ### No forbidden design pattern from section 14 present
 

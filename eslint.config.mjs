@@ -37,7 +37,7 @@ const eslintConfig = [
         {
           paths: [
             {
-              name: '@google/genai',
+              name: 'openai',
               message:
                 'The model SDK may only be used from lib/llm/client.ts, which enforces ' +
                 'the PHI mode and BAA checks before anything leaves the process.',

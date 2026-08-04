@@ -42,10 +42,24 @@ const schema = z.object({
   // and lib/llm/client.ts is the only file that knows which provider is in use.
   MODEL_API_KEY: optionalString,
   MODEL_BAA_CONFIRMED: boolish,
-  MODEL_NAME: z.string().min(1).default('gemini-2.5-flash'),
+  /**
+   * The provider's OpenAI-compatible endpoint. Groq, Together, Cerebras,
+   * OpenRouter, a local llama.cpp server, Gemini and Vertex AI all expose one,
+   * so changing provider is this plus MODEL_NAME and a key.
+   */
+  MODEL_BASE_URL: z
+    .string()
+    .url('MODEL_BASE_URL must be an absolute URL')
+    .default('https://api.groq.com/openai/v1'),
+  MODEL_NAME: z.string().min(1).default('llama-3.3-70b-versatile'),
+  /** Off for a provider that rejects response_format outright. */
+  MODEL_JSON_MODE: z
+    .enum(['true', 'false', '1', '0', ''])
+    .optional()
+    .transform((v) => v !== 'false' && v !== '0'),
   /** Published price per million tokens, in cents. Reporting only. */
-  MODEL_PRICE_INPUT_CENTS: z.coerce.number().nonnegative().default(30),
-  MODEL_PRICE_OUTPUT_CENTS: z.coerce.number().nonnegative().default(250),
+  MODEL_PRICE_INPUT_CENTS: z.coerce.number().nonnegative().default(0),
+  MODEL_PRICE_OUTPUT_CENTS: z.coerce.number().nonnegative().default(0),
 
   PHI_MODE: z.enum(['synthetic', 'live']).default('synthetic'),
   // Key material rather than the key: lib/db/crypto.ts turns this into the 32
@@ -241,9 +255,11 @@ function unconfigured(): Env {
     BETTER_AUTH_SECRET: '',
     MODEL_API_KEY: undefined,
     MODEL_BAA_CONFIRMED: false,
-    MODEL_NAME: 'gemini-2.5-flash',
-    MODEL_PRICE_INPUT_CENTS: 30,
-    MODEL_PRICE_OUTPUT_CENTS: 250,
+    MODEL_BASE_URL: 'https://api.groq.com/openai/v1',
+    MODEL_NAME: 'llama-3.3-70b-versatile',
+    MODEL_JSON_MODE: true,
+    MODEL_PRICE_INPUT_CENTS: 0,
+    MODEL_PRICE_OUTPUT_CENTS: 0,
     PHI_MODE: 'synthetic' as const,
     PHI_ENCRYPTION_KEY: '',
     RESEND_API_KEY: undefined,

@@ -35,7 +35,17 @@ describe('provider errors name the remedy', () => {
 
     expect(translated).toBeInstanceOf(LlmBoundaryError);
     expect((translated as Error).message).toContain('MODEL_API_KEY is set');
-    expect((translated as Error).message).toContain('aistudio.google.com');
+  });
+
+  it('a rejected key names the provider the key has to match', () => {
+    // The single most common cause once the endpoint is configurable: a key
+    // from one provider sent to another. Both are present and both look right,
+    // and nothing but the pairing is wrong, so the message has to say so and
+    // has to name the endpoint actually in use rather than a vendor guess.
+    const message = (asReadableError(providerError(401)) as Error).message;
+
+    expect(message).toContain('MODEL_BASE_URL');
+    expect(message).toContain(process.env.MODEL_BASE_URL ?? 'https://api.groq.com/openai/v1');
   });
 
   it('403 is treated the same as 401, because the remedy is the same', () => {
