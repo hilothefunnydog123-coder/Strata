@@ -8,7 +8,7 @@ working alternative that shipped instead.
 
 ## 1. No service credentials are present
 
-**What is missing:** `DATABASE_URL` for Neon, `ANTHROPIC_API_KEY`,
+**What is missing:** `DATABASE_URL` for Neon, `MODEL_API_KEY`,
 `RESEND_API_KEY`, and all four `R2_*` variables. None are set in this
 environment, and no accounts were provided.
 
@@ -23,8 +23,8 @@ filled in).
   schema and every query are genuinely exercised. Switching to Neon is a change
   to `DATABASE_URL` and nothing else: `lib/db/index.ts` already selects the Neon
   serverless driver when the connection string points at Neon.
-- **Anthropic.** `lib/llm/client.ts` is written and enforces the PHI gates, but
-  no live model call can be made from here. See entry 3.
+- **Model provider.** `lib/llm/client.ts` is written and enforces the PHI gates,
+  but no live model call can be made from here. See entry 4.
 - **Resend.** `lib/email/send.ts` is written against the real Resend API. With
   no key configured it records the message in `email_send` with status `queued`
   and logs loudly rather than pretending to have sent it. A demo request is
@@ -53,8 +53,8 @@ Probed directly, all blocked:
 | `www.cms.gov` (Internet-Only Manuals) | 403 at proxy |
 | `api.resend.com` | 403 at proxy |
 
-Reachable: `registry.npmjs.org`, `api.anthropic.com`, `fonts.googleapis.com`,
-`fonts.gstatic.com`.
+Reachable: `registry.npmjs.org`, `fonts.googleapis.com`, `fonts.gstatic.com`,
+`raw.githubusercontent.com`.
 
 **What I tried:** `curl` directly and through the proxy; the harness `WebFetch`
 tool, which routes over separate infrastructure and returned `403 Forbidden`
@@ -104,7 +104,7 @@ pnpm corpus:parse && pnpm corpus:extract
 pnpm corpus:verify && pnpm corpus:embed
 ```
 
-`CRAWLER_CONTACT` has to be set first, and `ANTHROPIC_API_KEY` is needed for the
+`CRAWLER_CONTACT` has to be set first, and `MODEL_API_KEY` is needed for the
 extract step. Until that runs, generation refuses rather than writing a letter
 with no law in it. See entry 4.
 
@@ -126,7 +126,7 @@ the branch as the archive marker.
 
 ## 4. The end to end chain has now run, against a stand-in model
 
-**What is still missing:** an `ANTHROPIC_API_KEY`, which is entry 1.
+**What is still missing:** a `MODEL_API_KEY`, which is entry 1.
 
 **What has changed:** the chain now runs as one thing. `tests/generation-chain.test.ts`
 drives classify, extract, retrieve, gap check, draft, verify, and persist against
@@ -148,7 +148,7 @@ and never reached a draft.
 **What this still costs:** nobody has seen what the model actually writes. Draft
 quality, and whether the prompts hold up on a real denial letter, are unmeasured.
 
-**To unblock:** set `ANTHROPIC_API_KEY` and run the chain against a real case.
+**To unblock:** set `MODEL_API_KEY` and run the chain against a real case.
 
 **What I did instead of pretending:** the parts that can be verified without a
 model are verified.
@@ -162,7 +162,7 @@ model are verified.
 - The e2e suite covers authentication, the full authorisation matrix by request,
   and the demo request end to end against a real build and database.
 
-**To unblock:** set `ANTHROPIC_API_KEY`, populate the corpus (entry 2), then run
+**To unblock:** set `MODEL_API_KEY`, populate the corpus (entry 2), then run
 the chain. No code change is required.
 
 ---
@@ -187,7 +187,7 @@ database, which is what the e2e suite runs against on every invocation.
 | Blocked | Why | Needs |
 | --- | --- | --- |
 | Corpus ingestion, against the real sources | Government hosts blocked at the egress proxy. The pipeline itself is proven against a local server. | Egress for `hhs.gov`, `ecfr.gov`, `cms.gov` |
-| Generation against a real model | No Anthropic key. The chain is proven against a stand-in at the boundary. | `ANTHROPIC_API_KEY` |
+| Generation against a real model | No model provider key. The chain is proven against a stand-in at the boundary. | `MODEL_API_KEY` |
 | Delivered email | No Resend key, and `api.resend.com` blocked | `RESEND_API_KEY`, `EMAIL_FROM`, egress |
 | Object storage | No R2 credentials | The four `R2_*` variables |
 | Deployment | No Vercel or Neon credentials | Both |

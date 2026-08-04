@@ -48,7 +48,7 @@ honestly rather than pretending:
   "no mail provider is configured" rather than claiming a send. The demo request
   row is stored either way, and `notified_at` stays null so the lead is
   recoverable.
-- **Generation** requires `ANTHROPIC_API_KEY`. Without it the boundary throws a
+- **Generation** requires `MODEL_API_KEY`. Without it the boundary throws a
   message naming the missing configuration and stating that nothing was
   transmitted.
 
@@ -92,8 +92,8 @@ the specific failures rather than inviting another attempt.
 a changed word, a dropped negation, a silently elided qualifying clause,
 reordered words, and a punctuation change that flips the meaning.
 
-**Not demonstrated end to end here**, because generation needs an Anthropic key
-this environment does not have. What is demonstrated is that the verifier
+**Demonstrated end to end** by `tests/generation-chain.test.ts`, with the model
+boundary substituted and everything else real. What is demonstrated is that the verifier
 correctly rejects every category of bad quote, which is the half that protects
 the customer.
 
@@ -104,7 +104,7 @@ the customer.
 by the account pages that sit outside the shell. `instrumentation.ts` logs a
 warning at startup.
 
-`PHI_MODE=live` refuses to boot without `ANTHROPIC_BAA_CONFIRMED=true`, without
+`PHI_MODE=live` refuses to boot without `MODEL_BAA_CONFIRMED=true`, without
 a distinct `PHI_ENCRYPTION_KEY`, and without R2 storage. Verified by running the
 env guard with each condition removed.
 
@@ -115,11 +115,13 @@ byte reaches storage or any row reaches the database.
 `app/(portal)/app/denials/new/actions.ts` calls it before reading the uploaded
 files. There is no parameter that skips it.
 
-### The Anthropic SDK is called from exactly one file
+### The model SDK is called from exactly one file
 
 **Met and enforced.** `lib/llm/client.ts`. The `no-restricted-imports` rule in
-`eslint.config.mjs` makes importing `@anthropic-ai/sdk` anywhere else a build
-failure. Verify with `grep -rn "@anthropic-ai/sdk" app lib scripts`.
+`eslint.config.mjs` makes importing the model SDK anywhere else a build failure.
+Verify with `grep -rn "@google/genai" app lib scripts`. Which provider sits
+behind that file is a configuration decision, not an architectural one: the
+signature every caller sees is `complete()` returning a Zod parsed object.
 
 ### No forbidden design pattern from section 14 present
 

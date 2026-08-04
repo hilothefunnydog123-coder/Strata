@@ -37,9 +37,9 @@ const eslintConfig = [
         {
           paths: [
             {
-              name: '@anthropic-ai/sdk',
+              name: '@google/genai',
               message:
-                'The Anthropic SDK may only be used from lib/llm/client.ts, which enforces ' +
+                'The model SDK may only be used from lib/llm/client.ts, which enforces ' +
                 'the PHI mode and BAA checks before anything leaves the process.',
             },
           ],

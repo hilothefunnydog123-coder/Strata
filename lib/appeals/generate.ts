@@ -25,7 +25,7 @@ import {
   sourceSpan,
 } from '@/lib/db/schema';
 import { log } from '@/lib/log';
-import { MODEL } from '@/lib/llm/client';
+import { modelName } from '@/lib/llm/client';
 import { retrieveAuthority, retrieveControllingAuthority } from '@/lib/corpus/retrieve';
 import { formatCents } from '@/components/ui/primitives';
 import { assertion, sourceKindMatches, type Section } from './assertion';
@@ -355,7 +355,7 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
           documentationGaps: gaps,
           proprietaryCriteriaFlag: classification.value.proprietaryCriteria.detected,
           verificationFailures: attempt - 1,
-          generatedByModel: MODEL,
+          generatedByModel: modelName(),
         })
         .returning({ id: appealDraft.id });
 

@@ -32,7 +32,7 @@ export async function register(): Promise<void> {
   log.info('server starting', {
     phiMode: env.PHI_MODE,
     storage: env.storageIsR2 ? 'r2' : 'local-disk',
-    baaConfirmed: env.ANTHROPIC_BAA_CONFIRMED,
+    baaConfirmed: env.MODEL_BAA_CONFIRMED,
   });
 
   if (!env.phiLive) {

@@ -37,8 +37,15 @@ const schema = z.object({
     .url('BETTER_AUTH_URL must be an absolute URL')
     .optional(),
 
-  ANTHROPIC_API_KEY: optionalString,
-  ANTHROPIC_BAA_CONFIRMED: boolish,
+  // Named for the role rather than the vendor. The provider is a decision about
+  // which Business Associate Agreement is obtainable, not an architectural one,
+  // and lib/llm/client.ts is the only file that knows which provider is in use.
+  MODEL_API_KEY: optionalString,
+  MODEL_BAA_CONFIRMED: boolish,
+  MODEL_NAME: z.string().min(1).default('gemini-2.5-flash'),
+  /** Published price per million tokens, in cents. Reporting only. */
+  MODEL_PRICE_INPUT_CENTS: z.coerce.number().nonnegative().default(30),
+  MODEL_PRICE_OUTPUT_CENTS: z.coerce.number().nonnegative().default(250),
 
   PHI_MODE: z.enum(['synthetic', 'live']).default('synthetic'),
   // Key material rather than the key: lib/db/crypto.ts turns this into the 32
@@ -232,8 +239,11 @@ function unconfigured(): Env {
       nodeEnv === 'production' || nodeEnv === 'test' ? nodeEnv : 'development',
     DATABASE_URL: '',
     BETTER_AUTH_SECRET: '',
-    ANTHROPIC_API_KEY: undefined,
-    ANTHROPIC_BAA_CONFIRMED: false,
+    MODEL_API_KEY: undefined,
+    MODEL_BAA_CONFIRMED: false,
+    MODEL_NAME: 'gemini-2.5-flash',
+    MODEL_PRICE_INPUT_CENTS: 30,
+    MODEL_PRICE_OUTPUT_CENTS: 250,
     PHI_MODE: 'synthetic' as const,
     PHI_ENCRYPTION_KEY: '',
     RESEND_API_KEY: undefined,
@@ -270,9 +280,9 @@ function parse(): Env {
 
   // PHI gate one: live mode requires a confirmed BAA with Anthropic on a
   // HIPAA-ready API organisation. There is deliberately no override.
-  if (env.PHI_MODE === 'live' && !env.ANTHROPIC_BAA_CONFIRMED) {
+  if (env.PHI_MODE === 'live' && !env.MODEL_BAA_CONFIRMED) {
     throw new Error(
-      'PHI_MODE=live requires ANTHROPIC_BAA_CONFIRMED=true. Patient data may only ' +
+      'PHI_MODE=live requires MODEL_BAA_CONFIRMED=true. Patient data may only ' +
         'be transmitted to a HIPAA-ready Anthropic API organisation covered by a ' +
         'signed Business Associate Agreement. A default API organisation is not covered.',
     );

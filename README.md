@@ -108,7 +108,7 @@ pnpm e2e                # Playwright against a real build and a real database
 pnpm corpus:fetch --source=ecfr     # regulations first: smallest and cleanest
 pnpm corpus:fetch --source=dab      # Medicare Appeals Council decisions
 pnpm corpus:parse --unparsed
-pnpm corpus:extract --unextracted   # needs ANTHROPIC_API_KEY
+pnpm corpus:extract --unextracted   # needs MODEL_API_KEY
 pnpm corpus:verify --unverified
 pnpm corpus:embed --unembedded
 pnpm corpus:status
@@ -196,7 +196,7 @@ by saying all of this, so nobody has to discover it by reading the call chain.
 ### Three lint rules that are not style
 
 - `@anthropic-ai/sdk` may be imported only from `lib/llm/client.ts`, which
-  checks `PHI_MODE` and `ANTHROPIC_BAA_CONFIRMED` before transmitting anything.
+  checks `PHI_MODE` and `MODEL_BAA_CONFIRMED` before transmitting anything.
 - `process.env` may be read only in `lib/env.ts` and in build tooling.
 - `console.*` is banned outside `lib/log/index.ts`, which redacts first.
 
@@ -258,7 +258,7 @@ used without replacing the password. On a plan with a shell,
 `pnpm provision:superadmin` issues a fresh temporary password at any time, which
 is the recovery path if the operator is locked out.
 
-`RESEND_API_KEY` and `ANTHROPIC_API_KEY` are left out of the blueprint rather
+`RESEND_API_KEY` and `MODEL_API_KEY` are left out of the blueprint rather
 than set blank. Without the first, outbound mail is recorded in `email_send` and
 reported as unsent. Without the second, drafting and extraction are unavailable
 and every other surface works. Add them in the service Environment tab when you

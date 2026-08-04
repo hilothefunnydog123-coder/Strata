@@ -133,7 +133,7 @@ async function main(): Promise<void> {
     case 'extract': {
       if (!llmConfigured()) {
         throw new Error(
-          'Extraction reads decisions with a model, so ANTHROPIC_API_KEY must be set. ' +
+          'Extraction reads decisions with a model, so MODEL_API_KEY must be set. ' +
             'Nothing was transmitted.',
         );
       }

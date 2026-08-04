@@ -127,12 +127,12 @@ train people to click through it.
 ## 5. The model boundary
 
 **All model calls route through one module, which checks `PHI_MODE` and
-`ANTHROPIC_BAA_CONFIRMED` and throws before transmitting anything if the
+`MODEL_BAA_CONFIRMED` and throws before transmitting anything if the
 combination is not permitted. No other file may call the Anthropic SDK.**
 
 | Where | What it does |
 | --- | --- |
-| `lib/llm/client.ts` → `assertTransmissionPermitted()` | The three gates: a key must exist; live mode requires `ANTHROPIC_BAA_CONFIRMED=true`; synthetic mode refuses any call the caller declared as containing PHI. Each failure names which gate closed and states that nothing was transmitted. |
+| `lib/llm/client.ts` → `assertTransmissionPermitted()` | The three gates: a key must exist; live mode requires `MODEL_BAA_CONFIRMED=true`; synthetic mode refuses any call the caller declared as containing PHI. Each failure names which gate closed and states that nothing was transmitted. |
 | `lib/llm/client.ts` → `complete()` | The only function that calls the SDK. Every model interaction in the product goes through it and returns validated against a Zod schema, so no downstream code handles a free text completion. |
 | `eslint.config.mjs` → `no-restricted-imports` | Importing `@anthropic-ai/sdk` anywhere except `lib/llm/client.ts` is a build failure. A second call path cannot quietly appear beside this one. |
 | `lib/llm/client.ts` → `LlmRequest.containsPhi` | Required, not optional. A caller that cannot make the declaration cannot make the call. |
@@ -188,6 +188,15 @@ because nobody linked to it is not access control.
 
 ## What we do not claim
 
+- **Today, synthetic documents are sent to Google's Gemini API on a free tier,
+  whose terms allow the provider to use submitted content to improve their
+  products.** That is acceptable only because nothing sent there is real: every
+  upload must be affirmed as fabricated before a byte is stored, and the model
+  boundary refuses any call a caller declares as containing patient data while
+  the deployment is in synthetic mode. Before any real record is processed, the
+  account must move to a paid tier covered by a signed Business Associate
+  Agreement, and `lib/env.ts` refuses to start in live mode until that is
+  confirmed. We would rather you knew which vendor sees what.
 - We are not SOC 2 certified. We have not been audited.
 - We hold no Business Associate Agreement with anyone today.
 - No penetration test has been performed, so there is no report to share.

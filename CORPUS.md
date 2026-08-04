@@ -291,7 +291,7 @@ To populate it, in an environment with egress:
 pnpm corpus:fetch --source=ecfr        # regulations first: smallest and cleanest
 pnpm corpus:fetch --source=dab
 pnpm corpus:parse --unparsed
-pnpm corpus:extract --unextracted      # requires ANTHROPIC_API_KEY
+pnpm corpus:extract --unextracted      # requires MODEL_API_KEY
 pnpm corpus:verify --unverified
 pnpm corpus:embed --unembedded
 pnpm corpus:status

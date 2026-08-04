@@ -2,29 +2,35 @@
  * The only file in this codebase that may talk to a language model.
  *
  * Compliance requirement 5. Enforced by the no-restricted-imports rule in
- * eslint.config.mjs: importing @anthropic-ai/sdk anywhere else is a build
- * failure, so a second call path cannot quietly appear alongside this one and
- * skip the checks below.
+ * eslint.config.mjs: importing a model SDK anywhere else is a build failure, so
+ * a second call path cannot quietly appear alongside this one and skip the
+ * checks below.
  *
  * Three gates run before anything is transmitted:
  *
  *   1. A key must be configured. Without one this throws rather than degrading
  *      to something that looks like it worked.
- *   2. In PHI_MODE=live, ANTHROPIC_BAA_CONFIRMED must be true. Protected health
- *      information may only be sent to a HIPAA-ready Anthropic API
- *      organisation covered by a signed Business Associate Agreement. A default
- *      API organisation is not covered, and a key from one looks identical, so
- *      the confirmation is a deliberate human act rather than something
- *      inferred.
+ *   2. In PHI_MODE=live, MODEL_BAA_CONFIRMED must be true. Protected health
+ *      information may only be sent to a provider account covered by a signed
+ *      Business Associate Agreement. A free or default account is not covered,
+ *      and its key looks identical, so the confirmation is a deliberate human
+ *      act rather than something inferred.
  *   3. In PHI_MODE=synthetic, every call must be declared synthetic by its
  *      caller. A caller that cannot make that promise cannot make the call.
+ *
+ * Why the provider is a variable rather than a hard dependency: the second gate
+ * is about a contract, not a vendor, and the cheapest way to get that contract
+ * differs by company size. A free development tier trains on what you send it,
+ * which is fine for fabricated documents and unlawful for a patient record, and
+ * the same three gates express both cases. Everything downstream of complete()
+ * is provider agnostic already, because it only ever sees a parsed object.
  *
  * What is recorded: a hash of the input, the token counts, the latency, the
  * cost. Never the prompt and never the completion. An llm_call row is for spend
  * reporting, and a table of prompts would be a second uncontrolled copy of the
  * clinical record.
  */
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenAI } from '@google/genai';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { db } from '@/lib/db';
@@ -32,15 +38,31 @@ import { llmCall } from '@/lib/db/schema';
 import { env } from '@/lib/env';
 import { log } from '@/lib/log';
 
-export const MODEL = 'claude-sonnet-4-6';
+/**
+ * The model in use.
+ *
+ * A function rather than a constant, deliberately. Reading env at module scope
+ * forces the whole environment to be parsed the moment anything imports this
+ * file, which is before a test or a script has had a chance to set a variable.
+ * That is exactly how this broke the first time.
+ */
+export function modelName(): string {
+  return env.MODEL_NAME;
+}
 
 /**
  * Published price per million tokens, in cents, for the model above. Used to
  * compute the cost recorded against each call and shown on the operator
- * console. Update this when pricing changes; it is the one number in the
- * codebase that goes stale without anything failing.
+ * console. Update this when pricing changes or the model changes; it is the one
+ * number in the codebase that goes stale without anything failing.
+ *
+ * On a free tier these are zero in practice and the recorded figures are what
+ * the same traffic would cost once the account is paid, which is the number
+ * worth watching before a real customer arrives.
  */
-const PRICE_CENTS_PER_MTOK = { input: 300, output: 1500 } as const;
+function pricePerMtokCents(): { input: number; output: number } {
+  return { input: env.MODEL_PRICE_INPUT_CENTS, output: env.MODEL_PRICE_OUTPUT_CENTS };
+}
 
 /** Which part of the product made the call. Spend is reported by this. */
 export type LlmStage =
@@ -83,7 +105,7 @@ export interface LlmResponse<T> {
   latencyMs: number;
 }
 
-let client: Anthropic | null = null;
+let client: GoogleGenAI | null = null;
 
 /**
  * Run the gates and return a client, or throw explaining which gate closed.
@@ -91,20 +113,20 @@ let client: Anthropic | null = null;
  * Separated from the call itself so tests can exercise the policy without a
  * network, and so the failure messages stay in one readable place.
  */
-export function assertTransmissionPermitted(containsPhi: boolean): Anthropic {
-  if (!env.ANTHROPIC_API_KEY) {
+export function assertTransmissionPermitted(containsPhi: boolean): GoogleGenAI {
+  if (!env.MODEL_API_KEY) {
     throw new LlmBoundaryError(
-      'ANTHROPIC_API_KEY is not configured, so no model call can be made. Set it in ' +
+      'MODEL_API_KEY is not configured, so no model call can be made. Set it in ' +
         'the environment. Nothing was transmitted.',
     );
   }
 
-  if (env.phiLive && !env.ANTHROPIC_BAA_CONFIRMED) {
+  if (env.phiLive && !env.MODEL_BAA_CONFIRMED) {
     throw new LlmBoundaryError(
-      'PHI_MODE is live but ANTHROPIC_BAA_CONFIRMED is not true. Protected health ' +
-        'information may only be transmitted to a HIPAA-ready Anthropic API ' +
-        'organisation covered by a signed Business Associate Agreement. A default API ' +
-        'organisation is not covered. Nothing was transmitted.',
+      'PHI_MODE is live but MODEL_BAA_CONFIRMED is not true. Protected health ' +
+        'information may only be transmitted to a model provider account covered by a ' +
+        'signed Business Associate Agreement. A free or default account is not covered, ' +
+        'and a free tier additionally trains on what it is sent. Nothing was transmitted.',
     );
   }
 
@@ -116,18 +138,18 @@ export function assertTransmissionPermitted(containsPhi: boolean): Anthropic {
     );
   }
 
-  client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  client ??= new GoogleGenAI({ apiKey: env.MODEL_API_KEY });
   return client;
 }
 
 export function llmConfigured(): boolean {
-  return Boolean(env.ANTHROPIC_API_KEY);
+  return Boolean(env.MODEL_API_KEY);
 }
 
 function costCents(inputTokens: number, outputTokens: number): number {
+  const price = pricePerMtokCents();
   const cents =
-    (inputTokens / 1_000_000) * PRICE_CENTS_PER_MTOK.input +
-    (outputTokens / 1_000_000) * PRICE_CENTS_PER_MTOK.output;
+    (inputTokens / 1_000_000) * price.input + (outputTokens / 1_000_000) * price.output;
   // Rounded up, so reported spend is never optimistic.
   return Math.ceil(cents);
 }
@@ -135,10 +157,11 @@ function costCents(inputTokens: number, outputTokens: number): number {
 /**
  * Pull the JSON object out of a completion.
  *
- * The prompts ask for bare JSON, but a model that wraps it in a fence or adds a
- * sentence of preamble should not fail the whole appeal. Anything that is not
- * parseable JSON does fail, loudly: a half-understood response is worse than
- * none in a product where every output becomes a citation.
+ * The model is asked for bare JSON and told the response type, but a model that
+ * wraps it in a fence or adds a sentence of preamble should not fail the whole
+ * appeal. Anything that is not parseable JSON does fail, loudly: a half
+ * understood response is worse than none in a product where every output
+ * becomes a citation.
  */
 function extractJson(text: string): unknown {
   const trimmed = text.trim();
@@ -166,7 +189,7 @@ function extractJson(text: string): unknown {
  * text completion.
  */
 export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T>> {
-  const anthropic = assertTransmissionPermitted(request.containsPhi);
+  const genai = assertTransmissionPermitted(request.containsPhi);
 
   const inputHash = createHash('sha256')
     .update(`${request.system}\n\n${request.user}`)
@@ -178,21 +201,33 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
   let ok = false;
 
   try {
-    const message = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: request.maxTokens ?? 4096,
-      temperature: request.temperature ?? 0,
-      system: request.system,
-      messages: [{ role: 'user', content: request.user }],
+    const response = await genai.models.generateContent({
+      model: modelName(),
+      contents: [{ role: 'user', parts: [{ text: request.user }] }],
+      config: {
+        systemInstruction: request.system,
+        maxOutputTokens: request.maxTokens ?? 4096,
+        temperature: request.temperature ?? 0,
+        // Asking for JSON at the API level rather than only in the prompt. The
+        // fence stripping above stays regardless: it costs nothing and a model
+        // that ignores the response type should not take an appeal down.
+        responseMimeType: 'application/json',
+      },
     });
 
-    inputTokens = message.usage.input_tokens;
-    outputTokens = message.usage.output_tokens;
+    inputTokens = response.usageMetadata?.promptTokenCount ?? 0;
+    outputTokens = response.usageMetadata?.candidatesTokenCount ?? 0;
 
-    const text = message.content
-      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-      .map((block) => block.text)
-      .join('');
+    const text = response.text ?? '';
+    if (text.trim().length === 0) {
+      // An empty completion usually means the response was stopped by a safety
+      // filter or hit the output cap. Either way there is nothing to parse, and
+      // saying so beats a JSON error that sends someone to the wrong place.
+      throw new Error(
+        'The model returned no text. This usually means the response was filtered or ' +
+          'the output limit was reached.',
+      );
+    }
 
     const parsed = request.schema.parse(extractJson(text));
     ok = true;
@@ -234,7 +269,7 @@ async function record(
   try {
     await db.insert(llmCall).values({
       stage: request.stage,
-      model: MODEL,
+      model: modelName(),
       inputHash,
       denialId: request.denialId ?? null,
       promptTokens,
