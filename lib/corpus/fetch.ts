@@ -149,9 +149,17 @@ async function robotsFor(origin: string): Promise<RobotsRules> {
 
   const permissive: RobotsRules = { disallow: [], allow: [], crawlDelayMs: null };
 
+  // Read the configuration before the try, not inside it. Everything in the
+  // catch below is about a network failure, and a misconfigured environment
+  // caught there gets reported as "robots.txt disallows this host", which is a
+  // sentence about the host's wishes rather than about your settings. That cost
+  // an afternoon once: three sources reported as politely declining to be
+  // crawled, when the real problem was a missing storage variable.
+  const agent = userAgent();
+
   try {
     const response = await fetch(`${origin}/robots.txt`, {
-      headers: { 'user-agent': userAgent() },
+      headers: { 'user-agent': agent },
     });
     // A 404 means no restrictions were published, which is permission.
     const rules = response.ok
