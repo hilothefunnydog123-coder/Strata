@@ -182,6 +182,51 @@ function extractJson(text: string): unknown {
 }
 
 /**
+ * Turn a provider error into something that names the thing to go and fix.
+ *
+ * The SDK's own errors are accurate and unreadable: an HTTP status buried in a
+ * stack trace through three layers of generated client code, with the useful
+ * sentence redacted out of the log because it might carry the key. Someone
+ * seeing that for the first time cannot tell a rejected key from a quota from
+ * an outage, and those have completely different remedies.
+ *
+ * Only the classes with a clear remedy are rewritten. Anything else is passed
+ * through untouched, because inventing an explanation for an error nobody has
+ * seen is worse than showing the original.
+ */
+export function asReadableError(error: unknown): unknown {
+  const status = (error as { status?: number } | null)?.status;
+
+  if (status === 401 || status === 403) {
+    return new LlmBoundaryError(
+      `The model provider rejected the API key (HTTP ${status}). MODEL_API_KEY is set, ` +
+        'so this is not a missing key: it is the wrong one, or it belongs to a project ' +
+        'without model access enabled. Check it at https://aistudio.google.com, and ' +
+        'verify it on its own with:\n' +
+        '  curl "https://generativelanguage.googleapis.com/v1beta/models?key=YOUR_KEY"',
+    );
+  }
+
+  if (status === 429) {
+    return new LlmBoundaryError(
+      'The model provider refused the call for exceeding a rate or quota limit (HTTP ' +
+        '429). On a free tier this is expected on long runs. Every corpus stage records ' +
+        'its progress in the database, so re-running the same command later resumes ' +
+        'where it stopped rather than starting again.',
+    );
+  }
+
+  if (status !== undefined && status >= 500) {
+    return new LlmBoundaryError(
+      `The model provider failed with HTTP ${status}. That is their side rather than ` +
+        'yours. Nothing was saved, so re-running the command is safe.',
+    );
+  }
+
+  return error;
+}
+
+/**
  * Make one structured call.
  *
  * Every model interaction in the product goes through here and comes back
@@ -253,7 +298,7 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
     // The error is logged through the redacting logger, which strips anything
     // the SDK attached from the request body.
     log.error('model call failed', { stage: request.stage, error });
-    throw error;
+    throw asReadableError(error);
   }
 }
 
