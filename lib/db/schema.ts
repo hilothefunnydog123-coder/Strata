@@ -128,6 +128,16 @@ export const documentKindEnum = pgEnum('document_kind', [
   'other',
 ]);
 
+/**
+ * Where a document's text came from.
+ *
+ * text_layer: read out of the file, so a human opening the file sees the same
+ * characters the model did. ocr: recognised from page images, so the text is a
+ * machine's reading of a picture and a quote from it has to be checked against
+ * that picture before anyone signs it.
+ */
+export const textSourceEnum = pgEnum('text_source', ['text_layer', 'ocr']);
+
 export const factTypeEnum = pgEnum('fact_type', [
   'diagnosis',
   'functional_status',
@@ -544,6 +554,12 @@ export const denialDocument = pgTable(
     byteSize: integer('byte_size').notNull(),
     contentHash: text('content_hash').notNull(),
     parsedAt: timestamp('parsed_at', { withTimezone: true }),
+    // How the text under this document was obtained. A quote out of an OCR read
+    // document is only as good as the read, so this travels with the document
+    // and is shown to the reviewer rather than inferred later.
+    textSource: textSourceEnum('text_source').notNull().default('text_layer'),
+    /** Mean OCR confidence, 0 to 100. Null when the text came from the file. */
+    ocrConfidence: integer('ocr_confidence'),
     uploadedBy: text('uploaded_by')
       .notNull()
       .references(() => user.id),

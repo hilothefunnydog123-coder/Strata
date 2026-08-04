@@ -40,6 +40,14 @@ export interface ResolvedSource {
   highlightStart: number;
   highlightEnd: number;
   page: number | null;
+  /**
+   * Whether this passage was recognised from a scan rather than read from the
+   * file. When true the verification behind the quote is weaker than it looks:
+   * the quote was checked against this text, and this text is a reading of an
+   * image, so only a person comparing it to the scan closes the loop.
+   */
+  fromOcr?: boolean;
+  ocrConfidence?: number | null;
 }
 
 export interface DetailAssertion {
@@ -231,6 +239,8 @@ export async function loadDenialDetail(denialId: string): Promise<DenialDetail |
         page: denialSpan.page,
         factType: clinicalFact.factType,
         filename: denialDocument.filename,
+        textSource: denialDocument.textSource,
+        ocrConfidence: denialDocument.ocrConfidence,
       })
       .from(clinicalFact)
       .innerJoin(denialSpan, eq(clinicalFact.spanId, denialSpan.id))
@@ -250,6 +260,11 @@ export async function loadDenialDetail(denialId: string): Promise<DenialDetail |
         highlightStart: h.start,
         highlightEnd: h.end,
         page: row.page,
+        // Carried to the reviewer because the passage above is a machine's
+        // reading of an image. Verification compared the quote against this
+        // text, and this text is itself the thing that might be wrong.
+        fromOcr: row.textSource === 'ocr',
+        ocrConfidence: row.ocrConfidence,
       };
     }
   }

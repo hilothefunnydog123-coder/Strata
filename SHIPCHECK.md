@@ -170,22 +170,43 @@ Stated plainly, because a ship check that only lists successes is not a ship
 check.
 
 1. **The corpus is empty.** Every government source is unreachable from this
-   environment by network policy. The pipeline is written and unit tested but
-   has never made a live request, so M5's "at least 200 real decisions" is not
-   met. This is the largest gap in the build. `BLOCKED.md` entry 2.
+   environment by network policy, so M5's "at least 200 real decisions" is not
+   met and no letter can currently be generated at all: with nothing to cite,
+   generation refuses rather than writing a clinical-only letter.
 
-2. **Generation has never run against a live model.** No API key. The
-   classification, extraction, retrieval, gap check, drafting, and verification
-   code paths are all written; verification is heavily tested in isolation.
+   What changed is that the pipeline is no longer merely written. It now runs
+   end to end against a real HTTP server on localhost, exercising the fetcher,
+   robots.txt, content hashing, storage, parsing, extraction, verification with
+   its discard, and embedding. The unknown left is whether the government hosts
+   serve what `lib/corpus/sources.ts` expects at the paths it expects.
+   `BLOCKED.md` entry 2 has the five commands.
 
-3. **Not deployed.** No Vercel or Neon credentials. `README.md` has the deploy
-   steps; none of them requires a code change.
+2. **Nobody has seen what the model writes.** There is still no API key. The
+   chain now runs end to end with a stand-in at the model boundary, which proves
+   the wiring and the invariant but says nothing about draft quality. That is
+   the single largest remaining unknown in the product.
 
-4. **The e2e suite covers the workflow gates but not generation.**
-   `e2e/workflow.spec.ts` builds a draft directly through the same tables
-   generation writes to, then exercises everything downstream: both review gates,
-   the export block, rejection returning the case with notes visible, an edit
-   being refused when its quote is not in the source, and a recorded win
-   producing an invoice at the organisation's rate to the cent. What it does not
-   cover is whether the model produces a good draft, because that needs a key
-   this environment does not have. The gap is stated rather than papered over.
+3. **OCR text is trusted differently from everything else.** A scanned document
+   is now readable, but the recognised text becomes the source, so a misreading
+   verifies against itself. The mitigations are real and implemented: a
+   confidence floor that refuses the document outright, the provenance stored on
+   the row, and a warning shown to the reviewer beside the passage. None of them
+   is as strong as the citation check applied everywhere else, and a hospital
+   should be told that plainly.
+
+4. **The engine reads what a scanner emits, not what a fax machine emits.**
+   JPEG and Flate page images are read. CCITT G4, JBIG2, and JPEG 2000 are
+   refused by name rather than half read. G4 is the common fax encoding, so this
+   is a real gap for the documents most likely to arrive by fax.
+
+5. **Not deployed to production with credentials.** `README.md` has the steps;
+   none requires a code change.
+
+6. **The e2e suite covers the workflow gates and a scanned upload, but not
+   generation against a real model.** `e2e/workflow.spec.ts` builds a draft
+   directly through the same tables generation writes to, then exercises both
+   review gates, the export block, rejection with notes, an edit refused when
+   its quote is not in the source, and a recorded win producing an invoice to
+   the cent. `e2e/scanned-upload.spec.ts` uploads a real two page scan through
+   the real form to a real built server and checks the case becomes readable and
+   says where its text came from.

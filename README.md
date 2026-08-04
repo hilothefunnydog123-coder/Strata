@@ -172,6 +172,27 @@ criteria" match a source saying "the plan may not apply criteria, unless...".
 `tests/verify.test.ts` pairs every normalisation rule with a test showing it
 does not swallow a substantive difference.
 
+There is a second guard alongside it, added because verification cannot catch
+this one. With an empty corpus the drafter has no law to cite, so it writes a
+letter of clinical assertions only, and since every quote in it is real, that
+letter passes verification cleanly. It is also worthless: a summary of the chart
+sent to the payer who already has the chart. `generateAppeal` therefore refuses
+outright when retrieval returns no controlling authority, with `NoAuthorityError`
+rather than `GenerationError`, because the remedy is to ingest the corpus rather
+than to look at the prompt.
+
+#### Where the invariant does not reach
+
+A scanned document has no text to check a quote against, so OCR produces the
+text and that text becomes the source. A misread word is then verified against
+the misreading and passes. Nothing in `verify.ts` can see this.
+
+What stands in for it: recognition runs locally so no OCR vendor ever sees a
+patient record, a document read below `CONFIDENCE_FLOOR` is refused rather than
+stored, `denial_document.text_source` records the provenance, and the reviewer
+is told beside the passage that it came from a scan. `lib/denials/ocr.ts` opens
+by saying all of this, so nobody has to discover it by reading the call chain.
+
 ### Three lint rules that are not style
 
 - `@anthropic-ai/sdk` may be imported only from `lib/llm/client.ts`, which

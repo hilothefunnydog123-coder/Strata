@@ -55,3 +55,7 @@ next-env.d.ts
 
 # allow the documented template
 !.env.example
+
+# tesseract decompresses the vendored language file into a cache. Belt and
+# braces: lib/denials/ocr.ts points that at the temp directory.
+/eng.traineddata

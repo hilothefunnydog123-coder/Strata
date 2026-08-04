@@ -79,8 +79,34 @@ ingested" could not be met from this container. The corpus is empty. This is the
 single largest gap in the delivered build and it is a network policy issue, not
 a code issue.
 
+**What the pipeline is now proven to do.** `tests/corpus-pipeline.test.ts` runs a
+real HTTP server on localhost serving a decision and a regulation in the shape
+the real sources publish, and runs the real pipeline against it. Ten tests
+covering: the identifying User Agent, a path refused because robots.txt
+disallows it, both documents fetched and hashed and stored, a re-run skipped on
+content hash, parsing into spans with usable offsets, extraction, verification
+passing, a holding whose quote is not in its span being deleted rather than
+flagged, embedding, and a corpus health report that is no longer empty.
+
+So the remaining unknown is narrow: whether the government hosts serve what
+`lib/corpus/sources.ts` expects at the paths it expects. Everything after the
+response body is exercised.
+
 **To unblock:** allow `www.hhs.gov`, `www.ecfr.gov`, and `www.cms.gov` through
-the egress policy, then run the five corpus commands.
+the egress policy, then run the five corpus commands on any machine with normal
+network access:
+
+```bash
+pnpm corpus:fetch --source=dab
+pnpm corpus:fetch --source=ecfr
+pnpm corpus:fetch --source=manual
+pnpm corpus:parse && pnpm corpus:extract
+pnpm corpus:verify && pnpm corpus:embed
+```
+
+`CRAWLER_CONTACT` has to be set first, and `ANTHROPIC_API_KEY` is needed for the
+extract step. Until that runs, generation refuses rather than writing a letter
+with no law in it. See entry 4.
 
 ---
 
@@ -98,17 +124,31 @@ the branch as the archive marker.
 
 ---
 
-## 4. The end to end chain past drafting has never run
+## 4. The end to end chain has now run, against a stand-in model
 
-**What is missing:** an `ANTHROPIC_API_KEY`, which is entry 1.
+**What is still missing:** an `ANTHROPIC_API_KEY`, which is entry 1.
 
-**What this costs:** generation, and therefore everything downstream of it, has
-not been exercised against a live model. Classification, clinical fact
-extraction, retrieval, the gap check, and drafting are all written and
-typechecked; the verification they feed is heavily tested in isolation
-(24 tests, mostly rejections). What has not happened is the whole chain running
-once: upload, generate, review, approve, export, record an outcome, produce an
-invoice.
+**What has changed:** the chain now runs as one thing. `tests/generation-chain.test.ts`
+drives classify, extract, retrieve, gap check, draft, verify, and persist against
+a real PostgreSQL database, with the model boundary substituted and nothing else
+substituted. Ten tests, including the two that matter most: a fabricated quote
+discards all three attempts and leaves no partial draft behind, and an empty
+corpus refuses to produce a letter at all.
+
+The stand-in is constrained rather than scripted. It quotes only text it was
+actually shown, by slicing passages out of the prompt it was given, and its
+output is parsed through the caller's own Zod schema exactly as the real
+boundary does. So a wiring fault anywhere between the database and the verifier
+shows up as a failing test rather than as a passing one. Two real defects were
+found this way on the first run: a regulation whose citation did not match what
+retrieval looks for was silently never retrieved, and a fixture that said
+"coverage guidelines" where the regulation says "coverage criteria" scored zero
+and never reached a draft.
+
+**What this still costs:** nobody has seen what the model actually writes. Draft
+quality, and whether the prompts hold up on a real denial letter, are unmeasured.
+
+**To unblock:** set `ANTHROPIC_API_KEY` and run the chain against a real case.
 
 **What I did instead of pretending:** the parts that can be verified without a
 model are verified.
@@ -146,8 +186,8 @@ database, which is what the e2e suite runs against on every invocation.
 
 | Blocked | Why | Needs |
 | --- | --- | --- |
-| Corpus ingestion | Government hosts blocked at the egress proxy | Egress for `hhs.gov`, `ecfr.gov`, `cms.gov` |
-| Live generation | No Anthropic key | `ANTHROPIC_API_KEY` |
+| Corpus ingestion, against the real sources | Government hosts blocked at the egress proxy. The pipeline itself is proven against a local server. | Egress for `hhs.gov`, `ecfr.gov`, `cms.gov` |
+| Generation against a real model | No Anthropic key. The chain is proven against a stand-in at the boundary. | `ANTHROPIC_API_KEY` |
 | Delivered email | No Resend key, and `api.resend.com` blocked | `RESEND_API_KEY`, `EMAIL_FROM`, egress |
 | Object storage | No R2 credentials | The four `R2_*` variables |
 | Deployment | No Vercel or Neon credentials | Both |

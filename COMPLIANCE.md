@@ -194,6 +194,24 @@ because nobody linked to it is not access control.
 - The corpus of published decisions is currently empty in this build. See
   `BLOCKED.md`: the government sources are unreachable from the environment it
   was built in, by network policy.
+- **A quote taken from a scanned document is weaker evidence than a quote taken
+  from a text document, and we would rather you heard it from us.** Everywhere
+  else, a quote is checked against the source file, so a fabricated quote cannot
+  survive. When a document arrives as a scan, optical character recognition
+  produces the text and that text becomes the source, so a misreading is
+  checked against itself and passes.
+
+  Three things follow, and all three are implemented rather than promised.
+  Recognition runs locally as WebAssembly, so page images of a patient record
+  are never sent to a third party and no OCR vendor appears in your Business
+  Associate Agreement. A document recognised below 70 percent mean confidence is
+  refused outright rather than stored, because uncertain text produces plausible
+  words rather than obviously broken ones. And the provenance travels with the
+  document to the reviewer, who is told beside the passage that it came from a
+  scan and has to be checked against the image before they approve the sentence.
+
+  We are not claiming this makes OCR text as trustworthy as the rest. It does
+  not. It makes the difference visible to the person signing.
 
 If any of those is a hard requirement for your review, we would rather you knew
 now than three weeks into a procurement cycle.

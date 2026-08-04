@@ -12,7 +12,7 @@
  * is sold on and the one a bug would be most expensive in.
  */
 import { expect, test } from '@playwright/test';
-import { app, completeFirstSignIn, signIn, type SeededUser } from './helpers';
+import { app, completeFirstSignIn, signIn, signOut, type SeededUser } from './helpers';
 
 const STAMP = Date.now();
 const PASSWORD = 'workflow-password-long-enough';
@@ -76,9 +76,17 @@ test.describe('the two review gates', () => {
     expect(state.reason).toContain('legal review');
     expect(state.reason).not.toContain('clinical review');
 
-    // Legal approves.
-    await page.goto('/sign-in');
-    await page.getByRole('button', { name: 'Sign out' }).click().catch(() => {});
+    // Legal approves. The clinical reviewer has to be signed out first, and it
+    // has to be waited for: /sign-in redirects an authenticated visitor away,
+    // so a sign out that has not landed yet leaves the next step looking for an
+    // email field on a page that has none. Swallowing the failure here hid
+    // that, and the test failed a minute later pointing at the wrong line.
+    //
+    // Signing out from /review rather than /app, because a clinical reviewer
+    // has no access to the client dashboard and the 403 page carries no header,
+    // so there is no Sign out button on it to click.
+    await page.goto('/review');
+    await signOut(page);
     await completeFirstSignIn(
       page,
       fixture.legal.email,
@@ -262,7 +270,13 @@ test.describe('the client portal reflects it', () => {
     await page.goto(`/app?org=${sixth.orgId}`);
 
     // $9,400.50 recovered, shown as whole dollars in the hero figure.
-    await expect(page.getByText('$9,401').or(page.getByText('$9,400'))).toBeVisible();
+    //
+    // Scoped to the hero rather than matched across the page. The same figure
+    // legitimately appears again under "Recovered this month", and a bare text
+    // match resolves to two elements and fails on strictness, which reads as
+    // "the dashboard is wrong" when the dashboard is right.
+    const hero = page.locator('section', { hasText: 'Recovered to date' }).first();
+    await expect(hero).toContainText(/\$9,40[01]/);
     await expect(page.getByText('Recovered to date')).toBeVisible();
   });
 });

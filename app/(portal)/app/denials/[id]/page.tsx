@@ -123,6 +123,15 @@ export default async function DenialDetailPage({
                 {doc.kind.replace(/_/g, ' ')}
                 {doc.parsedAt ? ', parsed' : ', not parsed'}
               </p>
+              {doc.textSource === 'ocr' ? (
+                // Said here as well as in the review workspace, because this is
+                // the page where someone decides whether the case is worth
+                // pursuing, and a scanned source changes that judgement.
+                <p className="mt-1 text-xs font-medium text-denied">
+                  Read by OCR at {doc.ocrConfidence}% confidence. Quotes from this document
+                  are a machine reading of an image and must be checked against the scan.
+                </p>
+              ) : null}
             </li>
           ))}
           {detail.documents.length === 0 ? (

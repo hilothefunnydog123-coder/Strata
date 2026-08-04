@@ -51,26 +51,41 @@ export const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 /**
  * What the parser can actually read.
  *
- * Plain text and PDF only. A DOCX or a scanned image would be accepted by a
- * more permissive check and then produce zero spans, which surfaces to the user
- * as a case that silently never becomes ready. Refusing at the door with a
- * reason is better than accepting and failing later.
+ * Text, PDF, and page images. A DOCX would be accepted by a more permissive
+ * check and then produce zero spans, which surfaces to the user as a case that
+ * silently never becomes ready. Refusing at the door with a reason is better
+ * than accepting and failing later.
+ *
+ * Images are here because a scan is what a fax machine produces and a fax is
+ * how a great many denial letters arrive. They go through OCR, and the text
+ * that comes out is marked as OCR derived all the way to the reviewer.
  */
 export const ACCEPTED_TYPES: Record<string, string> = {
   'text/plain': '.txt',
   'application/pdf': '.pdf',
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/tiff': '.tif',
+  'image/bmp': '.bmp',
 };
 
+/** Extensions whose bytes are a picture of a page rather than a document. */
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.tif', '.tiff', '.bmp'];
+
+export function isImageType(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return IMAGE_EXTENSIONS.some((extension) => lower.endsWith(extension));
+}
+
 export function acceptedTypeList(): string {
-  return Object.values(ACCEPTED_TYPES).join(', ');
+  return [...new Set(Object.values(ACCEPTED_TYPES))].join(', ');
 }
 
 export class UnsupportedDocumentError extends Error {
   constructor(contentType: string) {
     super(
-      `Medeal cannot read ${contentType || 'that file type'} yet. Upload a PDF or a plain ` +
-        `text file (${acceptedTypeList()}). A scanned image needs to go through OCR first, ` +
-        'because a citation has to point at text we can quote.',
+      `Medeal cannot read ${contentType || 'that file type'} yet. Upload a PDF, a plain text ` +
+        `file, or a scan (${acceptedTypeList()}).`,
     );
     this.name = 'UnsupportedDocumentError';
   }

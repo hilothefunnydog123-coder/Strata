@@ -6,7 +6,7 @@ import { audit } from '@/lib/audit';
 import { assertCan, requirePrincipalOrThrow } from '@/lib/auth/guards';
 import { db } from '@/lib/db';
 import { assertion, denial, organization } from '@/lib/db/schema';
-import { generateAppeal, GenerationError } from '@/lib/appeals/generate';
+import { generateAppeal, GenerationError, NoAuthorityError } from '@/lib/appeals/generate';
 import { canExport } from '@/lib/appeals/workflow';
 import { loadDenialDetail } from '@/lib/denials/detail';
 import { buildCitations, groupIntoSections } from '@/lib/appeals/render';
@@ -58,6 +58,17 @@ export async function generate(denialId: string): Promise<GenerateResult> {
       attempts: result.attempts,
     };
   } catch (error) {
+    if (error instanceof NoAuthorityError) {
+      // Not a failure of the model. The corpus has nothing covering this kind
+      // of denial, so pressing the button again changes nothing.
+      log.error('generation refused: no controlling authority in the corpus', {
+        denialId,
+        serviceType: error.serviceType,
+        denialBasis: error.denialBasis,
+      });
+      return { status: 'error', message: error.message };
+    }
+
     if (error instanceof GenerationError) {
       // Three consecutive failures. The operator console surfaces this, and the
       // right response is to look at the prompt rather than press the button

@@ -167,6 +167,18 @@ export function LetterView({
               </p>
             ) : null}
 
+            {source.fromOcr ? (
+              // The one place in the product where a verified quote is not
+              // fully proof. The quote was checked against the text below, and
+              // the text below was recognised from a picture of a page, so the
+              // check cannot see a misreading. Only a person with the scan can.
+              <p className="mt-3 border border-denied/40 bg-denied-wash px-3 py-2 text-xs text-ink">
+                This document was read by OCR at {source.ocrConfidence}% confidence. The
+                passage below is a machine reading of a scan, so check it against the
+                original image before approving this sentence.
+              </p>
+            ) : null}
+
             <div className="document mt-4 border-l-2 border-rule-strong pl-4">
               <Highlighted
                 text={source.passage}

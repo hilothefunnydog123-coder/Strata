@@ -13,11 +13,16 @@ import { log } from '@/lib/log';
 import { storage } from '@/lib/storage';
 import { parseText } from '@/lib/documents/parse';
 import { extractPdfText } from './pdf';
+import { assertConfident, ocrImage, ocrPdf, type OcrResult } from './ocr';
+import { isImageType } from './upload';
 
 export interface ParseResult {
   documentId: string;
   spanCount: number;
   pageCount: number | null;
+  textSource: 'text_layer' | 'ocr';
+  /** Mean OCR confidence, 0 to 100. Null when the text came from the file. */
+  ocrConfidence: number | null;
 }
 
 export class UnparseableDocumentError extends Error {
@@ -45,19 +50,42 @@ export async function parseDenialDocument(documentId: string): Promise<ParseResu
 
   const bytes = await storage().get(document.r2Key);
 
-  const text =
+  const isPdf =
     document.filename.toLowerCase().endsWith('.pdf') ||
-    bytes.subarray(0, 5).toString('latin1') === '%PDF-'
-      ? await extractPdfText(bytes)
-      : bytes.toString('utf8');
+    bytes.subarray(0, 5).toString('latin1') === '%PDF-';
+
+  let text = '';
+  let ocr: OcrResult | null = null;
+
+  if (isImageType(document.filename)) {
+    // A photograph or a scan saved as an image. There is no text layer to try.
+    ocr = await ocrImage(bytes, document.filename);
+    text = ocr.text;
+  } else if (isPdf) {
+    text = await extractPdfText(bytes);
+    if (text.trim().length === 0) {
+      // No text layer. Almost always a scan, so read the page images instead of
+      // refusing, which is what this used to do.
+      log.info('no text layer, falling back to ocr', { documentId });
+      ocr = await ocrPdf(bytes, document.filename);
+      text = ocr.text;
+    }
+  } else {
+    text = bytes.toString('utf8');
+  }
 
   if (text.trim().length === 0) {
     throw new UnparseableDocumentError(
       document.filename,
-      'The file has no extractable text, which usually means it is a scan rather than a ' +
-        'text document.',
+      ocr
+        ? 'It was read as a scan and no words came out of any page, which usually means the ' +
+            'pages are blank, upside down, or far too low resolution.'
+        : 'The file has no extractable text and no page images to read.',
     );
   }
+
+  // Only after there is text to judge: uncertain text is worse than none.
+  if (ocr) assertConfident(ocr, document.filename);
 
   const parsed = parseText(text);
 
@@ -84,19 +112,27 @@ export async function parseDenialDocument(documentId: string): Promise<ParseResu
 
   await db
     .update(denialDocument)
-    .set({ parsedAt: new Date() })
+    .set({
+      parsedAt: new Date(),
+      textSource: ocr ? 'ocr' : 'text_layer',
+      ocrConfidence: ocr ? ocr.confidence : null,
+    })
     .where(eq(denialDocument.id, documentId));
 
   log.info('denial document parsed', {
     documentId,
     spanCount: parsed.spans.length,
     pageCount: parsed.pageCount,
+    textSource: ocr ? 'ocr' : 'text_layer',
+    ocrConfidence: ocr?.confidence ?? null,
   });
 
   return {
     documentId,
     spanCount: parsed.spans.length,
     pageCount: parsed.pageCount,
+    textSource: ocr ? 'ocr' : 'text_layer',
+    ocrConfidence: ocr?.confidence ?? null,
   };
 }
 

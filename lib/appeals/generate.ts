@@ -37,6 +37,33 @@ import { verifyDraft, type AssertionCandidate } from './verify';
 /** How many times a failing draft is regenerated before a human is told. */
 export const MAX_GENERATION_ATTEMPTS = 3;
 
+/**
+ * Raised when the corpus holds nothing that governs this denial.
+ *
+ * Separate from GenerationError because the remedy is different and the
+ * operator needs to know which one they are looking at. A GenerationError means
+ * the model kept writing quotes that were not in the source. This means the
+ * model was never given anything to cite, which is a corpus problem: run the
+ * ingestion, then regenerate.
+ */
+export class NoAuthorityError extends Error {
+  constructor(
+    readonly serviceType: string,
+    readonly denialBasis: string,
+  ) {
+    super(
+      `No regulation, manual section, or decision was found covering a ${serviceType.replace(
+        /_/g,
+        ' ',
+      )} denial on ${denialBasis.replace(/_/g, ' ')} grounds, so there is nothing to ` +
+        'argue from. A letter built only on the patient record restates what the payer ' +
+        'already has and wins nothing, so none was written. Ingest the corpus and generate ' +
+        'again.',
+    );
+    this.name = 'NoAuthorityError';
+  }
+}
+
 export class GenerationError extends Error {
   constructor(
     message: string,
@@ -223,6 +250,15 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
     'more restrictive',
     'coverage criteria',
   ]);
+
+  // Nothing to argue from. Drafting anyway produces a letter of clinical
+  // assertions with no law behind them, and because every quote in it is real
+  // it passes verification cleanly. That is the dangerous case: the invariant
+  // says the letter is sound, and the letter is merely a summary of the chart
+  // sent to the payer who already read the chart. Refuse instead.
+  if (retrieved.length === 0 && regulations.length === 0) {
+    throw new NoAuthorityError(serviceType, classification.value.denialBasis);
+  }
 
   /* 5, 6, 7. Draft and verify, regenerating on failure. */
 
