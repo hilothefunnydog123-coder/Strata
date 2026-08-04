@@ -8,7 +8,12 @@
  * outage, and those have completely different remedies.
  */
 import { describe, expect, it } from 'vitest';
-import { asReadableError, complete, LlmBoundaryError } from '@/lib/llm/client';
+import {
+  asReadableError,
+  complete,
+  LlmBoundaryError,
+  ModelRequestTooLargeError,
+} from '@/lib/llm/client';
 import { z } from 'zod';
 
 /** A provider error carries the HTTP status as a property, as the SDK's does. */
@@ -52,6 +57,56 @@ describe('provider errors name the remedy', () => {
     expect((asReadableError(providerError(403)) as Error).message).toContain(
       'rejected the API key',
     );
+  });
+
+  it('a refusal on size is its own class, because a caller can act on it', () => {
+    // Every other provider failure is a wall. This one has a remedy the code
+    // can apply without a human: send less. The corpus extractor catches this
+    // exact class and halves its batch, so it has to be distinguishable.
+    const translated = asReadableError(providerError(413));
+
+    expect(translated).toBeInstanceOf(ModelRequestTooLargeError);
+    expect((translated as Error).message).toContain('too large');
+  });
+
+  it('is not fooled by Groq calling a size refusal a rate limit', () => {
+    // Groq returns 413 with code rate_limit_exceeded and type "tokens", which
+    // reads as a per minute quota and is not one. Waiting would never fix it.
+    const groq = Object.assign(new Error('generated client noise'), {
+      status: 413,
+      code: 'rate_limit_exceeded',
+      type: 'tokens',
+      error: { type: 'tokens', code: 'rate_limit_exceeded' },
+    });
+
+    expect(asReadableError(groq)).toBeInstanceOf(ModelRequestTooLargeError);
+  });
+
+  it('does not mistake a real rate limit for a size problem', () => {
+    // The mirror image, and the more dangerous one: treating a per minute quota
+    // as a size refusal would send the extractor splitting batches forever
+    // chasing a limit that is about time.
+    const translated = asReadableError(providerError(429));
+
+    expect(translated).not.toBeInstanceOf(ModelRequestTooLargeError);
+    expect(translated).toBeInstanceOf(LlmBoundaryError);
+  });
+
+  it('catches a provider that reports an oversized request as a 400', () => {
+    const verbose = Object.assign(
+      new Error("This model's maximum context length is 8192 tokens."),
+      { status: 400 },
+    );
+
+    expect(asReadableError(verbose)).toBeInstanceOf(ModelRequestTooLargeError);
+  });
+
+  it('leaves an ordinary 400 alone', () => {
+    // A malformed request is a bug in our prompt assembly, not something to
+    // retry at half the size.
+    const malformed = Object.assign(new Error('unknown field: temperatur'), { status: 400 });
+
+    expect(asReadableError(malformed)).toBe(malformed);
   });
 
   it('a quota refusal says the work resumes rather than restarts', () => {

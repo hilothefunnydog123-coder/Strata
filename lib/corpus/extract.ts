@@ -145,10 +145,70 @@ export async function extractHoldings(
  */
 export const SPANS_PER_EXTRACTION_CALL = 25;
 
-export function batchSpans<T>(spans: readonly T[], size = SPANS_PER_EXTRACTION_CALL): T[][] {
+/**
+ * And how much text, which is the limit that actually binds.
+ *
+ * A count on its own is unbounded in size. Twenty five spans of a DAB decision
+ * is a few thousand characters; twenty five spans of a CMS manual chapter is
+ * forty thousand, and the provider refuses the request outright. That is how
+ * the first real extraction run died, on an HTTP 413 that read like a rate
+ * limit.
+ *
+ * The number is characters rather than tokens because tokens cannot be counted
+ * without the model's tokeniser, and a tokeniser that disagrees with the
+ * provider's is worse than an honest approximation. English legal prose runs
+ * about 3.6 characters per token, so this is roughly 5,000 tokens, which fits
+ * inside the per request allowance of every free tier checked. Raise it for a
+ * paid account with a large context, where fewer, larger calls are faster and
+ * give the model more of the document at once.
+ */
+export const CHARS_PER_EXTRACTION_CALL = 18_000;
+
+/**
+ * Group spans into calls that respect both limits.
+ *
+ * A span that exceeds the character budget on its own still gets its own batch
+ * rather than being dropped or truncated: truncating would put text in front of
+ * the model that does not match the stored span, and every quote drawn from the
+ * truncated part would then fail verification for reasons nobody could see.
+ * Better to send it and let the provider decide.
+ */
+export function batchSpans<T extends { text: string }>(
+  spans: readonly T[],
+  maxSpans = SPANS_PER_EXTRACTION_CALL,
+  maxChars = CHARS_PER_EXTRACTION_CALL,
+): T[][] {
   const batches: T[][] = [];
-  for (let i = 0; i < spans.length; i += size) {
-    batches.push(spans.slice(i, i + size));
+  let current: T[] = [];
+  let chars = 0;
+
+  for (const span of spans) {
+    const cost = span.text.length + 64; // The span's label and separator.
+
+    if (current.length > 0 && (current.length >= maxSpans || chars + cost > maxChars)) {
+      batches.push(current);
+      current = [];
+      chars = 0;
+    }
+
+    current.push(span);
+    chars += cost;
   }
+
+  if (current.length > 0) batches.push(current);
   return batches;
+}
+
+/**
+ * Split a batch the provider refused for being too large.
+ *
+ * Halving rather than dropping to one span at a time: the limit that was hit is
+ * unknown, and probing it one span at a time costs a call per span on a tier
+ * that is rate limited by the minute. Returns null when there is nothing left
+ * to split, which is a single span the provider will not accept at any size.
+ */
+export function halveBatch<T>(batch: readonly T[]): [T[], T[]] | null {
+  if (batch.length < 2) return null;
+  const middle = Math.ceil(batch.length / 2);
+  return [batch.slice(0, middle), batch.slice(middle)];
 }

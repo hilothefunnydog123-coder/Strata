@@ -230,6 +230,39 @@ const { fetchDocument, resetCrawlerState, RobotsDisallowedError, userAgent } = a
 );
 const { db } = await import('@/lib/db');
 const { holding, sourceDocument, sourceSpan } = await import('@/lib/db/schema');
+const { complete, ModelRequestTooLargeError } = await import('@/lib/llm/client');
+
+/** The stand-in defined above, so a test can borrow and restore it. */
+const defaultComplete = vi.mocked(complete).getMockImplementation()!;
+
+/** How many spans a prompt carries, which is what the size tests turn on. */
+function spanCount(user: string): number {
+  return [...user.matchAll(/--- span \d+/g)].length;
+}
+
+type CompleteRequest = Parameters<typeof complete>[0];
+
+/**
+ * A provider that refuses any batch carrying more than one span.
+ *
+ * Harsher than a real free tier on purpose: it forces the splitting all the way
+ * down, which proves the loop terminates rather than merely that it starts.
+ * `alsoRefuse` adds a condition the splitting cannot satisfy, for the case
+ * where a single span is itself too large.
+ */
+function refusingLargeBatches(alsoRefuse?: (user: string) => boolean): typeof complete {
+  return (async (request: CompleteRequest) => {
+    if (spanCount(request.user) > 1 || alsoRefuse?.(request.user)) {
+      throw new ModelRequestTooLargeError('refused: too many tokens');
+    }
+    return defaultComplete(request);
+  }) as typeof complete;
+}
+
+/** Run the extract stage again from nothing, as a re-run after a failure does. */
+async function reExtract(): Promise<void> {
+  await db.update(sourceDocument).set({ extractedAt: null });
+}
 
 /** The corpus tables, emptied so a re-run measures this run. */
 async function clearCorpus(): Promise<void> {
@@ -372,5 +405,140 @@ describe('the stages after the fetch', () => {
     expect(health.holdingsTotal).toBeGreaterThanOrEqual(1);
     expect(health.holdingsVerified).toBe(health.holdingsTotal);
     expect(health.embeddingCoverage).toBe(1);
+  }, 60_000);
+});
+
+/**
+ * What happens when the provider refuses the request.
+ *
+ * The first real extraction run against a live provider died here, on a CMS
+ * manual chapter. A batch is capped at 25 spans, and 25 spans of a decision is
+ * a few thousand characters while 25 spans of a manual chapter is forty
+ * thousand, so the request came back HTTP 413. One refused batch failed the
+ * whole document and the run extracted nothing at all.
+ *
+ * A free tier makes this the normal case rather than an edge one, and the
+ * limits differ per provider and change without notice, so the size that works
+ * cannot be a constant anyone maintains. It has to be discovered at runtime.
+ */
+describe('a provider that refuses the request size', () => {
+  beforeAll(async () => {
+    await db.delete(holding);
+    await reExtract();
+  });
+
+  afterAll(() => {
+    vi.mocked(complete).mockImplementation(defaultComplete);
+  });
+
+  it('splits the batch and extracts anyway', async () => {
+    vi.mocked(complete).mockImplementation(refusingLargeBatches());
+
+    const result = await extractStage();
+
+    // The point of the whole exercise: a refusal is not a lost document.
+    expect(result.failed).toBe(0);
+    expect(result.processed).toBe(2);
+
+    const holdings = await db.select().from(holding);
+    expect(holdings).toHaveLength(1);
+    expect(holdings[0]!.verbatimQuote).toContain('may not apply coverage criteria');
+
+    // And the quote still checks out, which is the thing splitting could have
+    // broken: a span sent in a smaller batch is still the same span.
+    const verified = await verifyStage();
+    expect(verified.failureRate).toBe(0);
+  }, 60_000);
+
+  it('skips a single span it cannot shrink further, and keeps going', async () => {
+    await db.delete(holding);
+    await reExtract();
+
+    // Nothing left to halve. The stage has to record the loss and carry on
+    // rather than spin or abandon the document.
+    const rulePhrase = 'may not apply coverage criteria more';
+    vi.mocked(complete).mockImplementation(
+      refusingLargeBatches((user) => user.includes(rulePhrase)),
+    );
+
+    const result = await extractStage();
+
+    expect(result.failed).toBe(0);
+    expect(result.notes.some((note) => /too large for the model/.test(note))).toBe(true);
+    // The span that was skipped is named, because someone has to be able to go
+    // and look at what was lost.
+    expect(result.notes.some((note) => /span \d+ is too large/.test(note))).toBe(true);
+  }, 60_000);
+});
+
+/**
+ * A run that dies partway through a document must not leave half its holdings
+ * behind.
+ *
+ * This one was invisible until the splitting above made multi call documents
+ * ordinary. The stage inserts holdings batch by batch and sets extracted_at
+ * only at the end, so a document that failed on its fourth batch kept the
+ * holdings from its first three and stayed unextracted. The next run redid
+ * those three batches and inserted a second copy of every holding in them.
+ *
+ * Nothing downstream would have caught it. Duplicates verify perfectly, because
+ * they are genuine quotes from genuine spans. The corpus would simply have
+ * gained weight every time a run was interrupted, and retrieval surfacing the
+ * same authority three times reads as three sources agreeing.
+ */
+describe('a run interrupted partway through a document', () => {
+  afterAll(() => {
+    vi.mocked(complete).mockImplementation(defaultComplete);
+  });
+
+  it('does not leave duplicate holdings for the next run to double', async () => {
+    await db.delete(holding);
+    await reExtract();
+
+    // A clean run first, to establish what one document's worth looks like.
+    vi.mocked(complete).mockImplementation(refusingLargeBatches());
+    await extractStage();
+    const clean = await db.select().from(holding);
+    expect(clean.length).toBeGreaterThan(0);
+
+    // Now a run that gets some holdings in and then dies on a later batch, the
+    // way a rate limit or a dropped connection does.
+    await db.delete(holding);
+    await reExtract();
+
+    // Die on the first call after a holding has actually been written, rather
+    // than after a fixed number of calls. Counting calls is what a first
+    // version of this test did, and it passed against the unfixed code: the
+    // count landed before the batch carrying the quotable span, so the
+    // interrupted run left nothing behind and there was nothing to duplicate.
+    // The bug only exists once a partial run has partial results.
+    let wrote = false;
+    const dropping = refusingLargeBatches();
+    vi.mocked(complete).mockImplementation((async (request: CompleteRequest) => {
+      if (wrote) throw new Error('the connection dropped');
+      const response = (await dropping(request)) as { value: { holdings: unknown[] } };
+      if (response.value.holdings.length > 0) wrote = true;
+      return response;
+    }) as typeof complete);
+    const interrupted = await extractStage();
+
+    // The premise of the test. Without this the assertion below passes for the
+    // wrong reason.
+    expect(await db.select().from(holding)).not.toHaveLength(0);
+    expect(interrupted.failed).toBeGreaterThan(0);
+
+    // The document is still unextracted, so it will be picked up again.
+    const stillPending = await db
+      .select()
+      .from(sourceDocument)
+      .where(sql`${sourceDocument.extractedAt} is null`);
+    expect(stillPending.length).toBeGreaterThan(0);
+
+    // The re-run: same count as the clean run, not double it.
+    vi.mocked(complete).mockImplementation(refusingLargeBatches());
+    await extractStage();
+
+    const after = await db.select().from(holding);
+    expect(after).toHaveLength(clean.length);
   }, 60_000);
 });

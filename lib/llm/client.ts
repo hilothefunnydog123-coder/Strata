@@ -86,6 +86,25 @@ export class LlmBoundaryError extends Error {
   }
 }
 
+/**
+ * The request was too big for the provider to accept.
+ *
+ * Its own class because it is the one provider failure a caller can do
+ * something about without human involvement: send less. The corpus extractor
+ * catches this and halves its batch. Everything else is a wall.
+ *
+ * Providers disagree about the status. The OpenAI shape is 413, Groq returns
+ * 413 with a rate_limit_exceeded code whose type is "tokens", and several
+ * return 400 with a message about context length. All three mean the same
+ * thing, so all three land here.
+ */
+export class ModelRequestTooLargeError extends LlmBoundaryError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ModelRequestTooLargeError';
+  }
+}
+
 export interface LlmRequest<T> {
   stage: LlmStage;
   system: string;
@@ -145,7 +164,19 @@ export function assertTransmissionPermitted(containsPhi: boolean): OpenAI {
     );
   }
 
-  client ??= new OpenAI({ apiKey: env.MODEL_API_KEY, baseURL: env.MODEL_BASE_URL });
+  client ??= new OpenAI({
+    apiKey: env.MODEL_API_KEY,
+    baseURL: env.MODEL_BASE_URL,
+    // A free tier's per-minute token allowance is small enough that a long
+    // corpus run will hit it repeatedly, and the SDK honours the provider's
+    // own Retry-After header when it backs off. Two retries is the default and
+    // is tuned for interactive use; this is a batch job that would rather wait
+    // than lose a document's progress.
+    maxRetries: 5,
+    // A 70B model reading twenty pages of a manual is slow, and the default cut
+    // it off before the provider had finished thinking.
+    timeout: 120_000,
+  });
   return client;
 }
 
@@ -189,6 +220,32 @@ function extractJson(text: string): unknown {
 }
 
 /**
+ * Does this error mean "you sent too much"?
+ *
+ * Deliberately generous, because the alternative is worse. A missed match means
+ * a document that could have been extracted in smaller pieces is abandoned
+ * instead; a false match means one wasted retry at half the size, which then
+ * fails the same way and surfaces the original error. So this errs toward
+ * matching, and the retry loop is bounded so a wrong guess terminates.
+ */
+function isTooLarge(error: unknown, status: number | undefined): boolean {
+  // Groq's shape arrives here: 413, carrying a rate_limit_exceeded code whose
+  // type is "tokens". The code makes it read like a per minute limit and it is
+  // not one, which is why the status decides and the code is ignored. A real
+  // per minute limit is a 429 and must not be mistaken for this, or the
+  // extractor would split batches forever chasing a limit that is about time.
+  if (status === 413) return true;
+  if (status !== 400) return false;
+
+  // Several providers report an oversized request as an ordinary 400. Only the
+  // message separates it from a malformed one.
+  const message = (error as { message?: string } | null)?.message ?? '';
+  return /context length|context_length|too large|maximum context|reduce the length|request entity/i.test(
+    message,
+  );
+}
+
+/**
  * Turn a provider error into something that names the thing to go and fix.
  *
  * The SDK's own errors are accurate and unreadable: an HTTP status buried in a
@@ -204,6 +261,16 @@ function extractJson(text: string): unknown {
 export function asReadableError(error: unknown): unknown {
   const status = (error as { status?: number } | null)?.status;
 
+  if (isTooLarge(error, status)) {
+    return new ModelRequestTooLargeError(
+      'The model provider refused the request for being too large. This is a size ' +
+        'limit rather than a broken key or a bad prompt: the same request succeeds ' +
+        'once it is split. A free tier sets this low, often a few thousand tokens per ' +
+        'request. The corpus extractor splits and retries on its own; anything else ' +
+        'reaching this needs a smaller input.',
+    );
+  }
+
   if (status === 401 || status === 403) {
     return new LlmBoundaryError(
       `The model provider rejected the API key (HTTP ${status}). MODEL_API_KEY is set, ` +
@@ -217,9 +284,10 @@ export function asReadableError(error: unknown): unknown {
   if (status === 429) {
     return new LlmBoundaryError(
       'The model provider refused the call for exceeding a rate or quota limit (HTTP ' +
-        '429). On a free tier this is expected on long runs. Every corpus stage records ' +
-        'its progress in the database, so re-running the same command later resumes ' +
-        'where it stopped rather than starting again.',
+        '429), and it was still refusing after the automatic retries. On a free tier ' +
+        'this is expected on long runs. Every corpus stage records its progress in the ' +
+        'database, so re-running the same command later resumes where it stopped rather ' +
+        'than starting again.',
     );
   }
 

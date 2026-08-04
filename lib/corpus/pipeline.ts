@@ -17,7 +17,8 @@ import { log } from '@/lib/log';
 import { storage } from '@/lib/storage';
 import { verifyQuote } from '@/lib/appeals/verify';
 import { parseEcfrXml, parseHtml, parseText } from '@/lib/documents/parse';
-import { batchSpans, extractHoldings } from './extract';
+import { ModelRequestTooLargeError } from '@/lib/llm/client';
+import { batchSpans, extractHoldings, halveBatch } from './extract';
 import { cosine, embed, holdingEmbeddingText } from './embed';
 import { RobotsDisallowedError } from './fetch';
 import { SOURCES, type SourceKey } from './sources';
@@ -176,18 +177,66 @@ export async function extractStage(limit = 100): Promise<StageResult> {
         .orderBy(sourceSpan.ordinal);
 
       const byOrdinal = new Map(spans.map((s) => [s.ordinal, s]));
+
+      // Clear anything a previous interrupted run left behind, exactly as the
+      // parse stage does with spans.
+      //
+      // Without this, a document whose fourth batch fails keeps the holdings
+      // from its first three and never gets extracted_at set, so the next run
+      // extracts those same three batches again and inserts a second copy of
+      // every holding. Nothing downstream would catch it: the duplicates verify
+      // cleanly, because they are genuine quotes from a genuine span. The
+      // corpus would just quietly gain weight, and a retrieval that surfaces
+      // the same authority three times looks like three sources agreeing.
+      //
+      // A document that has already been extracted is not selected above, so
+      // this can only ever delete the debris of a failed run.
+      await db.delete(holding).where(eq(holding.sourceDocumentId, document.id));
+
       let kept = 0;
 
-      for (const batch of batchSpans(spans)) {
-        const response = await extractHoldings(
-          document.citation,
-          document.title,
-          batch.map((s) => ({
-            ordinal: s.ordinal,
-            text: s.text,
-            headingPath: s.headingPath,
-          })),
-        );
+      // A worklist rather than a for loop, so a batch the provider refuses can
+      // be replaced by its two halves and tried again.
+      const queue = batchSpans(spans);
+
+      while (queue.length > 0) {
+        const batch = queue.shift();
+        if (!batch) break;
+
+        let response;
+        try {
+          response = await extractHoldings(
+            document.citation,
+            document.title,
+            batch.map((s) => ({
+              ordinal: s.ordinal,
+              text: s.text,
+              headingPath: s.headingPath,
+            })),
+          );
+        } catch (error) {
+          if (!(error instanceof ModelRequestTooLargeError)) throw error;
+
+          const halves = halveBatch(batch);
+          if (halves === null) {
+            // One span the provider will not accept at any size. Skipping it
+            // loses whatever it held, so it is recorded by ordinal rather than
+            // counted: someone can go and look at that passage.
+            result.notes.push(
+              `${document.citation}: span ${batch[0]?.ordinal} is too large for the model ` +
+                'to accept on its own and was skipped. Nothing was extracted from it.',
+            );
+            continue;
+          }
+
+          log.info('batch refused as too large, splitting', {
+            citation: document.citation,
+            from: batch.length,
+            to: halves.map((h) => h.length),
+          });
+          queue.unshift(...halves);
+          continue;
+        }
 
         for (const extracted of response.value.holdings) {
           const span = byOrdinal.get(extracted.spanOrdinal);
