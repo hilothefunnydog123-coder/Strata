@@ -188,6 +188,18 @@ function splitKeepingOffsets(text: string): Block[] {
 export function cleanExtractedText(raw: string): string {
   return (
     raw
+      // PostgreSQL cannot store a NUL byte in a text column: it rejects the
+      // whole insert with "invalid byte sequence for encoding UTF8: 0x00", and
+      // the failure surfaces at the database rather than at the extractor, so
+      // it reads as a database problem rather than a document problem. PDFs
+      // produced by a scanner or a government publishing pipeline carry NULs
+      // routinely, inside font tables and object padding, and enough of them
+      // survive text extraction to poison a document.
+      //
+      // Dropped rather than replaced with a space, because a NUL is not a
+      // character anyone wrote. The other C0 controls go too, except the tab,
+      // newline and the form feed the page break marker uses.
+      .replace(/[\u0000-\u0008\u000B\u000E-\u001F\u007F]/g, '')
       .replace(/\r\n?/g, '\n')
       // Trailing spaces before a newline are extractor noise.
       .replace(/[ \t]+\n/g, '\n')

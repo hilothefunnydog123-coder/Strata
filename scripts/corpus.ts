@@ -165,10 +165,20 @@ async function main(): Promise<void> {
   }
 }
 
+/**
+ * Set the exit code and let Node close on its own rather than calling
+ * process.exit().
+ *
+ * process.exit() tears the process down while the database driver still has
+ * handles open. On Windows libuv notices and aborts with
+ * "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)" and exit code
+ * 3221226505, after the work has already finished and committed. So a command
+ * that fully succeeded reported itself as a crash, which is a good way to spend
+ * an evening debugging something that already worked.
+ */
 main()
-  .then(() => process.exit(process.exitCode ?? 0))
   .catch((error: unknown) => {
     log.error('corpus command failed', { error });
     process.stderr.write(`\n${(error as Error).message}\n\n`);
-    process.exit(1);
+    process.exitCode = 1;
   });
