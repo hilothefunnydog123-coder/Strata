@@ -195,6 +195,21 @@ async function doctor(): Promise<void> {
  * against the ones that might replace them, in a single round trip to an
  * environment with egress.
  */
+const PROBE_LINKS: ReadonlyArray<[string, string, RegExp]> = [
+  // The govinfo bulk index, to find whether title 42 is published per part or
+  // only as one enormous file. The whole title is hundreds of megabytes and
+  // parsing it to reach four parts would be absurd.
+  ['govinfo ecfr title-42 index', 'https://www.govinfo.gov/bulkdata/ECFR/title-42', /href="([^"]+)"/g],
+  // The CMS manual landing page, which is where the real chapter filenames
+  // live. Chapter 8 was found by hand once and the rest were guessed from it.
+  [
+    'cms benefit policy manual index',
+    'https://www.cms.gov/regulations-and-guidance/guidance/manuals/internet-only-manuals-ioms-items/cms012673',
+    /href="([^"]*bp102[^"]*)"/g,
+  ],
+  ['cms manuals downloads listing', 'https://www.cms.gov/medicare/regulations-guidance/manuals/internet-only-manuals-ioms', /href="([^"]*bp102[^"]*|[^"]*benefit-policy[^"]*)"/g],
+];
+
 const PROBE_TARGETS: ReadonlyArray<[string, string]> = [
   ['ecfr robots', 'https://www.ecfr.gov/robots.txt'],
   ['ecfr versioner (in use)', 'https://www.ecfr.gov/api/versioner/v1/full/2026-08-05/title-42.xml?part=409'],
@@ -241,6 +256,31 @@ async function probe(): Promise<void> {
       }
     } catch (error) {
       out(`  ERR  ${label.padEnd(30)}${(error as Error).message}`);
+    }
+  }
+
+  out('');
+  out('Links found on index pages');
+  out('─'.repeat(96));
+
+  for (const [label, url, pattern] of PROBE_LINKS) {
+    try {
+      const response = await fetch(url, { headers: { 'user-agent': userAgent() } });
+      out(`  ${label} (${response.status})`);
+      if (!response.ok) continue;
+
+      const body = await response.text();
+      const seen = new Set<string>();
+      for (const match of body.matchAll(pattern)) {
+        const href = match[1];
+        if (href && !seen.has(href)) seen.add(href);
+        if (seen.size >= 30) break;
+      }
+
+      if (seen.size === 0) out('        no matching links');
+      for (const href of seen) out(`        ${href}`);
+    } catch (error) {
+      out(`  ${label} ERR ${(error as Error).message}`);
     }
   }
 
