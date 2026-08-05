@@ -231,42 +231,102 @@ const CMS_ORIGIN = 'https://www.cms.gov';
 /**
  * Medicare Benefit Policy Manual, Publication 100-02.
  *
- * Chapter 8 is the operative text for skilled nursing facility coverage and is
- * what the Council actually applies when it decides one of these cases. Chapter
- * 1 covers inpatient hospital services, which is where inpatient rehabilitation
- * sits.
+ * Discovered from the manual's own index page rather than from a list of
+ * filenames kept here.
  *
- * Filenames are unverified: CMS has reorganised this path more than once.
+ * The list used to be hardcoded, and it was wrong, in a way worth recording
+ * because it is the shape of mistake this whole file invites. Chapter 8 was
+ * found by hand and is published as bp102c08pdf.pdf. Chapter 1 was written by
+ * pattern from it, as bp102c01pdf.pdf, and 404s. Reading the index shows why:
+ * almost every chapter is bp102cNN.pdf, and chapters 3 and 8 alone carry the
+ * doubled "pdf". The one chapter anyone had checked was one of the two
+ * exceptions.
+ *
+ * No convention derived from a sample of one would have survived that, and no
+ * convention needs to: the index is published, it is the authority on what
+ * exists, and reading it costs one request. A chapter that CMS renumbers or
+ * republishes is then picked up on the next run instead of quietly 404ing.
  */
-export const CMS_MANUAL_CHAPTERS: ReadonlyArray<{
-  citation: string;
-  title: string;
-  path: string;
-}> = [
-  {
-    citation: 'Medicare Benefit Policy Manual, Ch. 8',
-    title: 'Coverage of Extended Care (SNF) Services Under Hospital Insurance',
-    path: '/regulations-and-guidance/guidance/manuals/downloads/bp102c08pdf.pdf',
-  },
-  {
-    citation: 'Medicare Benefit Policy Manual, Ch. 1',
-    title: 'Inpatient Hospital Services Covered Under Part A',
-    path: '/regulations-and-guidance/guidance/manuals/downloads/bp102c01pdf.pdf',
-  },
-];
+const CMS_MANUAL_INDEX =
+  '/regulations-and-guidance/guidance/manuals/internet-only-manuals-ioms-items/cms012673';
+
+/** Chapters worth ingesting, and what to call them. */
+const CMS_MANUAL_TITLES: Readonly<Record<string, string>> = {
+  '01': 'Inpatient Hospital Services Covered Under Part A',
+  '02': 'Inpatient Psychiatric Hospital Services',
+  '06': 'Hospital Services Covered Under Part B',
+  '07': 'Home Health Services',
+  '08': 'Coverage of Extended Care (SNF) Services Under Hospital Insurance',
+  '09': 'Coverage of Hospice Services Under Hospital Insurance',
+  '11': 'End Stage Renal Disease (ESRD)',
+  '12': 'Comprehensive Outpatient Rehabilitation Facility (CORF) Coverage',
+  '13': 'Rural Health Clinic and Federally Qualified Health Center Services',
+  '15': 'Covered Medical and Other Health Services',
+  '16': 'General Exclusions from Coverage',
+};
+
+/**
+ * Chapter files, but not the crosswalks beside them.
+ *
+ * Every chapter link has a bp102cNNcrosswalk.pdf next to it, which is a table
+ * of what moved where in a revision. It holds no coverage rule and would be
+ * ingested as though it did.
+ */
+const CHAPTER_LINK = /href="([^"]*\/downloads\/bp102c(\d{2})(?:pdf)?\.pdf)"/gi;
+
+export function discoverManualChapters(html: string): DiscoveredDocument[] {
+  const found = new Map<string, string>();
+
+  for (const match of html.matchAll(CHAPTER_LINK)) {
+    const [, path, chapter] = match;
+    if (!path || !chapter) continue;
+    if (/crosswalk/i.test(path)) continue;
+    // First link for a chapter wins. The page lists each once, and a second
+    // would be a revision link rather than the chapter itself.
+    if (!found.has(chapter)) found.set(chapter, path);
+  }
+
+  return [...found]
+    .filter(([chapter]) => chapter in CMS_MANUAL_TITLES)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([chapter, path]) => ({
+      sourceType: 'manual' as const,
+      citation: `Medicare Benefit Policy Manual, Ch. ${Number(chapter)}`,
+      title: CMS_MANUAL_TITLES[chapter]!,
+      url: path.startsWith('http') ? path : `${CMS_ORIGIN}${path}`,
+      decidedAt: null,
+    }));
+}
 
 export const manualSource: Source = {
   key: 'manual',
   label: 'CMS Internet-Only Manuals',
 
-  async discover() {
-    return CMS_MANUAL_CHAPTERS.map(({ citation, title, path }) => ({
-      sourceType: 'manual' as const,
-      citation,
-      title,
-      url: `${CMS_ORIGIN}${path}`,
-      decidedAt: null,
-    }));
+  async discover({ limit }: { limit?: number } = {}) {
+    const response = await fetch(`${CMS_ORIGIN}${CMS_MANUAL_INDEX}`, {
+      headers: { 'user-agent': userAgent() },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `The Benefit Policy Manual index returned ${response.status}. Without it there ` +
+          'is no list of chapters to fetch, and the filenames are not derivable: most ' +
+          'are bp102cNN.pdf and chapters 3 and 8 are bp102cNNpdf.pdf.',
+      );
+    }
+
+    const chapters = discoverManualChapters(await response.text());
+
+    if (chapters.length === 0) {
+      throw new Error(
+        'The Benefit Policy Manual index parsed but held no chapter links. CMS has ' +
+          'changed the page, and guessing filenames from a sample is what produced the ' +
+          'last set of 404s. Check the page before changing the pattern.',
+      );
+    }
+
+    log.info('discovered manual chapters', { count: chapters.length });
+    return limit ? chapters.slice(0, limit) : chapters;
   },
 
   fetch: (document) => fetchDocument(document.url),
