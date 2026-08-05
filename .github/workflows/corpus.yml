@@ -90,13 +90,17 @@ jobs:
       LOCAL_STORAGE_DIR: .storage-corpus
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
+      - uses: pnpm/action-setup@v6
+        # No version pinned here on purpose. package.json's packageManager field
+        # already names the exact pnpm build, and newer releases of this action
+        # refuse to start when both are set rather than picking one:
+        # ERR_PNPM_BAD_PM_VERSION. Two sources of truth for the same number is
+        # the bug; deleting one of them is the fix, and the one that stays is
+        # the one corepack and every local install already obey.
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -187,7 +191,7 @@ jobs:
 
       - name: Keep the log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: corpus-run-log
           path: corpus-run.log

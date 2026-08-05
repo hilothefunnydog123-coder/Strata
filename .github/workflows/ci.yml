@@ -41,11 +41,15 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+        # No version pinned here on purpose. package.json's packageManager field
+        # already names the exact pnpm build, and newer releases of this action
+        # refuse to start when both are set rather than picking one:
+        # ERR_PNPM_BAD_PM_VERSION. Two sources of truth for the same number is
+        # the bug; deleting one of them is the fix, and the one that stays is
+        # the one corepack and every local install already obey.
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -59,7 +63,7 @@ jobs:
       # e2e builds and serves the app itself, so there is no separate build step:
       # the suite runs against a production build or it does not run at all.
       - run: pnpm e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: playwright-report
