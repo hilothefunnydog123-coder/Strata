@@ -25,6 +25,7 @@ import {
   EXTRACTION_SYSTEM_TOKENS,
   extractHoldings,
   halveBatch,
+  parseHoldings,
 } from './extract';
 import { estimateTokens, screen } from './screen';
 import { cosine, embed, holdingEmbeddingText } from './embed';
@@ -622,8 +623,20 @@ export async function extractStage(
         // available: a citation that checks out and points somewhere else.
         const byOrdinal = new Map(batch.map((s) => [s.ordinal, s]));
 
+        // Each entry validated on its own, so one malformed holding costs its
+        // neighbours nothing. Eighteen batches of manual text were previously
+        // discarded whole because something in each failed the schema.
+        const { holdings: valid, discarded } = parseHoldings(response.value.holdings);
+
+        if (discarded.length > 0) {
+          result.notes.push(
+            `${document.citation}: ${discarded.length} entr${discarded.length === 1 ? 'y' : 'ies'} ` +
+              `did not parse and were dropped. First reason: ${discarded[0]}`,
+          );
+        }
+
         const rows: (typeof holding.$inferInsert)[] = [];
-        for (const extracted of response.value.holdings) {
+        for (const extracted of valid) {
           const span = byOrdinal.get(extracted.spanOrdinal);
           if (!span) {
             result.notes.push(

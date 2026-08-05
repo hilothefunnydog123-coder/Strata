@@ -22,7 +22,19 @@ export const holdingSchema = z.object({
     .min(24, 'A quote shorter than 24 characters is not evidence of anything.'),
   issue: z.string().min(10),
   ruleApplied: z.string().min(10),
-  outcome: z.enum(['claimant_favorable', 'plan_favorable', 'mixed']),
+  /**
+   * Which way it went, or null for text that decides nothing.
+   *
+   * Required until the corpus met a manual. A decision has an outcome; a
+   * regulation or a manual chapter states a rule and decides nothing, so
+   * demanding one made every passage of the CMS manuals a question with no
+   * true answer. The model returned something that failed validation and every
+   * batch of nine chapters was discarded whole.
+   */
+  outcome: z
+    .enum(['claimant_favorable', 'plan_favorable', 'mixed'])
+    .nullish()
+    .transform((v) => v ?? null),
   serviceType: z
     .enum([
       'skilled_nursing',
@@ -34,7 +46,8 @@ export const holdingSchema = z.object({
       'dme',
       'other',
     ])
-    .nullable(),
+    .nullish()
+    .transform((v) => v ?? null),
   payerType: z
     .enum([
       'medicare_advantage',
@@ -43,7 +56,8 @@ export const holdingSchema = z.object({
       'commercial',
       'other',
     ])
-    .nullable(),
+    .nullish()
+    .transform((v) => v ?? null),
   denialBasis: z
     .enum([
       'medical_necessity',
@@ -54,18 +68,85 @@ export const holdingSchema = z.object({
       'administrative',
       'other',
     ])
-    .nullable(),
+    .nullish()
+    .transform((v) => v ?? null),
 });
 
 export type ExtractedHolding = z.infer<typeof holdingSchema>;
 
-export const extractionSchema = z.object({
-  holdings: z.array(holdingSchema),
-});
+/**
+ * The envelope, taken loosely, and the holdings inside it strictly.
+ *
+ * Two separate jobs that were one. Asking Zod to parse the whole response
+ * against an array of holdings means a single malformed entry discards the
+ * batch, and a small model produces one of those regularly: eighteen batches
+ * of CMS manual text were thrown away entire, on nine documents, because
+ * something in each failed validation.
+ *
+ * That is the wrong shape of strictness. A holding that does not parse is
+ * discarded exactly like one whose quote is not in its span, and for the same
+ * reason, but discarding its neighbours as well buys nothing.
+ *
+ * The envelope is loose because models disagree about it and none of the
+ * disagreements matter: a bare array, an object under some other key, a single
+ * holding returned unwrapped. What must be strict is each holding, because that
+ * is what becomes a citation.
+ */
+export const extractionSchema = z.preprocess((raw) => {
+  if (Array.isArray(raw)) return { holdings: raw };
+
+  if (raw && typeof raw === 'object') {
+    const object = raw as Record<string, unknown>;
+    if (Array.isArray(object.holdings)) return { holdings: object.holdings };
+
+    // One array under a name of its own choosing.
+    const arrays = Object.values(object).filter(Array.isArray);
+    if (arrays.length === 1) return { holdings: arrays[0] };
+
+    // A single holding, unwrapped.
+    if ('verbatimQuote' in object) return { holdings: [object] };
+  }
+
+  return { holdings: [] };
+}, z.object({ holdings: z.array(z.unknown()) }));
+
+export interface ExtractedBatch {
+  holdings: ExtractedHolding[];
+  /** Why entries were dropped, so a run reports rather than silently thins. */
+  discarded: string[];
+}
+
+/** Keep the holdings that parse; say what was wrong with the rest. */
+export function parseHoldings(entries: readonly unknown[]): ExtractedBatch {
+  const holdings: ExtractedHolding[] = [];
+  const discarded: string[] = [];
+
+  for (const entry of entries) {
+    const parsed = holdingSchema.safeParse(entry);
+    if (parsed.success) {
+      holdings.push(parsed.data);
+      continue;
+    }
+
+    // Named fields rather than a Zod dump: "verbatimQuote too short" is
+    // actionable, a serialised issue tree is not.
+    const reasons = parsed.error.issues
+      .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
+      .slice(0, 3);
+    discarded.push(reasons.join('; '));
+  }
+
+  return { holdings, discarded };
+}
 
 export const EXTRACTION_SYSTEM_PROMPT = `You extract legal holdings from published Medicare appeal decisions and coverage regulations.
 
-A holding is one proposition the adjudicator actually decided or applied, anchored to the exact words in the document that establish it.
+A holding is one proposition the document establishes, anchored to the exact words that establish it. Two kinds of document arrive here and they are not the same:
+
+- A decision, where a holding is what the adjudicator decided.
+- A regulation or a manual chapter, where a holding is a rule the text states: a requirement, a coverage condition, a definition, or an exclusion. Nothing is decided, and nothing is being adjudicated.
+
+Both are worth extracting. A manual passage saying what skilled nursing care means is authority in an appeal, and is a perfectly good holding.
 
 Rules, in order of importance:
 
@@ -81,7 +162,7 @@ Rules, in order of importance:
 
 6. ruleApplied states the rule the adjudicator applied, in one sentence. Cite the regulation or manual section by number if the document names one.
 
-7. outcome is from the appellant's perspective: claimant_favorable when the appellant prevailed, plan_favorable when the plan or contractor prevailed, mixed when relief was partial.
+7. outcome is from the appellant's perspective: claimant_favorable when the appellant prevailed, plan_favorable when the plan or contractor prevailed, mixed when relief was partial. Use null for a regulation or a manual, which state a rule and decide nothing. Most passages you are given are rule text, so null is the common answer, not the exception.
 
 8. spanOrdinal must be the ordinal of the span your quote came from, exactly as labelled in the input. A quote assembled from two spans is not a quote.
 
@@ -146,12 +227,12 @@ export async function extractHoldings(
   citation: string,
   title: string,
   spans: readonly SpanForExtraction[],
-): Promise<LlmResponse<z.infer<typeof extractionSchema>>> {
+): Promise<LlmResponse<{ holdings: unknown[] }>> {
   return complete({
     stage: 'corpus_extract',
     system: EXTRACTION_SYSTEM_PROMPT,
     user: buildExtractionPrompt(citation, title, spans),
-    schema: extractionSchema,
+    schema: extractionSchema as z.ZodType<{ holdings: unknown[] }>,
     // Published government decisions. There is no patient data in this corpus,
     // which is why extraction can run in synthetic mode.
     containsPhi: false,

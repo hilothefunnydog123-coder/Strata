@@ -87,7 +87,8 @@ export interface DraftContext {
     citation: string;
     issue: string;
     ruleApplied: string;
-    outcome: string;
+    /** Null for a regulation or a manual, which state a rule and decide nothing. */
+    outcome: string | null;
     text: string;
   }[];
   regulations: { id: string; citation: string; headingPath: string[]; text: string }[];
@@ -151,7 +152,7 @@ ${
             (h) => `[${h.id}] ${h.citation}
 Issue: ${h.issue}
 Rule: ${h.ruleApplied}
-Outcome: ${h.outcome.replace(/_/g, ' ')}
+${h.outcome ? `Outcome: ${h.outcome.replace(/_/g, ' ')}` : 'This is rule text, not a decision. It states a requirement rather than resolving an appeal, so do not describe anyone as having prevailed on it.'}
 Text:
 ${h.text}`,
           )

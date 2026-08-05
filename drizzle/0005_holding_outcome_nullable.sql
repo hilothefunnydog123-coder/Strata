@@ -1,0 +1,1 @@
+ALTER TABLE "holding" ALTER COLUMN "outcome" DROP NOT NULL;

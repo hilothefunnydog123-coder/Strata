@@ -540,7 +540,16 @@ export const holding = pgTable(
     verbatimQuote: text('verbatim_quote').notNull(),
     issue: text('issue').notNull(),
     ruleApplied: text('rule_applied').notNull(),
-    outcome: holdingOutcomeEnum('outcome').notNull(),
+    /**
+     * Which way it went, from the appellant's side. Null for rule text.
+     *
+     * A decision has an outcome. A regulation or a manual chapter states a
+     * rule and decides nothing, so requiring one here forced the extractor to
+     * invent an answer for every passage of the CMS manuals, and the model
+     * that could not invent one returned something the schema rejected. Every
+     * batch of nine chapters failed validation on this field.
+     */
+    outcome: holdingOutcomeEnum('outcome'),
     serviceType: serviceTypeEnum('service_type'),
     payerType: payerTypeEnum('payer_type'),
     denialBasis: denialBasisEnum('denial_basis'),

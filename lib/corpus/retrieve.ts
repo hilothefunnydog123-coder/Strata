@@ -47,7 +47,8 @@ export interface RetrievedHolding {
   issue: string;
   ruleApplied: string;
   verbatimQuote: string;
-  outcome: string;
+  /** Null for a regulation or a manual, which state a rule and decide nothing. */
+  outcome: string | null;
   serviceType: string | null;
   payerType: string | null;
   denialBasis: string | null;

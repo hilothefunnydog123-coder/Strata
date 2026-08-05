@@ -178,7 +178,6 @@ export const dabSource: Source = {
 
 /* ─── eCFR Title 42 ───────────────────────────────────────────────────────── */
 
-const ECFR_ORIGIN = 'https://www.ecfr.gov';
 
 /**
  * The parts the product argues from. Narrow on purpose: fetching all of Title
@@ -204,21 +203,128 @@ export const ECFR_PARTS: ReadonlyArray<{ part: string; title: string }> = [
   },
 ];
 
-export const ecfrSource: Source = {
-  key: 'ecfr',
-  label: 'eCFR Title 42',
+/** govinfo, which publishes the eCFR for bulk download and permits it. */
+const GOVINFO_ORIGIN = 'https://www.govinfo.gov';
 
-  async discover() {
-    // The current date is what "current" means to the versioner endpoint.
-    const today = new Date().toISOString().slice(0, 10);
+/**
+ * Where the parts come from, and why not from eCFR's own API.
+ *
+ * eCFR publishes a versioner endpoint that returns a part as XML, and this used
+ * to call it. Their robots.txt disallows it in as many words:
+ *
+ *     # Don't index developer tool links
+ *     Disallow: /api/versioner/v1/full/
+ *
+ * The crawler reads robots.txt and obeys it, so every part was skipped on every
+ * run, and the URL 404s regardless. Both facts were measured from a runner
+ * rather than assumed, after a week of reasoning about why nothing arrived.
+ *
+ * govinfo is the Government Publishing Office's bulk data service. It exists
+ * for exactly this, its robots.txt does not disallow /bulkdata, and it answers
+ * 200 with text/xml. Its listing is published as JSON at a parallel path, which
+ * is what the HTML page renders from: scraping the page returned that page's
+ * own stylesheets, because it builds its list with script.
+ *
+ * The index is read rather than pattern matched into a filename. That mistake
+ * has already been made once on the CMS manuals, where a convention derived
+ * from the single chapter someone had checked turned out to describe one of the
+ * only two exceptions in the set.
+ */
+const GOVINFO_ECFR_INDEX = '/bulkdata/json/ECFR/title-42';
 
-    return ECFR_PARTS.map(({ part, title }) => ({
+interface GovinfoFile {
+  link?: string;
+  justFileName?: string;
+  fileName?: string;
+  folder?: boolean;
+}
+
+/**
+ * Pick the file for each part we want out of a govinfo listing.
+ *
+ * Exported so it can be tested against a real listing without a network, and so
+ * the shape this expects is written down somewhere a person can check it
+ * against the live endpoint.
+ */
+export function selectEcfrParts(listing: unknown): DiscoveredDocument[] {
+  const files = (listing as { files?: GovinfoFile[] } | null)?.files;
+  if (!Array.isArray(files)) return [];
+
+  const wanted = new Map(ECFR_PARTS.map((p) => [p.part, p.title]));
+  const found: DiscoveredDocument[] = [];
+
+  for (const file of files) {
+    const link = file.link;
+    const name = file.justFileName ?? file.fileName ?? '';
+    if (file.folder || !link || !/\.xml$/i.test(name)) continue;
+
+    // ECFR-title42-part409.xml, and any near relative of that spelling.
+    const part = /part[-_]?(\d{2,4})/i.exec(name)?.[1];
+    if (!part || !wanted.has(part)) continue;
+
+    found.push({
       sourceType: 'regulation' as const,
       citation: `42 CFR Part ${part}`,
-      title,
-      url: `${ECFR_ORIGIN}/api/versioner/v1/full/${today}/title-42.xml?part=${part}`,
+      title: wanted.get(part)!,
+      url: link.startsWith('http') ? link : `${GOVINFO_ORIGIN}${link}`,
       decidedAt: null,
-    }));
+    });
+  }
+
+  return found;
+}
+
+export const ecfrSource: Source = {
+  key: 'ecfr',
+  label: 'eCFR Title 42, via govinfo bulk data',
+
+  async discover() {
+    const response = await fetch(`${GOVINFO_ORIGIN}${GOVINFO_ECFR_INDEX}`, {
+      headers: { 'user-agent': userAgent(), accept: 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `The govinfo bulk index returned ${response.status}. eCFR's own API cannot be ` +
+          'used in its place: their robots.txt disallows /api/versioner/v1/full/ ' +
+          'explicitly, and it 404s anyway.',
+      );
+    }
+
+    const body = await response.text();
+
+    let listing: unknown;
+    try {
+      listing = JSON.parse(body);
+    } catch {
+      throw new Error(
+        'The govinfo bulk index did not return JSON. The first 200 characters were: ' +
+          body.slice(0, 200),
+      );
+    }
+
+    const parts = selectEcfrParts(listing);
+
+    if (parts.length === 0) {
+      // Loudly, with what was actually there. A silent empty result reads as
+      // "nothing new to fetch", and the regulations would simply never arrive
+      // while every run reported success. The listing is small enough to name.
+      const names = ((listing as { files?: GovinfoFile[] }).files ?? [])
+        .map((f) => f.justFileName ?? f.fileName ?? '')
+        .filter(Boolean)
+        .slice(0, 20);
+
+      throw new Error(
+        'The govinfo bulk index held no per part file for any of 42 CFR ' +
+          `${ECFR_PARTS.map((p) => p.part).join(', ')}. It listed: ${names.join(', ') || '(nothing)'}. ` +
+          'Fetching the whole of title 42 instead is not a fallback: it is hundreds of ' +
+          'megabytes to reach four parts, and every extra part is more surface for a ' +
+          'retrieval to wander into.',
+      );
+    }
+
+    log.info('discovered regulation parts', { count: parts.length });
+    return parts;
   },
 
   fetch: (document) => fetchDocument(document.url),
