@@ -248,9 +248,12 @@ export async function extractHoldings(
   citation: string,
   title: string,
   spans: readonly SpanForExtraction[],
+  /** Set when the stage has rotated off a model whose allowance is spent. */
+  model?: string,
 ): Promise<LlmResponse<{ holdings: unknown[] }>> {
   return complete({
     stage: 'corpus_extract',
+    model,
     system: EXTRACTION_SYSTEM_PROMPT,
     user: buildExtractionPrompt(citation, title, spans),
     schema: extractionSchema as z.ZodType<{ holdings: unknown[] }>,

@@ -105,6 +105,26 @@ const schema = z.object({
    * disappears.
    */
   MODEL_NAME_CORPUS: withDefault('llama-3.1-8b-instant'),
+  /**
+   * Models to move to when the one above runs out of allowance for the day.
+   *
+   * A daily cap belongs to a model, not to the key. The same account can carry
+   * on against a different model the moment the first one is spent, and the
+   * only thing that was stopping it was that the run gave up instead of asking.
+   * On a free tier this is the difference between an hour of extraction a day
+   * and several, at no cost and with no second account.
+   *
+   * Safe here and nowhere else, for the reason the whole stage is safe on a
+   * small model: every quote is checked verbatim against its span afterwards,
+   * so which model produced it changes how many holdings survive, never whether
+   * a survivor is real.
+   *
+   * A name in this list that the provider does not recognise costs one refused
+   * call and is skipped, so a stale default is harmless rather than fatal.
+   * Comma separated. Empty disables rotation and restores the old behaviour of
+   * stopping when the first allowance runs out.
+   */
+  MODEL_NAME_CORPUS_FALLBACKS: withDefault('llama-3.3-70b-versatile,gemma2-9b-it'),
   /** Off for a provider that rejects response_format outright. */
   MODEL_JSON_MODE: z
     .enum(['true', 'false', '1', '0', ''])
@@ -323,6 +343,7 @@ function unconfigured(): Env {
     MODEL_BASE_URL: 'https://api.groq.com/openai/v1',
     MODEL_NAME: 'llama-3.3-70b-versatile',
     MODEL_NAME_CORPUS: 'llama-3.1-8b-instant',
+    MODEL_NAME_CORPUS_FALLBACKS: 'llama-3.3-70b-versatile,gemma2-9b-it',
     MODEL_JSON_MODE: true,
     MODEL_PRICE_INPUT_CENTS: 0,
     MODEL_PRICE_OUTPUT_CENTS: 0,

@@ -12,6 +12,7 @@
  */
 import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { env } from '@/lib/env';
 import { holding, sourceDocument, sourceSpan } from '@/lib/db/schema';
 import { log } from '@/lib/log';
 import { storage } from '@/lib/storage';
@@ -453,6 +454,38 @@ export async function extractStage(
   let spansExtracted = 0;
   let quotaExhausted = false;
 
+  // The models this run may use, in order, most preferred first.
+  //
+  // A daily cap belongs to a model rather than to the key, so an account with
+  // nothing left for one model has an untouched budget for the next. The run
+  // used to stop at the first empty bucket and wait for tomorrow.
+  const models = [
+    env.MODEL_NAME_CORPUS,
+    ...env.MODEL_NAME_CORPUS_FALLBACKS.split(',')
+      .map((m: string) => m.trim())
+      .filter((m: string) => m.length > 0),
+  ].filter((m, i, all) => all.indexOf(m) === i);
+
+  let modelIndex = 0;
+
+  /**
+   * Move to the next model, or report that there is nowhere left to go.
+   *
+   * Returns false when the list is spent, which is the point the run genuinely
+   * has to stop and the caller should not start another round today.
+   */
+  const rotate = (why: string): boolean => {
+    if (modelIndex >= models.length - 1) return false;
+
+    modelIndex += 1;
+    result.notes.push(
+      `${why} Moving to ${models[modelIndex]}, whose daily allowance is separate ` +
+        'from the one just spent.',
+    );
+    log.info('rotating to another model', { from: models[modelIndex - 1], to: models[modelIndex] });
+    return true;
+  };
+
   const pending = await db
     .select()
     .from(sourceDocument)
@@ -565,6 +598,7 @@ export async function extractStage(
               text: s.text,
               headingPath: s.headingPath,
             })),
+            models[modelIndex],
           );
         } catch (error) {
           // A spent per minute allowance is not a failure, it is a wait. The
@@ -575,12 +609,24 @@ export async function extractStage(
             const seconds = error.retryAfterSeconds ?? DEFAULT_RATE_LIMIT_WAIT_SECONDS;
 
             if (seconds > QUOTA_WAIT_THRESHOLD_SECONDS) {
+              // Spent for this model, not for the account. Rotating costs one
+              // refused call and buys a whole separate daily budget.
+              if (
+                rotate(
+                  `${document.citation}: ${models[modelIndex]} asked to be left alone for ` +
+                    `${Math.ceil(seconds / 60)} minutes, which is its daily quota.`,
+                )
+              ) {
+                fruitlessWaits = 0;
+                queue.unshift(batch);
+                continue;
+              }
+
               quotaExhausted = true;
               result.notes.push(
-                `${document.citation}: the provider asked to be left alone for ` +
-                  `${Math.ceil(seconds / 60)} minutes, which is a daily quota rather than ` +
-                  'an hourly or per minute one. Waiting will not clear it during this ' +
-                  'run, so the run stopped here. Everything already extracted is saved.',
+                `${document.citation}: every model available to this run has spent its ` +
+                  `daily allowance (${models.join(', ')}). The run stopped here and ` +
+                  'everything already extracted is saved.',
               );
               throw error;
             }
@@ -590,11 +636,22 @@ export async function extractStage(
             // that clears is patience and one that never clears is a stop.
             fruitlessWaits += 1;
             if (fruitlessWaits > FRUITLESS_WAITS_BEFORE_STOPPING) {
+              if (
+                rotate(
+                  `${document.citation}: waited ${FRUITLESS_WAITS_BEFORE_STOPPING} times on ` +
+                    `${models[modelIndex]} without a batch getting through.`,
+                )
+              ) {
+                fruitlessWaits = 0;
+                queue.unshift(batch);
+                continue;
+              }
+
               quotaExhausted = true;
               result.notes.push(
                 `${document.citation}: waited ${FRUITLESS_WAITS_BEFORE_STOPPING} times ` +
-                  'without a single batch getting through, so the allowance is not coming ' +
-                  'back on its own. The run stopped here and everything already extracted ' +
+                  'without a single batch getting through, and every model available to ' +
+                  `this run is spent (${models.join(', ')}). Everything already extracted ` +
                   'is saved.',
               );
               throw error;

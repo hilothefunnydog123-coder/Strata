@@ -232,6 +232,12 @@ const {
   corpusHealth,
   FRUITLESS_WAITS_BEFORE_STOPPING,
 } = await import('@/lib/corpus/pipeline');
+
+/**
+ * How many models a run may work through before it is genuinely out of road:
+ * MODEL_NAME_CORPUS plus MODEL_NAME_CORPUS_FALLBACKS.
+ */
+const MODELS_AVAILABLE = 3;
 const { fetchDocument, resetCrawlerState, RobotsDisallowedError, userAgent } = await import(
   '@/lib/corpus/fetch'
 );
@@ -533,6 +539,54 @@ describe('a provider that is rate limiting', () => {
     expect(await db.select().from(holding)).not.toHaveLength(0);
   }, 60_000);
 
+  it('moves to another model rather than waiting for tomorrow', async () => {
+    // A daily cap belongs to a model, not to the key. The account still has an
+    // untouched budget on the next model in the list, and the run used to stop
+    // at the first empty bucket and hand the rest back to a person.
+    await db.delete(holding);
+    await reExtract();
+
+    const modelsTried: (string | undefined)[] = [];
+    vi.mocked(complete).mockImplementation((async (request: CompleteRequest) => {
+      modelsTried.push(request.model);
+      // The first model is out for the day. Anything else works.
+      if (request.model === 'llama-3.1-8b-instant') {
+        throw new ModelRateLimitedError('daily quota', 3 * 60 * 60);
+      }
+      return defaultComplete(request);
+    }) as typeof complete);
+
+    const result = await extractStage(100, { sleep: async () => {} });
+
+    // It asked the first model, was refused for the day, and carried on.
+    expect(modelsTried[0]).toBe('llama-3.1-8b-instant');
+    expect(modelsTried.some((m) => m && m !== 'llama-3.1-8b-instant')).toBe(true);
+
+    expect(result.quotaExhausted).toBe(false);
+    expect(result.spansExtracted).toBeGreaterThan(0);
+    expect(await db.select().from(holding)).not.toHaveLength(0);
+    expect(result.notes.some((n) => /whose daily allowance is separate/.test(n))).toBe(true);
+  }, 60_000);
+
+  it('stops only once every model it may use is spent', async () => {
+    // The list is not infinite patience. When there is nowhere left to go the
+    // run has to stop and say so, naming what it tried.
+    await db.delete(holding);
+    await reExtract();
+
+    const modelsTried = new Set<string | undefined>();
+    vi.mocked(complete).mockImplementation((async (request: CompleteRequest) => {
+      modelsTried.add(request.model);
+      throw new ModelRateLimitedError('daily quota', 3 * 60 * 60);
+    }) as typeof complete);
+
+    const result = await extractStage(100, { sleep: async () => {} });
+
+    expect(modelsTried.size).toBeGreaterThan(1);
+    expect(result.quotaExhausted).toBe(true);
+    expect(result.notes.some((n) => /every model available to this run/.test(n))).toBe(true);
+  }, 60_000);
+
   it('stops instead of waiting when the wait is measured in hours', async () => {
     // A daily allowance does not come back during a run however patient it is,
     // and it says so: the wait it reports is hours, not minutes.
@@ -608,11 +662,15 @@ describe('a provider that is rate limiting', () => {
       },
     });
 
-    // Patient a few times, then done, and done for the whole run rather than
-    // once per document: the allowance belongs to the account, so the documents
-    // behind this one are left for the next run instead of sleeping through the
-    // same discovery each.
-    expect(slept.length).toBeLessThanOrEqual(FRUITLESS_WAITS_BEFORE_STOPPING);
+    // Patient a few times per model, then done, and done for the whole run
+    // rather than once per document: the allowance belongs to the account, so
+    // the documents behind this one are left for the next run instead of
+    // sleeping through the same discovery each.
+    //
+    // Per model, because the run now rotates. Three waits establish that this
+    // model is not coming back, and the next model has its own daily budget
+    // that this one's exhaustion says nothing about.
+    expect(slept.length).toBeLessThanOrEqual(FRUITLESS_WAITS_BEFORE_STOPPING * MODELS_AVAILABLE);
     expect(result.quotaExhausted).toBe(true);
     expect(result.notes.some((n) => /without a single batch getting through/.test(n))).toBe(true);
     expect(result.notes.some((n) => /left for the next run/.test(n))).toBe(true);
@@ -664,7 +722,7 @@ describe('a provider that is rate limiting', () => {
     // rather than holding it open: the waits stop getting anywhere, which is
     // the thing actually worth measuring.
     expect(slept.length).toBeGreaterThan(0);
-    expect(slept.length).toBeLessThanOrEqual(4);
+    expect(slept.length).toBeLessThanOrEqual((FRUITLESS_WAITS_BEFORE_STOPPING + 1) * MODELS_AVAILABLE);
     expect(result.failed).toBeGreaterThan(0);
     expect(result.quotaExhausted).toBe(true);
 

@@ -53,7 +53,13 @@ import { log } from '@/lib/log';
  * file, which is before a test or a script has had a chance to set a variable.
  * That is exactly how this broke the first time.
  */
-export function modelName(stage?: LlmStage): string {
+export function modelName(stage?: LlmStage, override?: string): string {
+  // An explicit override wins over everything. Extraction uses it to move to
+  // another model when the one it was using runs out of allowance for the day,
+  // which is a different allowance rather than merely a retry: providers meter
+  // per model, so the next model's budget is untouched by the first one's.
+  if (override && override.trim().length > 0) return override.trim();
+
   // Corpus extraction may run on a different model from the one that drafts
   // appeals. See MODEL_NAME_CORPUS in lib/env.ts for why that is safe here and
   // nowhere else: every holding's quote is verified verbatim against its span,
@@ -149,6 +155,16 @@ export interface LlmRequest<T> {
   denialId?: string;
   maxTokens?: number;
   temperature?: number;
+  /**
+   * Run this one call on a named model instead of the stage's usual one.
+   *
+   * Only extraction sets it, and only to rotate off a model whose daily
+   * allowance is spent. Safe there for the reason the whole stage is safe on a
+   * small model: every quote is checked verbatim against its span afterwards,
+   * so the model chosen changes how many holdings survive, not whether the
+   * survivors are real.
+   */
+  model?: string;
 }
 
 export interface LlmResponse<T> {
@@ -461,7 +477,7 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
 
   try {
     const response = await provider.chat.completions.create({
-      model: modelName(request.stage),
+      model: modelName(request.stage, request.model),
       messages: [
         { role: 'system', content: request.system },
         { role: 'user', content: request.user },
@@ -552,7 +568,7 @@ async function record(
   try {
     await db.insert(llmCall).values({
       stage: request.stage,
-      model: modelName(request.stage),
+      model: modelName(request.stage, request.model),
       inputHash,
       denialId: request.denialId ?? null,
       promptTokens,
