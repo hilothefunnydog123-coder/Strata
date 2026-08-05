@@ -176,6 +176,22 @@ const RATE_LIMIT_WAITS_PER_DOCUMENT = 40;
 /** Used when the provider does not say how long to wait. */
 const DEFAULT_RATE_LIMIT_WAIT_SECONDS = 45;
 
+/**
+ * Above this, the wait is telling us about a different limit.
+ *
+ * A per minute allowance rolls over within the minute, so a provider asking to
+ * be left alone for ten minutes is not talking about one. It is an hourly or
+ * daily quota, and the distinction matters because the two have opposite
+ * remedies: a per minute limit is waited out and the run finishes, a daily one
+ * is not going to clear during this run no matter how patient it is.
+ *
+ * The run that made this obvious sat asking for the same batch every ten
+ * minutes, each time being told ten minutes, with the passage count unchanged.
+ * Left alone it would have spent almost seven hours reaching exactly as far as
+ * it had in the first minute.
+ */
+const QUOTA_WAIT_THRESHOLD_SECONDS = 150;
+
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 export interface ExtractOptions {
@@ -193,6 +209,14 @@ export interface ExtractResult extends StageResult {
    * the command again is worth anything, so it has to be measurable.
    */
   spansExtracted: number;
+  /**
+   * The provider is refusing on a window longer than a minute.
+   *
+   * Separate from a failure, because the remedy is different and so is the
+   * timescale: nothing about running the command again in the next few minutes
+   * will help, and the caller should stop rather than start another round.
+   */
+  quotaExhausted: boolean;
 }
 
 export async function extractStage(
@@ -202,6 +226,7 @@ export async function extractStage(
   const sleep = options.sleep ?? wait;
   const result = empty();
   let spansExtracted = 0;
+  let quotaExhausted = false;
 
   const pending = await db
     .select()
@@ -273,6 +298,19 @@ export async function extractStage(
           // long to leave it. Putting the batch back and sleeping is what turns
           // a free tier from unusable into slow.
           if (error instanceof ModelRateLimitedError) {
+            const seconds = error.retryAfterSeconds ?? DEFAULT_RATE_LIMIT_WAIT_SECONDS;
+
+            if (seconds > QUOTA_WAIT_THRESHOLD_SECONDS) {
+              quotaExhausted = true;
+              result.notes.push(
+                `${document.citation}: the provider asked to be left alone for ` +
+                  `${Math.ceil(seconds / 60)} minutes, which is an hourly or daily quota ` +
+                  'rather than a per minute limit. Waiting will not clear it during this ' +
+                  'run, so the run stopped here. Everything already extracted is saved.',
+              );
+              throw error;
+            }
+
             waits += 1;
             if (waits > RATE_LIMIT_WAITS_PER_DOCUMENT) {
               result.notes.push(
@@ -283,7 +321,6 @@ export async function extractStage(
               throw error;
             }
 
-            const seconds = error.retryAfterSeconds ?? DEFAULT_RATE_LIMIT_WAIT_SECONDS;
             log.info('rate limited, waiting before trying the same batch again', {
               citation: document.citation,
               seconds: Math.ceil(seconds),
@@ -426,7 +463,7 @@ export async function extractStage(
     }
   }
 
-  return { ...result, spansExtracted };
+  return { ...result, spansExtracted, quotaExhausted };
 }
 
 /* ─── 4. Verify ───────────────────────────────────────────────────────────── */

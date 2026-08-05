@@ -75,6 +75,21 @@ async function extract(limit: number | undefined): Promise<void> {
     // Everything finished, or nothing moved and another round would only repeat
     // whatever is blocking it.
     if (result.failed === 0) break;
+
+    if (result.quotaExhausted) {
+      out('');
+      out(`  ${totalSpans} passages were extracted before the provider's longer quota ran out.`);
+      out('  They are saved. Running this again once the quota resets continues from there.');
+      out('');
+      out('  If this is happening early in a large document, the account is too small');
+      out('  for its size. MODEL_NAME_CORPUS can point extraction at a smaller model');
+      out('  with a larger allowance without changing the model that drafts appeals.');
+      out('  Every quote is still verified against its source either way, so a weaker');
+      out('  model here costs discarded holdings rather than wrong ones.');
+      process.exitCode = 1;
+      break;
+    }
+
     if (result.spansExtracted === 0) {
       out('');
       out('  This round extracted nothing, so running again would not help.');

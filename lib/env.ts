@@ -52,6 +52,26 @@ const schema = z.object({
     .url('MODEL_BASE_URL must be an absolute URL')
     .default('https://api.groq.com/openai/v1'),
   MODEL_NAME: z.string().min(1).default('llama-3.3-70b-versatile'),
+  /**
+   * The model corpus extraction uses, when it should differ from the one that
+   * drafts appeals. Falls back to MODEL_NAME.
+   *
+   * These two jobs have opposite shapes. Drafting is a handful of calls per
+   * appeal where judgment decides whether a letter is any good. Ingesting a
+   * manual chapter is hundreds of thousands of tokens of bulk reading, and on
+   * a metered or free account that volume is the whole constraint.
+   *
+   * Splitting them is safe here for a specific reason rather than a general
+   * one: no holding enters the corpus without its quote being found verbatim in
+   * the span it cites, and one that fails is deleted rather than flagged. So a
+   * weaker model extracting holdings produces fewer of them and more discards,
+   * not wrong ones. That is a throughput cost, and it buys an order of
+   * magnitude more allowance on every free tier that offers a small model.
+   *
+   * It would not be safe to reach for this on the drafting side, where nothing
+   * downstream can tell a weak argument from a strong one.
+   */
+  MODEL_NAME_CORPUS: optionalString,
   /** Off for a provider that rejects response_format outright. */
   MODEL_JSON_MODE: z
     .enum(['true', 'false', '1', '0', ''])

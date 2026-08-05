@@ -53,7 +53,12 @@ import { log } from '@/lib/log';
  * file, which is before a test or a script has had a chance to set a variable.
  * That is exactly how this broke the first time.
  */
-export function modelName(): string {
+export function modelName(stage?: LlmStage): string {
+  // Corpus extraction may run on a different model from the one that drafts
+  // appeals. See MODEL_NAME_CORPUS in lib/env.ts for why that is safe here and
+  // nowhere else: every holding's quote is verified verbatim against its span,
+  // so a weaker model costs discards rather than correctness.
+  if (stage === 'corpus_extract' && env.MODEL_NAME_CORPUS) return env.MODEL_NAME_CORPUS;
   return env.MODEL_NAME;
 }
 
@@ -401,7 +406,7 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
 
   try {
     const response = await provider.chat.completions.create({
-      model: modelName(),
+      model: modelName(request.stage),
       messages: [
         { role: 'system', content: request.system },
         { role: 'user', content: request.user },
@@ -492,7 +497,7 @@ async function record(
   try {
     await db.insert(llmCall).values({
       stage: request.stage,
-      model: modelName(),
+      model: modelName(request.stage),
       inputHash,
       denialId: request.denialId ?? null,
       promptTokens,

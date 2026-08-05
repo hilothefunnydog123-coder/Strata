@@ -526,6 +526,60 @@ describe('a provider that is rate limiting', () => {
     expect(await db.select().from(holding)).not.toHaveLength(0);
   }, 60_000);
 
+  it('stops instead of waiting when the wait is a quota rather than a window', async () => {
+    // A per minute allowance rolls over within the minute. A provider asking to
+    // be left alone for ten is talking about an hourly or daily quota, and that
+    // will not clear during this run however patient it is.
+    //
+    // The run this comes from sat asking for the same batch every ten minutes,
+    // being told ten minutes, with the passage count unchanged. Left alone it
+    // would have spent seven hours getting no further than its first minute.
+    await db.delete(holding);
+    await reExtract();
+
+    const slept: number[] = [];
+    vi.mocked(complete).mockImplementation((async () => {
+      throw new ModelRateLimitedError('daily quota', 600);
+    }) as typeof complete);
+
+    const result = await extractStage(100, {
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+
+    expect(slept).toEqual([]);
+    expect(result.quotaExhausted).toBe(true);
+    expect(result.notes.some((n) => /hourly or daily quota/.test(n))).toBe(true);
+  }, 60_000);
+
+  it('still waits out an ordinary per minute limit', async () => {
+    // The line has to fall between the two. Treating a 30 second window as a
+    // quota would stop a run that only needed to pause.
+    await db.delete(holding);
+    await reExtract();
+
+    let refused = false;
+    const slept: number[] = [];
+    vi.mocked(complete).mockImplementation((async (request: CompleteRequest) => {
+      if (!refused) {
+        refused = true;
+        throw new ModelRateLimitedError('per minute', 30);
+      }
+      return defaultComplete(request);
+    }) as typeof complete);
+
+    const result = await extractStage(100, {
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+
+    expect(slept).toEqual([30_000]);
+    expect(result.quotaExhausted).toBe(false);
+    expect(result.failed).toBe(0);
+  }, 60_000);
+
   it('gives up eventually rather than waiting all night', async () => {
     await db.delete(holding);
     await reExtract();

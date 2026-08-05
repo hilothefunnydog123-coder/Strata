@@ -166,7 +166,7 @@ export async function extractHoldings(
  * enormous one: a model asked to hold 200 spans in view returns holdings
  * anchored to spans it half remembers, and those fail verification.
  */
-export const SPANS_PER_EXTRACTION_CALL = 25;
+export const SPANS_PER_EXTRACTION_CALL = 60;
 
 /**
  * And how much text, which is the limit that actually binds.
@@ -182,18 +182,25 @@ export const SPANS_PER_EXTRACTION_CALL = 25;
  * provider's is worse than an honest approximation. English legal prose runs
  * about 3.6 characters per token, so this is roughly 2,800 tokens.
  *
- * Sized against the smallest allowance worth supporting rather than the largest
- * that works. Groq's free tier is 12,000 tokens a minute, and a request is
- * charged its prompt plus its completion cap, so this plus
- * EXTRACTION_MAX_OUTPUT_TOKENS is about 4,900 and two calls fit in a minute
- * with room to spare. The first attempt at this constant was 18,000 characters,
- * which was chosen by reasoning about context windows rather than about per
- * minute allowances, and it produced a run that split every single batch.
+ * Sized so that the fixed cost of a call is a small share of it, which is the
+ * opposite of how it was first set and the correction is worth recording.
  *
- * Raise it for a paid account, where fewer and larger calls are faster and give
- * the model more of the document at once.
+ * Every call carries the system prompt and the completion reservation whether
+ * it needs them or not, about 2,750 tokens between them. At the first value of
+ * 10,000 characters the content was also about 2,750 tokens, so half of every
+ * request bought nothing. Measured on a real CMS chapter: 1,302 passages, 52
+ * calls, 288,000 tokens charged, of which 143,000 was that overhead. The
+ * chapter itself is only about 145,000 tokens of text.
+ *
+ * The instinct is to size this against the per minute allowance so nothing gets
+ * refused, and that instinct is wrong twice over. A refused request costs a
+ * round trip and no tokens, and the caller halves the batch and continues, so
+ * being refused occasionally is cheap. Being conservative on every call is
+ * expensive on all of them. So this is set near the largest a request can be
+ * and the splitting is left to find the real ceiling, which differs by provider
+ * and by model and is not knowable from here anyway.
  */
-export const CHARS_PER_EXTRACTION_CALL = 10_000;
+export const CHARS_PER_EXTRACTION_CALL = 26_000;
 
 /**
  * Group spans into calls that respect both limits.
