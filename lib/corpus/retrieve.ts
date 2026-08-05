@@ -25,6 +25,7 @@ import { and, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { holding, sourceDocument, sourceSpan } from '@/lib/db/schema';
 import { cosine, embed } from './embed';
+import { trackRecordReason, trackRecords, trackRecordSignal } from './track-record';
 
 export interface RetrievalQuery {
   serviceType: string | null;
@@ -65,6 +66,17 @@ const WEIGHTS = {
   claimantFavorable: 1.0,
   planFavorable: -0.75,
   similarity: 2.5,
+  /**
+   * What happened the last time this was argued.
+   *
+   * Weighted above service type and below denial basis deliberately. A record
+   * of winning is strong evidence and it is not conclusive: the appeals that
+   * produced it had their own facts, and a holding that is simply on point for
+   * this denial should still beat one that won somewhere adjacent. The signal
+   * it multiplies runs from -1 to 1 and is centred on the corpus average, so
+   * this is the most it can move a holding in either direction.
+   */
+  trackRecord: 2.0,
 } as const;
 
 /**
@@ -163,10 +175,20 @@ export async function retrieveAuthority(
         facets.length > 0 ? or(...facets) : sql`true`,
       ),
     )
-    // A bound, so a pathological corpus cannot pull the whole table into memory.
+    // A bound, so a pathological corpus cannot pull the whole table into
+    // memory. Ordered, because an unordered limit is a silent truncation: the
+    // database returns whichever 2000 rows it finds first, scoring never sees
+    // the rest, and the best authority in the corpus can be absent from a
+    // result list that looks complete. Newest first is the least arbitrary
+    // rule available here and it degrades honestly, preferring recently
+    // ingested authority when there is more than can be scored.
+    .orderBy(sql`${sourceDocument.retrievedAt} desc, ${holding.id}`)
     .limit(2000);
 
   const queryVector = embed(query.text);
+
+  // One query for every candidate, rather than one per row.
+  const records = await trackRecords(rows.map((r) => r.holdingId));
 
   const scored: RetrievedHolding[] = rows.map((row) => {
     let score = 0;
@@ -211,6 +233,21 @@ export async function retrieveAuthority(
     // provision differently from a decision that went someone's way.
     if (!row.serviceType && !row.payerType && !row.denialBasis) {
       reasons.push('states a rule rather than deciding a case, so it applies on its terms');
+    }
+
+    // What happened when this was argued before.
+    const record = records.byHolding.get(row.holdingId);
+    const signal = trackRecordSignal(record, records.baseRate);
+    if (signal !== 0) {
+      score += signal * WEIGHTS.trackRecord;
+      const said = trackRecordReason(record);
+      if (said) {
+        reasons.push(
+          signal > 0
+            ? `has done better than average when argued: ${said}`
+            : `has done worse than average when argued: ${said}`,
+        );
+      }
     }
 
     const similarity = row.embedding ? cosine(queryVector, row.embedding) : 0;
