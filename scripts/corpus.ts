@@ -169,7 +169,7 @@ async function doctor(): Promise<void> {
   out('');
   for (const check of checks) {
     out(`  ${check.ok ? 'ok  ' : 'FAIL'}  ${check.name.padEnd(16)} ${check.detail}`);
-    if (!check.ok && check.extra && check.extra.length > 0) {
+    if (check.extra && check.extra.length > 0) {
       // A provider's model list runs to dozens. Enough to choose from, not so
       // many that the failure above scrolls away.
       for (const line of check.extra.slice(0, 25)) out(`          ${line}`);
@@ -289,23 +289,49 @@ async function main(): Promise<void> {
 
   switch (command) {
     case 'fetch': {
-      const source = (flag('source') ?? 'dab') as SourceKey;
-      if (!SOURCES[source]) {
-        throw new Error(
-          `Unknown source "${source}". Available: ${Object.keys(SOURCES).join(', ')}. ` +
-            'LCD and NCD are deliberately absent; see CORPUS.md section 5.',
-        );
+      const requested = flag('source') ?? 'dab';
+
+      // "all" rather than three separate invocations. Fetching costs no model
+      // allowance, only bandwidth, so there is no reason to make someone press
+      // a button once per source and every reason not to: a corpus missing its
+      // regulations because a step was forgotten is worse than a slower run.
+      const sources =
+        requested === 'all'
+          ? (Object.keys(SOURCES) as SourceKey[])
+          : [requested as SourceKey];
+
+      for (const source of sources) {
+        if (!SOURCES[source]) {
+          throw new Error(
+            `Unknown source "${source}". Available: ${Object.keys(SOURCES).join(', ')}, ` +
+              'or "all". LCD and NCD are deliberately absent; see CORPUS.md section 5.',
+          );
+        }
       }
+
       const since = flag('since') ? new Date(flag('since')!) : undefined;
       const limit = flag('limit') ? Number(flag('limit')) : undefined;
 
-      reportStage(
-        `fetch ${source}`,
-        await fetchStage(source, {
-          ...(since ? { since } : {}),
-          ...(limit ? { limit } : {}),
-        }),
-      );
+      // One source failing must not stop the others. They are independent
+      // hosts with independent outages, and a corpus with two of three sources
+      // is worth having today.
+      let failures = 0;
+      for (const source of sources) {
+        try {
+          reportStage(
+            `fetch ${source}`,
+            await fetchStage(source, {
+              ...(since ? { since } : {}),
+              ...(limit ? { limit } : {}),
+            }),
+          );
+        } catch (error) {
+          failures += 1;
+          out(`fetch ${source}: failed. ${(error as Error).message}`);
+        }
+      }
+
+      if (failures > 0 && failures === sources.length) process.exitCode = 1;
       break;
     }
 

@@ -121,11 +121,19 @@ function checkStorage(): Check {
 
 async function checkProvider(): Promise<Check> {
   const probe = await probeProvider();
+
+  // The model list prints whether or not the check passed.
+  //
+  // On a failure it is the fix. On a success it is still the answer to the
+  // question that decides whether a large document can be ingested today,
+  // which is which cheaper model this account can point MODEL_NAME_CORPUS at.
+  // That was previously a trip to a documentation page which may or may not
+  // match what a particular account is entitled to.
   return {
     name: 'model provider',
     ok: probe.ok,
     detail: probe.ok ? probe.detail : `${probe.detail}\n    ${env.MODEL_BASE_URL}`,
-    ...(probe.ok ? {} : { extra: probe.available }),
+    ...(probe.available ? { extra: probe.available } : {}),
   };
 }
 
