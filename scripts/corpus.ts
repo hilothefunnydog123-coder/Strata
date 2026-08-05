@@ -196,10 +196,17 @@ async function doctor(): Promise<void> {
  * environment with egress.
  */
 const PROBE_LINKS: ReadonlyArray<[string, string, RegExp]> = [
-  // The govinfo bulk index, to find whether title 42 is published per part or
-  // only as one enormous file. The whole title is hundreds of megabytes and
-  // parsing it to reach four parts would be absurd.
-  ['govinfo ecfr title-42 index', 'https://www.govinfo.gov/bulkdata/ECFR/title-42', /href="([^"]+)"/g],
+  // govinfo's JSON index, which is the documented way to enumerate bulk data.
+  // The HTML page at the same path renders its listing with script, so scraping
+  // it returned stylesheets and nav links. This asks the endpoint the listing
+  // itself is built from.
+  //
+  // The question it answers: is title 42 published per part, or only as one
+  // file for the whole title. The whole title is hundreds of megabytes, and
+  // ingesting all of it to reach the four parts that matter would put a
+  // six figure number of passages through a screen and an extractor.
+  ['govinfo bulkdata json index', 'https://www.govinfo.gov/bulkdata/json/ECFR/title-42', /"(?:link|justFileName|fileName)"\s*:\s*"([^"]+)"/g],
+  ['govinfo bulkdata json root', 'https://www.govinfo.gov/bulkdata/json/ECFR', /"(?:link|justFileName|fileName)"\s*:\s*"([^"]+)"/g],
   // The CMS manual landing page, which is where the real chapter filenames
   // live. Chapter 8 was found by hand once and the rest were guessed from it.
   [
