@@ -1,0 +1,195 @@
+name: Corpus
+
+# Run the corpus pipeline from a browser instead of a laptop.
+#
+# Every stage of this was previously driven by hand from a Windows terminal,
+# which meant the person running it was also the retry loop, the error reporter,
+# and the only witness to what went wrong. It also meant nothing ran unless a
+# particular laptop was awake, and a chapter that needs several passes across a
+# free tier's daily allowance will never finish that way.
+#
+# Actions > Corpus > Run workflow. Pick a stage, press the button, watch the log.
+#
+# Two things this environment has that a laptop does not. Government hosts are
+# reachable from a GitHub runner, so corpus:fetch can actually retrieve from
+# cms.gov and ecfr.gov. And the run log is a permanent artefact at a URL, so
+# diagnosing a failure does not depend on someone copying a terminal window.
+#
+# Deliberately manual. There is no push or schedule trigger: this talks to the
+# real database and spends real model allowance, so it runs when a person asks
+# it to and not otherwise.
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: What to run
+        required: true
+        default: doctor
+        type: choice
+        options:
+          - doctor
+          - estimate
+          - status
+          - fetch
+          - parse
+          - extract
+          - verify
+          - embed
+          - everything
+      source:
+        description: 'For fetch: which source (dab, ecfr, manual)'
+        required: false
+        default: dab
+        type: string
+      limit:
+        description: 'For fetch: how many documents at most'
+        required: false
+        default: ''
+        type: string
+
+# One at a time. Two runs against the same database would fight over the same
+# unextracted passages, and the checkpointing that makes a run resumable assumes
+# it is the only thing moving.
+concurrency:
+  group: corpus
+  cancel-in-progress: false
+
+jobs:
+  corpus:
+    runs-on: ubuntu-latest
+    # A chapter across a rate limited free tier takes a long time in wall clock
+    # and almost none in compute, because most of it is waiting. The stage stops
+    # itself when the provider's longer quota runs out, so this ceiling is a
+    # backstop rather than the usual way a run ends.
+    timeout-minutes: 300
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
+      MODEL_BASE_URL: ${{ vars.MODEL_BASE_URL || 'https://api.groq.com/openai/v1' }}
+      MODEL_NAME: ${{ vars.MODEL_NAME || 'llama-3.3-70b-versatile' }}
+      MODEL_NAME_CORPUS: ${{ vars.MODEL_NAME_CORPUS }}
+      CRAWLER_CONTACT: ${{ vars.CRAWLER_CONTACT || 'corpus@medeal.app' }}
+
+      # The corpus holds published government documents and no patient data, so
+      # synthetic mode is correct here and is also the only mode this codebase
+      # supports. These two are required for the environment to parse and are
+      # never used by a corpus command: nothing here issues a session or
+      # encrypts a clinical row.
+      PHI_MODE: synthetic
+      BETTER_AUTH_SECRET: corpus_runner_no_sessions_are_issued_by_this_job_01
+      PHI_ENCRYPTION_KEY: Y29ycHVzX3J1bm5lcl9uZXZlcl93cml0ZXNfcGhpX3Jvd3M=
+      BETTER_AUTH_URL: https://medeal.netlify.app
+      APP_URL: https://medeal.netlify.app
+      DEMO_REQUEST_TO: corpus@example.com
+
+      # Raw bytes land here. Ephemeral, which is why fetch and parse always run
+      # in the same job below: parse reads back what fetch wrote, and a runner
+      # that has gone away takes its disk with it.
+      LOCAL_STORAGE_DIR: .storage-corpus
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check the secrets are actually set
+        # A missing secret otherwise surfaces as an unparseable environment
+        # several steps later, which reads like a code failure.
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL is not set."
+            echo "Settings > Secrets and variables > Actions > New repository secret."
+            exit 1
+          fi
+          if [ -z "$MODEL_API_KEY" ] && [ "${{ inputs.stage }}" != "status" ]; then
+            echo "MODEL_API_KEY is not set. Every stage except status needs it."
+            echo "Settings > Secrets and variables > Actions > New repository secret."
+            exit 1
+          fi
+
+      - name: Apply migrations
+        run: pnpm db:migrate
+
+      # Always, whatever was asked for. It costs a second and it is the
+      # difference between a clear failure now and an opaque one in forty
+      # minutes. A stage that cannot work will not start.
+      - name: Preflight
+        # Not fatal for status, which is a read of what is already in the
+        # database and needs no model key to answer.
+        continue-on-error: ${{ inputs.stage == 'status' }}
+        run: pnpm corpus:doctor
+
+      - name: Run the stage
+        run: |
+          set -o pipefail
+          LIMIT=""
+          if [ -n "${{ inputs.limit }}" ]; then LIMIT="--limit=${{ inputs.limit }}"; fi
+
+          case "${{ inputs.stage }}" in
+            doctor)   echo "Preflight above is the whole job." ;;
+            estimate) pnpm corpus:estimate ;;
+            status)   pnpm corpus:status ;;
+            fetch)    pnpm corpus:fetch --source=${{ inputs.source }} $LIMIT ;;
+            parse)    pnpm corpus:parse ;;
+            extract)  pnpm corpus:extract --unextracted ;;
+            verify)   pnpm corpus:verify ;;
+            embed)    pnpm corpus:embed ;;
+            everything)
+              # Fetch and parse in one job because storage is ephemeral: parse
+              # reads back the bytes fetch wrote. Estimate runs before extract
+              # so the log records what the run was expected to cost, which is
+              # the number to compare against when it stops early.
+              pnpm corpus:fetch --source=${{ inputs.source }} $LIMIT
+              pnpm corpus:parse
+              pnpm corpus:estimate
+
+              # Extract is allowed to stop early without taking the rest of the
+              # pipeline with it. Steps run under bash -e, so an extract that
+              # ends on a daily quota would otherwise abort the job before
+              # verify and embed, leaving the passages it did get through
+              # unverified and unciteable until someone ran two more commands
+              # by hand. The status is kept and re-raised at the end, so the
+              # run still reports honestly rather than going green on a stop.
+              EXTRACT_STATUS=0
+              pnpm corpus:extract --unextracted || EXTRACT_STATUS=$?
+
+              pnpm corpus:verify
+              pnpm corpus:embed
+              pnpm corpus:status
+
+              if [ "$EXTRACT_STATUS" -ne 0 ]; then
+                echo ""
+                echo "Extraction stopped before finishing. Everything it did get"
+                echo "through has been verified and embedded and is citable now."
+                echo "Run this again to continue from the next passage."
+                exit "$EXTRACT_STATUS"
+              fi
+              ;;
+          esac 2>&1 | tee corpus-run.log
+
+      - name: Where the corpus stands now
+        # Runs even when the stage above failed, because "it stopped, and here
+        # is how far it got" is the useful pair. A run that stops on a daily
+        # quota is not a failure, it is a run that has more to do tomorrow.
+        if: always()
+        run: pnpm corpus:status
+
+      - name: Keep the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpus-run-log
+          path: corpus-run.log
+          retention-days: 30
+          if-no-files-found: ignore
