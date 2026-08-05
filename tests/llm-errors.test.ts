@@ -12,6 +12,7 @@ import {
   asReadableError,
   complete,
   LlmBoundaryError,
+  ModelRateLimitedError,
   ModelRequestTooLargeError,
 } from '@/lib/llm/client';
 import { z } from 'zod';
@@ -107,6 +108,61 @@ describe('provider errors name the remedy', () => {
     const malformed = Object.assign(new Error('unknown field: temperatur'), { status: 400 });
 
     expect(asReadableError(malformed)).toBe(malformed);
+  });
+
+  it('reads Retry-After off a Headers instance, not just a plain object', () => {
+    // The SDK attaches a Headers instance, which does not answer to bracket
+    // indexing and serialises as {}. The first version of this read it the
+    // plain way, logged "headers":{} next to a response that definitely carried
+    // Retry-After, and fell back to an invented interval on every rate limit.
+    // Nothing failed. It just waited the wrong amount of time, forever.
+    const withHeaders = Object.assign(new Error('429'), {
+      status: 429,
+      headers: new Headers({ 'retry-after': '20' }),
+    });
+
+    expect((asReadableError(withHeaders) as ModelRateLimitedError).retryAfterSeconds).toBe(20);
+  });
+
+  it('reads it off a plain object too', () => {
+    const plain = Object.assign(new Error('429'), {
+      status: 429,
+      headers: { 'retry-after': '17' },
+    });
+
+    expect((asReadableError(plain) as ModelRateLimitedError).retryAfterSeconds).toBe(17);
+  });
+
+  it('accepts the HTTP date form', () => {
+    const at = new Date(Date.now() + 30_000).toUTCString();
+    const dated = Object.assign(new Error('429'), {
+      status: 429,
+      headers: new Headers({ 'retry-after': at }),
+    });
+
+    const seconds = (asReadableError(dated) as ModelRateLimitedError).retryAfterSeconds!;
+    expect(seconds).toBeGreaterThan(25);
+    expect(seconds).toBeLessThanOrEqual(30);
+  });
+
+  it('caps an absurd wait rather than hanging the run on it', () => {
+    // An unbounded number read off the wire is a way to hang a batch job all
+    // night on one malformed header.
+    const absurd = Object.assign(new Error('429'), {
+      status: 429,
+      headers: new Headers({ 'retry-after': '86400' }),
+    });
+
+    expect((asReadableError(absurd) as ModelRateLimitedError).retryAfterSeconds).toBe(600);
+  });
+
+  it('says nothing rather than guessing when there is no header', () => {
+    // undefined means "use your own interval", which is honest. Zero would mean
+    // "retry immediately", which would spin against a provider that is
+    // rate limiting.
+    expect(
+      (asReadableError(providerError(429)) as ModelRateLimitedError).retryAfterSeconds,
+    ).toBeUndefined();
   });
 
   it('a quota refusal says the work resumes rather than restarts', () => {

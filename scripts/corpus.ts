@@ -46,6 +46,50 @@ function reportStage(name: string, result: {
   for (const note of result.notes) out(`  ${note}`);
 }
 
+/**
+ * Run the extract stage until it stops making progress.
+ *
+ * A run against a free tier meets the per minute allowance repeatedly, and the
+ * stage waits those out on its own. What it cannot do from inside one document
+ * is come back to a document it gave up on, and until now that was the
+ * operator's job: watch for "1 failed", run the command again, repeat. That is
+ * not a workflow, it is a person acting as a retry loop, and on a chapter
+ * needing a dozen rounds it is how ingestion stops happening at all.
+ *
+ * The loop ends when a whole round extracts nothing. That is the honest signal:
+ * document counts cannot tell a round that achieved nothing from one that got
+ * three quarters of the way through a chapter, since both report zero processed
+ * and one failed, but a passage count can.
+ */
+async function extract(limit: number | undefined): Promise<void> {
+  let round = 0;
+  let totalSpans = 0;
+
+  for (;;) {
+    round += 1;
+    const result = await extractStage(limit);
+    totalSpans += result.spansExtracted;
+
+    reportStage(round === 1 ? 'extract' : `extract (round ${round})`, result);
+
+    // Everything finished, or nothing moved and another round would only repeat
+    // whatever is blocking it.
+    if (result.failed === 0) break;
+    if (result.spansExtracted === 0) {
+      out('');
+      out('  This round extracted nothing, so running again would not help.');
+      out('  The error above says why. Passages already done are saved either way.');
+      process.exitCode = 1;
+      break;
+    }
+
+    out(
+      `  ${result.spansExtracted} passages done this round, ${totalSpans} in total. ` +
+        'Continuing from where it stopped.',
+    );
+  }
+}
+
 async function status(): Promise<void> {
   const health = await corpusHealth();
 
@@ -138,7 +182,7 @@ async function main(): Promise<void> {
         );
       }
       const limit = flag('limit') ? Number(flag('limit')) : undefined;
-      reportStage('extract', await extractStage(limit));
+      await extract(limit);
       break;
     }
 

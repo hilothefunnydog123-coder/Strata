@@ -230,7 +230,9 @@ const { fetchDocument, resetCrawlerState, RobotsDisallowedError, userAgent } = a
 );
 const { db } = await import('@/lib/db');
 const { holding, sourceDocument, sourceSpan } = await import('@/lib/db/schema');
-const { complete, ModelRequestTooLargeError } = await import('@/lib/llm/client');
+const { complete, ModelRateLimitedError, ModelRequestTooLargeError } = await import(
+  '@/lib/llm/client'
+);
 
 /** The stand-in defined above, so a test can borrow and restore it. */
 const defaultComplete = vi.mocked(complete).getMockImplementation()!;
@@ -476,6 +478,77 @@ describe('a provider that refuses the request size', () => {
     // The span that was skipped is named, because someone has to be able to go
     // and look at what was lost.
     expect(result.notes.some((note) => /span \d+ is too large/.test(note))).toBe(true);
+  }, 60_000);
+});
+
+/**
+ * A spent per minute allowance is a wait, not a failure.
+ *
+ * On a free tier a chapter meets this repeatedly, and until the stage waited on
+ * its own the command ended and a person had to run it again. That is a person
+ * employed as a retry loop, and it is the difference between a corpus that
+ * ingests overnight and one that never finishes.
+ */
+describe('a provider that is rate limiting', () => {
+  afterAll(() => {
+    vi.mocked(complete).mockImplementation(defaultComplete);
+  });
+
+  it('waits and finishes rather than giving up on the document', async () => {
+    await db.delete(holding);
+    await reExtract();
+
+    // Refuse the first two calls the way a spent allowance does, then relent.
+    let refusals = 0;
+    const slept: number[] = [];
+    vi.mocked(complete).mockImplementation((async (request: CompleteRequest) => {
+      if (refusals < 2) {
+        refusals += 1;
+        throw new ModelRateLimitedError('rate limited', 30);
+      }
+      return defaultComplete(request);
+    }) as typeof complete);
+
+    const result = await extractStage(100, {
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+
+    expect(refusals).toBe(2);
+    // Waited the provider's own number rather than one we invented. It knows
+    // when its window rolls over and we do not.
+    expect(slept).toEqual([30_000, 30_000]);
+
+    // And the work completed, which is the whole point.
+    expect(result.failed).toBe(0);
+    expect(result.spansExtracted).toBeGreaterThan(0);
+    expect(await db.select().from(holding)).not.toHaveLength(0);
+  }, 60_000);
+
+  it('gives up eventually rather than waiting all night', async () => {
+    await db.delete(holding);
+    await reExtract();
+
+    const slept: number[] = [];
+    vi.mocked(complete).mockImplementation((async () => {
+      throw new ModelRateLimitedError('rate limited');
+    }) as typeof complete);
+
+    const result = await extractStage(100, {
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+
+    // Bounded. A provider that has stopped answering should end the run rather
+    // than hold it open forever, and the bound has to be per document or one
+    // dead document blocks every one behind it.
+    expect(slept.length).toBeGreaterThan(0);
+    expect(slept.length).toBeLessThan(200);
+    expect(result.failed).toBeGreaterThan(0);
+    expect(result.spansExtracted).toBe(0);
+    expect(result.notes.some((n) => /still rate limiting/.test(n))).toBe(true);
   }, 60_000);
 });
 

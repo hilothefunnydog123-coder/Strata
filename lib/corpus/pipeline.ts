@@ -17,7 +17,7 @@ import { log } from '@/lib/log';
 import { storage } from '@/lib/storage';
 import { verifyQuote } from '@/lib/appeals/verify';
 import { parseEcfrXml, parseHtml, parseText } from '@/lib/documents/parse';
-import { ModelRequestTooLargeError } from '@/lib/llm/client';
+import { ModelRateLimitedError, ModelRequestTooLargeError } from '@/lib/llm/client';
 import { batchSpans, extractHoldings, halveBatch } from './extract';
 import { cosine, embed, holdingEmbeddingText } from './embed';
 import { RobotsDisallowedError } from './fetch';
@@ -161,8 +161,47 @@ export async function parseStage(): Promise<StageResult> {
 
 /* ─── 3. Extract ──────────────────────────────────────────────────────────── */
 
-export async function extractStage(limit = 100): Promise<StageResult> {
+/**
+ * How many times one document will wait out a rate limit before giving up.
+ *
+ * Generous, because on a free tier this is the normal case rather than a fault
+ * and the alternative is a person re-running the command every four minutes.
+ * Bounded, because a provider that has stopped answering should end the run
+ * rather than hold it open all night: at the default interval this is a little
+ * over half an hour of waiting per document, and the spans already done are
+ * committed, so the next run starts from them.
+ */
+const RATE_LIMIT_WAITS_PER_DOCUMENT = 40;
+
+/** Used when the provider does not say how long to wait. */
+const DEFAULT_RATE_LIMIT_WAIT_SECONDS = 45;
+
+const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+export interface ExtractOptions {
+  /** Injected by tests, which must not actually sleep for three quarters of an hour. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+export interface ExtractResult extends StageResult {
+  /**
+   * Passages got through this run, whether or not their document finished.
+   *
+   * The document counts alone cannot tell a run that achieved nothing from one
+   * that got three quarters of the way through a chapter: both report zero
+   * processed and one failed. That distinction is what decides whether running
+   * the command again is worth anything, so it has to be measurable.
+   */
+  spansExtracted: number;
+}
+
+export async function extractStage(
+  limit = 100,
+  options: ExtractOptions = {},
+): Promise<ExtractResult> {
+  const sleep = options.sleep ?? wait;
   const result = empty();
+  let spansExtracted = 0;
 
   const pending = await db
     .select()
@@ -208,6 +247,8 @@ export async function extractStage(limit = 100): Promise<StageResult> {
       }
 
       let kept = 0;
+      let waits = 0;
+      let done = 0;
 
       // A worklist rather than a for loop, so a batch the provider refuses can
       // be replaced by its two halves and tried again.
@@ -229,6 +270,33 @@ export async function extractStage(limit = 100): Promise<StageResult> {
             })),
           );
         } catch (error) {
+          // A spent per minute allowance is not a failure, it is a wait. The
+          // provider will take the same request again shortly, and it says how
+          // long to leave it. Putting the batch back and sleeping is what turns
+          // a free tier from unusable into slow.
+          if (error instanceof ModelRateLimitedError) {
+            waits += 1;
+            if (waits > RATE_LIMIT_WAITS_PER_DOCUMENT) {
+              result.notes.push(
+                `${document.citation}: the provider was still rate limiting after ` +
+                  `${RATE_LIMIT_WAITS_PER_DOCUMENT} waits, so this run stopped. The ` +
+                  'passages already done are saved.',
+              );
+              throw error;
+            }
+
+            const seconds = error.retryAfterSeconds ?? DEFAULT_RATE_LIMIT_WAIT_SECONDS;
+            log.info('rate limited, waiting before trying the same batch again', {
+              citation: document.citation,
+              seconds: Math.ceil(seconds),
+              attempt: waits,
+              spansRemaining: queue.reduce((n, b) => n + b.length, batch.length),
+            });
+            queue.unshift(batch);
+            await sleep(seconds * 1000);
+            continue;
+          }
+
           if (!(error instanceof ModelRequestTooLargeError)) throw error;
 
           const halves = halveBatch(batch);
@@ -301,6 +369,19 @@ export async function extractStage(limit = 100): Promise<StageResult> {
             .where(inArray(sourceSpan.id, batchIds));
         });
         kept += rows.length;
+        spansExtracted += batch.length;
+        done += batch.length;
+
+        // Said every batch, because the alternative is minutes of nothing.
+        // A chapter is dozens of calls with waits between them, and a run that
+        // prints one line at the start and one at the end is indistinguishable
+        // from a run that has hung, which is how the last one got killed and
+        // restarted by hand.
+        log.info('extracted a batch', {
+          citation: document.citation,
+          passages: `${done}/${spans.length}`,
+          holdings: kept,
+        });
       }
 
       await db
@@ -327,7 +408,7 @@ export async function extractStage(limit = 100): Promise<StageResult> {
     }
   }
 
-  return result;
+  return { ...result, spansExtracted };
 }
 
 /* ─── 4. Verify ───────────────────────────────────────────────────────────── */

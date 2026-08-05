@@ -105,6 +105,29 @@ export class ModelRequestTooLargeError extends LlmBoundaryError {
   }
 }
 
+/**
+ * The provider's per minute allowance is spent, and it will accept the same
+ * request again shortly.
+ *
+ * Also its own class, and for the same reason: the remedy is mechanical. On a
+ * free tier a long run will meet this many times, and the difference between a
+ * corpus that ingests overnight and one that never finishes is whether waiting
+ * is something the program does or something a person does.
+ *
+ * retryAfterSeconds is the provider's own number when it sends one. It usually
+ * does, in a Retry-After header, and it is more accurate than any backoff we
+ * would invent because it knows when the window rolls over.
+ */
+export class ModelRateLimitedError extends LlmBoundaryError {
+  readonly retryAfterSeconds: number | undefined;
+
+  constructor(message: string, retryAfterSeconds?: number) {
+    super(message);
+    this.name = 'ModelRateLimitedError';
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
 export interface LlmRequest<T> {
   stage: LlmStage;
   system: string;
@@ -167,12 +190,19 @@ export function assertTransmissionPermitted(containsPhi: boolean): OpenAI {
   client ??= new OpenAI({
     apiKey: env.MODEL_API_KEY,
     baseURL: env.MODEL_BASE_URL,
-    // A free tier's per-minute token allowance is small enough that a long
-    // corpus run will hit it repeatedly, and the SDK honours the provider's
-    // own Retry-After header when it backs off. Two retries is the default and
-    // is tuned for interactive use; this is a batch job that would rather wait
-    // than lose a document's progress.
-    maxRetries: 5,
+    // No retries in here, deliberately.
+    //
+    // The SDK retries a 429 by sleeping inside the call, and there is no hook
+    // to say anything while it does. A measured run spent 44 seconds that way
+    // between two log lines, which is exactly what a hang looks like from
+    // outside, and the previous run was killed by hand for looking like one.
+    //
+    // Retrying belongs to the caller here, because the caller is the only layer
+    // that knows the work is resumable. The corpus extractor waits out a rate
+    // limit itself, reports how long it is waiting and why, and has a
+    // checkpoint per passage so anything it does lose is a batch rather than a
+    // chapter. Nothing is gained by a second, silent retry loop underneath it.
+    maxRetries: 0,
     // A 70B model reading twenty pages of a manual is slow, and the default cut
     // it off before the provider had finished thinking.
     timeout: 120_000,
@@ -246,6 +276,54 @@ function isTooLarge(error: unknown, status: number | undefined): boolean {
 }
 
 /**
+ * Read one header off a provider error.
+ *
+ * Two shapes, because the SDK attaches a Headers instance and older versions
+ * and hand rolled errors attach a plain object. A Headers instance does not
+ * answer to bracket indexing and serialises as {}, so reading it the plain way
+ * silently returns nothing: the first version of this looked correct, logged
+ * "headers":{} next to a response that definitely carried Retry-After, and
+ * quietly fell back to a made up interval on every rate limit.
+ */
+function header(error: unknown, name: string): string | undefined {
+  const headers = (error as { headers?: unknown } | null)?.headers;
+  if (!headers) return undefined;
+
+  const get = (headers as { get?: unknown }).get;
+  if (typeof get === 'function') {
+    return (get.call(headers, name) as string | null) ?? undefined;
+  }
+
+  const plain = headers as Record<string, string>;
+  return plain[name] ?? plain[name.toLowerCase()] ?? plain[name.toUpperCase()];
+}
+
+/**
+ * How long the provider says to wait, if it says.
+ *
+ * Retry-After is either a number of seconds or an HTTP date, and providers use
+ * both. Some send a fractional number of seconds, which is not to spec and is
+ * still more useful than guessing. Anything unparseable returns undefined and
+ * the caller falls back to its own interval.
+ *
+ * Capped at ten minutes. A provider that asks for longer than that has a
+ * problem a batch job should not sit and wait through, and an unbounded value
+ * read off the wire is a way to hang a run forever on one malformed header.
+ */
+function retryAfterSeconds(error: unknown): number | undefined {
+  const raw = header(error, 'retry-after');
+  if (!raw) return undefined;
+
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds, 600);
+
+  const at = Date.parse(raw);
+  if (Number.isNaN(at)) return undefined;
+
+  return Math.min(Math.max(0, (at - Date.now()) / 1000), 600);
+}
+
+/**
  * Turn a provider error into something that names the thing to go and fix.
  *
  * The SDK's own errors are accurate and unreadable: an HTTP status buried in a
@@ -282,12 +360,13 @@ export function asReadableError(error: unknown): unknown {
   }
 
   if (status === 429) {
-    return new LlmBoundaryError(
+    return new ModelRateLimitedError(
       'The model provider refused the call for exceeding a rate or quota limit (HTTP ' +
         '429), and it was still refusing after the automatic retries. On a free tier ' +
-        'this is expected on long runs. Every corpus stage records its progress in the ' +
-        'database, so re-running the same command later resumes where it stopped rather ' +
-        'than starting again.',
+        'this is expected on long runs. Every corpus stage records its progress per ' +
+        'passage in the database, so re-running the same command resumes where it ' +
+        'stopped rather than starting again.',
+      retryAfterSeconds(error),
     );
   }
 
@@ -384,6 +463,14 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
       log.info('model refused the request as too large', {
         stage: request.stage,
         tokens: inputTokens,
+      });
+    } else if (readable instanceof ModelRateLimitedError) {
+      // Same reasoning. The caller waits this out and says so; a stack trace
+      // printed immediately above "waiting 20 seconds" only makes the wait look
+      // like a crash that was somehow survived.
+      log.info('model rate limited the call', {
+        stage: request.stage,
+        retryAfterSeconds: readable.retryAfterSeconds,
       });
     } else {
       log.error('model call failed', { stage: request.stage, error });
