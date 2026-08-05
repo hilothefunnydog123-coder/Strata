@@ -131,3 +131,37 @@ describe('refusing to store something that is not text', () => {
     expect(ratio(table)).toBeGreaterThan(0.5);
   });
 });
+
+/**
+ * A built-in pdf.js needs and this runtime does not have.
+ *
+ * Math.sumPrecise is a stage 3 proposal present in newer V8 than Node 22
+ * carries. pdf.js calls it during text layout and catches the TypeError, so
+ * extraction survives, and it logged the same warning sixty seven times in a
+ * single run. What it could not compute is the quantity that decides where
+ * spaces fall between runs of glyphs, so the cost is words running together
+ * inside passages, and then inside quotes drawn from them.
+ */
+describe('the summation pdf.js expects', () => {
+  it('exists once the module is loaded', () => {
+    expect(typeof (Math as { sumPrecise?: unknown }).sumPrecise).toBe('function');
+  });
+
+  it('adds exactly, which is the point of the name', () => {
+    // Left to right addition loses the small terms entirely here. The proposal
+    // exists because that is the wrong answer.
+    const sum = (Math as unknown as { sumPrecise: (v: number[]) => number }).sumPrecise;
+
+    const values = [1e20, 0.1, -1e20, 0.1, 0.1];
+
+    expect(sum(values)).toBeCloseTo(0.3, 10);
+    // Left to right loses a third of the total: the first 0.1 vanishes into
+    // 1e20 and never comes back when the 1e20 is subtracted again.
+    expect(values.reduce((a, b) => a + b, 0)).toBeCloseTo(0.2, 10);
+  });
+
+  it('sums an empty list to zero', () => {
+    const sum = (Math as unknown as { sumPrecise: (v: number[]) => number }).sumPrecise;
+    expect(sum([])).toBe(0);
+  });
+});

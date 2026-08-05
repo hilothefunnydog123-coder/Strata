@@ -26,6 +26,38 @@
  */
 import { inflateSync, inflateRawSync, unzipSync } from 'node:zlib';
 import { extractText, getDocumentProxy } from 'unpdf';
+
+/**
+ * Math.sumPrecise, which pdf.js uses and Node 22 does not have.
+ *
+ * A stage 3 proposal that shipped in newer V8 than this runtime carries. pdf.js
+ * calls it while laying out text and catches the TypeError, so extraction
+ * survives, but it logged the same warning sixty seven times in one run and the
+ * quantity it could not compute is the one that decides where spaces go between
+ * runs of glyphs. Missing spaces would land in stored passages and then inside
+ * quotes.
+ *
+ * The proposal specifies exact summation rather than left to right addition,
+ * which is the whole point of the name, so this compensates. Neumaier rather
+ * than plain Kahan: Kahan loses the correction when the incoming value is much
+ * larger than the running total, which is exactly the case a compensated sum is
+ * for. Written the other way first, and the test for it failed.
+ */
+if (typeof (Math as { sumPrecise?: unknown }).sumPrecise !== 'function') {
+  (Math as { sumPrecise?: (values: Iterable<number>) => number }).sumPrecise = (values) => {
+    let sum = 0;
+    let compensation = 0;
+
+    for (const value of values) {
+      const next = sum + value;
+      compensation +=
+        Math.abs(sum) >= Math.abs(value) ? sum - next + value : value - next + sum;
+      sum = next;
+    }
+
+    return sum + compensation;
+  };
+}
 import { PAGE_BREAK } from '@/lib/documents/parse';
 
 /** Every stream in the file, decompressed where we can manage it. */

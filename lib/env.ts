@@ -70,8 +70,19 @@ const schema = z.object({
    *
    * It would not be safe to reach for this on the drafting side, where nothing
    * downstream can tell a weak argument from a strong one.
+   *
+   * Defaulted rather than left empty, for the same reason MODEL_NAME above
+   * carries a Groq model id: a default that works out of the box beats one that
+   * is neutral and unusable. Measured on the eleven CMS manual chapters, this
+   * decides whether the corpus builds at all. Extraction of them costs about
+   * 433,000 tokens, the large model's daily allowance ran out on the first call
+   * of a run, and providers meter per model, so this is a different allowance
+   * rather than merely a larger one.
+   *
+   * Point it elsewhere for a paid account, where the reason to split the two
+   * disappears.
    */
-  MODEL_NAME_CORPUS: optionalString,
+  MODEL_NAME_CORPUS: z.string().min(1).default('llama-3.1-8b-instant'),
   /** Off for a provider that rejects response_format outright. */
   MODEL_JSON_MODE: z
     .enum(['true', 'false', '1', '0', ''])
@@ -289,6 +300,7 @@ function unconfigured(): Env {
     MODEL_BAA_CONFIRMED: false,
     MODEL_BASE_URL: 'https://api.groq.com/openai/v1',
     MODEL_NAME: 'llama-3.3-70b-versatile',
+    MODEL_NAME_CORPUS: 'llama-3.1-8b-instant',
     MODEL_JSON_MODE: true,
     MODEL_PRICE_INPUT_CENTS: 0,
     MODEL_PRICE_OUTPUT_CENTS: 0,

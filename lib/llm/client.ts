@@ -58,7 +58,7 @@ export function modelName(stage?: LlmStage): string {
   // appeals. See MODEL_NAME_CORPUS in lib/env.ts for why that is safe here and
   // nowhere else: every holding's quote is verified verbatim against its span,
   // so a weaker model costs discards rather than correctness.
-  if (stage === 'corpus_extract' && env.MODEL_NAME_CORPUS) return env.MODEL_NAME_CORPUS;
+  if (stage === 'corpus_extract') return env.MODEL_NAME_CORPUS;
   return env.MODEL_NAME;
 }
 
