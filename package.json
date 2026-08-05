@@ -21,6 +21,7 @@
     "corpus:fetch": "tsx scripts/corpus.ts fetch",
     "corpus:parse": "tsx scripts/corpus.ts parse",
     "corpus:extract": "tsx scripts/corpus.ts extract",
+    "corpus:estimate": "tsx scripts/corpus.ts estimate",
     "corpus:verify": "tsx scripts/corpus.ts verify",
     "corpus:embed": "tsx scripts/corpus.ts embed",
     "corpus:status": "tsx scripts/corpus.ts status",

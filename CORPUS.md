@@ -267,6 +267,7 @@ has to start over is a crawl that never finishes.
 ```
 pnpm corpus:fetch    --source=dab        # or --source=ecfr, --source=manual
 pnpm corpus:parse    --unparsed
+pnpm corpus:estimate                     # what extraction will cost, before it runs
 pnpm corpus:extract  --unextracted
 pnpm corpus:verify   --unverified
 pnpm corpus:embed    --unembedded
@@ -274,8 +275,41 @@ pnpm corpus:status
 ```
 
 Checkpointing is by database state rather than by a progress file: `parsed_at`,
-`extracted_at`, and `verified_at` on the rows themselves. Interrupting any stage
-and re-running it picks up exactly the unfinished work.
+`extracted_at`, and `verified_at` on the rows themselves, and `extracted_at` on
+each passage rather than only on the document. Interrupting any stage and
+re-running it picks up exactly the unfinished work, including partway through a
+400 page chapter.
+
+### Screening, and why it exists
+
+Extraction does not send every passage to the model. `lib/corpus/screen.ts`
+drops, locally and for nothing, the passages that cannot contain a rule:
+contents listings, transmittal blocks, bare cross references, and prose with no
+obligation, definition or decision in it.
+
+This is a cost decision, not a quality one. Measured on Benefit Policy Manual
+Ch. 8: 1,302 passages, roughly 216,000 tokens, which is more than a day's
+allowance on a free account, and the majority of it spent reading a contents
+page. `pnpm corpus:estimate` reports the same figures for whatever is pending,
+before any of it is spent.
+
+The screen cannot make the corpus wrong. A passage that is never sent cannot
+produce a false holding, and a passage that is sent still has to survive
+verbatim verification. What it can do is make the corpus thin, silently, by
+dropping something citable. So:
+
+- Every rule is written to keep when unsure. A negative requirement ("is not
+  required to show improvement") and a bare definition ("skilled nursing care
+  means") are both kept, and both were missed by the first draft.
+- Every skip is recorded on the row, in `source_span.screened_out`, with its
+  reason. Someone asking why a passage they can see in the source is not
+  citable gets an answer.
+- Loosening the screen means clearing that column and re-running. Nothing
+  already ingested has to be fetched or parsed again.
+
+```sql
+select screened_out, count(*) from source_span group by screened_out;
+```
 
 ---
 

@@ -470,6 +470,20 @@ export const sourceSpan = pgTable(
      * it takes.
      */
     extractedAt: timestamp('extracted_at', { withTimezone: true }),
+    /**
+     * Why this passage was never sent to the model, if it was not.
+     *
+     * Null means it was sent, or has not been reached yet. A value means
+     * lib/corpus/screen.ts judged that no holding could be in it: a contents
+     * listing, a transmittal notice, a bare cross reference, or prose carrying
+     * no rule, definition or decision.
+     *
+     * Recorded rather than merely skipped so that the screen is auditable and
+     * reversible. Someone asking why a passage they can see in the source is
+     * not citable gets an answer, and loosening the screen later means clearing
+     * this column and re-running rather than re-ingesting anything.
+     */
+    screenedOut: text('screened_out'),
     createdAt: now(),
   },
   (t) => [

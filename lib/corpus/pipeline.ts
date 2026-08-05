@@ -18,7 +18,14 @@ import { storage } from '@/lib/storage';
 import { verifyQuote } from '@/lib/appeals/verify';
 import { parseEcfrXml, parseHtml, parseText } from '@/lib/documents/parse';
 import { ModelRateLimitedError, ModelRequestTooLargeError } from '@/lib/llm/client';
-import { batchSpans, extractHoldings, halveBatch } from './extract';
+import {
+  batchSpans,
+  EXTRACTION_MAX_OUTPUT_TOKENS,
+  EXTRACTION_SYSTEM_TOKENS,
+  extractHoldings,
+  halveBatch,
+} from './extract';
+import { estimateTokens, screen } from './screen';
 import { cosine, embed, holdingEmbeddingText } from './embed';
 import { RobotsDisallowedError } from './fetch';
 import { SOURCES, type SourceKey } from './sources';
@@ -240,7 +247,7 @@ export async function extractStage(
     try {
       // Only the spans not already done. On a first attempt that is all of
       // them; on a resumed one it is what the last attempt did not reach.
-      const spans = await db
+      const pendingSpans = await db
         .select()
         .from(sourceSpan)
         .where(
@@ -250,6 +257,49 @@ export async function extractStage(
           ),
         )
         .orderBy(sourceSpan.ordinal);
+
+      // Drop what cannot hold a rule before spending anything on it. This is
+      // the difference between a chapter costing a day of allowance and costing
+      // an hour, and it happens locally for nothing.
+      const screened = pendingSpans.map((span) => ({
+        span,
+        verdict: screen(span.text, span.headingPath),
+      }));
+
+      const skipped = screened.filter((s) => !s.verdict.keep);
+      const spans = screened.filter((s) => s.verdict.keep).map((s) => s.span);
+
+      if (skipped.length > 0) {
+        // Marked done with their reason, in one statement per reason rather
+        // than one per row: a chapter skips a thousand passages and a thousand
+        // round trips to a serverless database is its own kind of slow.
+        const byReason = new Map<string, string[]>();
+        for (const { span, verdict } of skipped) {
+          const ids = byReason.get(verdict.reason!) ?? [];
+          ids.push(span.id);
+          byReason.set(verdict.reason!, ids);
+        }
+
+        for (const [reason, ids] of byReason) {
+          await db
+            .update(sourceSpan)
+            .set({ extractedAt: new Date(), screenedOut: reason })
+            .where(inArray(sourceSpan.id, ids));
+        }
+
+        log.info('screened out passages that cannot hold a rule', {
+          citation: document.citation,
+          skipped: skipped.length,
+          sending: spans.length,
+          reasons: Object.fromEntries([...byReason].map(([r, ids]) => [r, ids.length])),
+        });
+
+        // Screening is progress: those passages are settled and will not be
+        // looked at again. Counting only the ones sent to the model would make
+        // a round that screened a thousand passages and then hit a quota look
+        // like a round that achieved nothing, and the caller stops on that.
+        spansExtracted += skipped.length;
+      }
 
       const alreadyDone = await db
         .select({ n: sql<number>`count(*)::int` })
@@ -551,6 +601,60 @@ export async function embedStage(): Promise<StageResult> {
   }
 
   return result;
+}
+
+/* ─── Estimate ────────────────────────────────────────────────────────────── */
+
+export interface DocumentEstimate {
+  citation: string;
+  passages: number;
+  sending: number;
+  calls: number;
+  tokens: number;
+}
+
+/**
+ * What the outstanding extraction work will cost, before any of it is spent.
+ *
+ * Written because the answer for one CMS chapter turned out to be more than a
+ * day's allowance on a free account, and there was no way to learn that except
+ * by running it for forty minutes and watching it stall. A number available in
+ * two seconds changes the decision: a different model, a smaller document
+ * first, or a paid account for an afternoon.
+ *
+ * Deliberately counts the overhead. Every call is charged its prompt plus the
+ * system prompt plus the completion reservation whether the model uses it or
+ * not, and on small batches that fixed cost was half the bill. An estimate that
+ * counted only the document's own text would understate it by that much.
+ */
+export async function estimateExtraction(): Promise<DocumentEstimate[]> {
+  const pending = await db
+    .select()
+    .from(sourceDocument)
+    .where(and(isNotNull(sourceDocument.parsedAt), isNull(sourceDocument.extractedAt)));
+
+  const estimates: DocumentEstimate[] = [];
+
+  for (const document of pending) {
+    const spans = await db
+      .select()
+      .from(sourceSpan)
+      .where(and(eq(sourceSpan.sourceDocumentId, document.id), isNull(sourceSpan.extractedAt)));
+
+    const keeping = spans.filter((s) => screen(s.text, s.headingPath).keep);
+    const chars = keeping.reduce((n, s) => n + s.text.length + 64, 0);
+    const calls = batchSpans(keeping).length;
+
+    estimates.push({
+      citation: document.citation,
+      passages: spans.length,
+      sending: keeping.length,
+      calls,
+      tokens: estimateTokens(chars) + calls * (EXTRACTION_SYSTEM_TOKENS + EXTRACTION_MAX_OUTPUT_TOKENS),
+    });
+  }
+
+  return estimates.sort((a, b) => a.tokens - b.tokens);
 }
 
 /* ─── Status ──────────────────────────────────────────────────────────────── */

@@ -250,3 +250,12 @@ export function halveBatch<T>(batch: readonly T[]): [T[], T[]] | null {
   const middle = Math.ceil(batch.length / 2);
   return [batch.slice(0, middle), batch.slice(middle)];
 }
+
+/**
+ * Roughly what the system prompt above costs, for the estimate command.
+ *
+ * A constant rather than a measurement because it only moves when that prompt
+ * is edited, and being out by fifty tokens does not change any decision the
+ * estimate is used to make.
+ */
+export const EXTRACTION_SYSTEM_TOKENS = Math.ceil(EXTRACTION_SYSTEM_PROMPT.length / 3.6);

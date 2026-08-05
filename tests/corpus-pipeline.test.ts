@@ -601,8 +601,13 @@ describe('a provider that is rate limiting', () => {
     expect(slept.length).toBeGreaterThan(0);
     expect(slept.length).toBeLessThan(200);
     expect(result.failed).toBeGreaterThan(0);
-    expect(result.spansExtracted).toBe(0);
     expect(result.notes.some((n) => /still rate limiting/.test(n))).toBe(true);
+
+    // Not "spansExtracted is 0". Screening settles passages without a model
+    // call and counts them as progress, which is the point of it, so a run that
+    // reached the model zero times can still report passages done. What must be
+    // true is that nothing came out of the model.
+    expect(await db.select().from(holding)).toHaveLength(0);
   }, 60_000);
 });
 

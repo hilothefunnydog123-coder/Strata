@@ -4,6 +4,7 @@
  *   pnpm corpus:fetch    --source=dab [--since=2020-01-01] [--limit=1000]
  *   pnpm corpus:parse    --unparsed
  *   pnpm corpus:extract  --unextracted [--limit=100]
+ *   pnpm corpus:estimate
  *   pnpm corpus:verify   --unverified
  *   pnpm corpus:embed    --unembedded
  *   pnpm corpus:status
@@ -16,6 +17,7 @@ import 'dotenv/config';
 import {
   corpusHealth,
   embedStage,
+  estimateExtraction,
   extractStage,
   fetchStage,
   parseStage,
@@ -103,6 +105,53 @@ async function extract(limit: number | undefined): Promise<void> {
         'Continuing from where it stopped.',
     );
   }
+}
+
+/**
+ * What the outstanding extraction will cost, before spending any of it.
+ *
+ * Exists because the honest answer for one CMS chapter was "more than a day's
+ * allowance on this account", and the only way to learn that was to run it for
+ * forty minutes and watch it stall at 75 passages of 1,302.
+ */
+async function estimate(): Promise<void> {
+  const rows = await estimateExtraction();
+
+  out('');
+  out('Extraction still to do');
+  out('─'.repeat(72));
+
+  if (rows.length === 0) {
+    out('  Nothing pending. Every parsed document has been through the extractor.');
+    out('');
+    return;
+  }
+
+  out(
+    `  ${'document'.padEnd(34)}${'passages'.padStart(9)}${'sending'.padStart(9)}` +
+      `${'calls'.padStart(7)}${'tokens'.padStart(11)}`,
+  );
+
+  let total = 0;
+  for (const row of rows) {
+    total += row.tokens;
+    const name = row.citation.length > 33 ? `${row.citation.slice(0, 32)}…` : row.citation;
+    out(
+      `  ${name.padEnd(34)}${String(row.passages).padStart(9)}${String(row.sending).padStart(9)}` +
+        `${String(row.calls).padStart(7)}${row.tokens.toLocaleString('en-US').padStart(11)}`,
+    );
+  }
+
+  out('─'.repeat(72));
+  out(`  ${'total'.padEnd(34)}${''.padStart(25)}${total.toLocaleString('en-US').padStart(11)}`);
+  out('');
+  out('  "sending" is what survives screening. The rest are contents listings,');
+  out('  transmittal notices and prose carrying no rule, and cost nothing.');
+  out('');
+  out('  Compare the total against your account\'s daily token allowance. If it is');
+  out('  larger, the smallest documents above will still finish today, and');
+  out('  MODEL_NAME_CORPUS can point extraction at a model with more headroom.');
+  out('');
 }
 
 async function status(): Promise<void> {
@@ -212,6 +261,10 @@ async function main(): Promise<void> {
       reportStage('embed', await embedStage());
       break;
 
+    case 'estimate':
+      await estimate();
+      break;
+
     case 'status':
       await status();
       break;
@@ -219,7 +272,7 @@ async function main(): Promise<void> {
     default:
       throw new Error(
         `Unknown command "${command ?? ''}". ` +
-          'Use one of: fetch, parse, extract, verify, embed, status.',
+          'Use one of: fetch, parse, extract, estimate, verify, embed, status.',
       );
   }
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "source_span" ADD COLUMN "screened_out" text;
