@@ -383,20 +383,39 @@ const RATE_LIMIT_WAITS_PER_DOCUMENT = 40;
 const DEFAULT_RATE_LIMIT_WAIT_SECONDS = 45;
 
 /**
- * Above this, the wait is telling us about a different limit.
+ * Longest single wait worth sitting through.
  *
- * A per minute allowance rolls over within the minute, so a provider asking to
- * be left alone for ten minutes is not talking about one. It is an hourly or
- * daily quota, and the distinction matters because the two have opposite
- * remedies: a per minute limit is waited out and the run finishes, a daily one
- * is not going to clear during this run no matter how patient it is.
+ * This was 150 seconds, on the reasoning that an allowance asking for longer
+ * than a couple of minutes cannot be a per minute one and so will not clear
+ * during the run. The reasoning was right about the first part and wrong about
+ * the second, and a real run showed the difference: the provider asked for
+ * seven minutes, the run gave up, and seven minutes later the same request
+ * would have gone through. Three chapters stopped that way in one job, and the
+ * job had a five hour budget it was not using.
  *
- * The run that made this obvious sat asking for the same batch every ten
- * minutes, each time being told ten minutes, with the passage count unchanged.
- * Left alone it would have spent almost seven hours reaching exactly as far as
- * it had in the first minute.
+ * An hourly allowance is worth waiting out. It is measured in minutes, the job
+ * has hours, and the alternative is a person re-dispatching the workflow by
+ * hand every time. A daily one still is not: it reports a wait measured in
+ * hours, which is above this and stops the run the way it always did.
  */
-const QUOTA_WAIT_THRESHOLD_SECONDS = 150;
+const QUOTA_WAIT_THRESHOLD_SECONDS = 20 * 60;
+
+/**
+ * Consecutive waits allowed without a single batch getting through.
+ *
+ * The real distinction is not how long a wait is, it is whether waiting
+ * accomplishes anything. That is what the earlier threshold was reaching for: a
+ * run once sat asking for the same batch every ten minutes, each time being
+ * told ten minutes, with the passage count unchanged, and left alone it would
+ * have spent almost seven hours reaching exactly as far as it got in the first
+ * minute.
+ *
+ * Counting consecutive fruitless waits says that directly. A seven minute wait
+ * followed by a batch that succeeds resets this and the run carries on. Three
+ * waits in a row that change nothing mean the allowance is not coming back, and
+ * the run stops with everything it has saved.
+ */
+export const FRUITLESS_WAITS_BEFORE_STOPPING = 3;
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -522,6 +541,10 @@ export async function extractStage(
 
       let kept = 0;
       let waits = 0;
+
+      // Reset by any batch the provider accepts, so it counts waits that got
+      // nowhere rather than waits in total.
+      let fruitlessWaits = 0;
       let done = 0;
 
       // A worklist rather than a for loop, so a batch the provider refuses can
@@ -555,9 +578,24 @@ export async function extractStage(
               quotaExhausted = true;
               result.notes.push(
                 `${document.citation}: the provider asked to be left alone for ` +
-                  `${Math.ceil(seconds / 60)} minutes, which is an hourly or daily quota ` +
-                  'rather than a per minute limit. Waiting will not clear it during this ' +
+                  `${Math.ceil(seconds / 60)} minutes, which is a daily quota rather than ` +
+                  'an hourly or per minute one. Waiting will not clear it during this ' +
                   'run, so the run stopped here. Everything already extracted is saved.',
+              );
+              throw error;
+            }
+
+            // Waiting is only worth doing if it gets somewhere. This counts
+            // waits since the last batch that succeeded, so an hourly limit
+            // that clears is patience and one that never clears is a stop.
+            fruitlessWaits += 1;
+            if (fruitlessWaits > FRUITLESS_WAITS_BEFORE_STOPPING) {
+              quotaExhausted = true;
+              result.notes.push(
+                `${document.citation}: waited ${FRUITLESS_WAITS_BEFORE_STOPPING} times ` +
+                  'without a single batch getting through, so the allowance is not coming ' +
+                  'back on its own. The run stopped here and everything already extracted ' +
+                  'is saved.',
               );
               throw error;
             }
@@ -612,6 +650,9 @@ export async function extractStage(
           queue.unshift(...halves);
           continue;
         }
+
+        // The provider took a request, so waiting is getting somewhere again.
+        fruitlessWaits = 0;
 
         // Anchored within the batch, not the document.
         //
@@ -723,6 +764,20 @@ export async function extractStage(
           'next unextracted passage rather than starting the document again.',
       );
       log.error('could not extract holdings', { citation: document.citation, error });
+    }
+
+    // An allowance belongs to the account, not to the document that happened to
+    // exhaust it. Carrying on down the list re-learns the same fact once per
+    // chapter, and now that a run waits rather than failing fast, it pays for
+    // the lesson: eleven documents at three waits of seven minutes is nearly
+    // four hours of sleeping to discover what the first document established.
+    if (quotaExhausted) {
+      result.notes.push(
+        `${pending.length - pending.indexOf(document) - 1} document(s) were left for the ` +
+          'next run rather than asked separately, since the allowance is spent for all ' +
+          'of them.',
+      );
+      break;
     }
   }
 

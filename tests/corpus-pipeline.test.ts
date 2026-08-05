@@ -223,8 +223,15 @@ vi.mock('@/lib/corpus/sources', async (importOriginal) => {
   };
 });
 
-const { fetchStage, parseStage, extractStage, verifyStage, embedStage, corpusHealth } =
-  await import('@/lib/corpus/pipeline');
+const {
+  fetchStage,
+  parseStage,
+  extractStage,
+  verifyStage,
+  embedStage,
+  corpusHealth,
+  FRUITLESS_WAITS_BEFORE_STOPPING,
+} = await import('@/lib/corpus/pipeline');
 const { fetchDocument, resetCrawlerState, RobotsDisallowedError, userAgent } = await import(
   '@/lib/corpus/fetch'
 );
@@ -526,20 +533,15 @@ describe('a provider that is rate limiting', () => {
     expect(await db.select().from(holding)).not.toHaveLength(0);
   }, 60_000);
 
-  it('stops instead of waiting when the wait is a quota rather than a window', async () => {
-    // A per minute allowance rolls over within the minute. A provider asking to
-    // be left alone for ten is talking about an hourly or daily quota, and that
-    // will not clear during this run however patient it is.
-    //
-    // The run this comes from sat asking for the same batch every ten minutes,
-    // being told ten minutes, with the passage count unchanged. Left alone it
-    // would have spent seven hours getting no further than its first minute.
+  it('stops instead of waiting when the wait is measured in hours', async () => {
+    // A daily allowance does not come back during a run however patient it is,
+    // and it says so: the wait it reports is hours, not minutes.
     await db.delete(holding);
     await reExtract();
 
     const slept: number[] = [];
     vi.mocked(complete).mockImplementation((async () => {
-      throw new ModelRateLimitedError('daily quota', 600);
+      throw new ModelRateLimitedError('daily quota', 3 * 60 * 60);
     }) as typeof complete);
 
     const result = await extractStage(100, {
@@ -550,7 +552,70 @@ describe('a provider that is rate limiting', () => {
 
     expect(slept).toEqual([]);
     expect(result.quotaExhausted).toBe(true);
-    expect(result.notes.some((n) => /hourly or daily quota/.test(n))).toBe(true);
+    expect(result.notes.some((n) => /daily quota/.test(n))).toBe(true);
+  }, 60_000);
+
+  it('waits out an hourly limit rather than handing the job back', async () => {
+    // The measured case, and the reason the threshold moved. A real run was
+    // told seven minutes on three chapters and gave up on all three, inside a
+    // job that had five hours left. Seven minutes later the same request would
+    // have gone through, and the alternative to waiting is a person
+    // re-dispatching the workflow by hand.
+    await db.delete(holding);
+    await reExtract();
+
+    let refused = false;
+    const slept: number[] = [];
+    vi.mocked(complete).mockImplementation((async (request: CompleteRequest) => {
+      if (!refused) {
+        refused = true;
+        throw new ModelRateLimitedError('hourly quota', 7 * 60);
+      }
+      return defaultComplete(request);
+    }) as typeof complete);
+
+    const result = await extractStage(100, {
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+
+    expect(slept).toEqual([7 * 60 * 1000]);
+    expect(result.quotaExhausted).toBe(false);
+    expect(result.failed).toBe(0);
+    expect(result.spansExtracted).toBeGreaterThan(0);
+    expect(await db.select().from(holding)).not.toHaveLength(0);
+  }, 60_000);
+
+  it('stops once waiting has stopped accomplishing anything', async () => {
+    // The distinction the old threshold was reaching for, said directly. A run
+    // once sat asking for the same batch every ten minutes, each time being
+    // told ten minutes, with the passage count unchanged; left alone it would
+    // have spent seven hours reaching exactly as far as it got in the first.
+    // Length was the wrong test for that. Whether the wait got anywhere is the
+    // right one.
+    await db.delete(holding);
+    await reExtract();
+
+    const slept: number[] = [];
+    vi.mocked(complete).mockImplementation((async () => {
+      throw new ModelRateLimitedError('hourly quota that never clears', 7 * 60);
+    }) as typeof complete);
+
+    const result = await extractStage(100, {
+      sleep: async (ms) => {
+        slept.push(ms);
+      },
+    });
+
+    // Patient a few times, then done, and done for the whole run rather than
+    // once per document: the allowance belongs to the account, so the documents
+    // behind this one are left for the next run instead of sleeping through the
+    // same discovery each.
+    expect(slept.length).toBeLessThanOrEqual(FRUITLESS_WAITS_BEFORE_STOPPING);
+    expect(result.quotaExhausted).toBe(true);
+    expect(result.notes.some((n) => /without a single batch getting through/.test(n))).toBe(true);
+    expect(result.notes.some((n) => /left for the next run/.test(n))).toBe(true);
   }, 60_000);
 
   it('still waits out an ordinary per minute limit', async () => {
@@ -595,13 +660,13 @@ describe('a provider that is rate limiting', () => {
       },
     });
 
-    // Bounded. A provider that has stopped answering should end the run rather
-    // than hold it open forever, and the bound has to be per document or one
-    // dead document blocks every one behind it.
+    // Bounded, and tightly. A provider that has stopped answering ends the run
+    // rather than holding it open: the waits stop getting anywhere, which is
+    // the thing actually worth measuring.
     expect(slept.length).toBeGreaterThan(0);
-    expect(slept.length).toBeLessThan(200);
+    expect(slept.length).toBeLessThanOrEqual(4);
     expect(result.failed).toBeGreaterThan(0);
-    expect(result.notes.some((n) => /still rate limiting/.test(n))).toBe(true);
+    expect(result.quotaExhausted).toBe(true);
 
     // Not "spansExtracted is 0". Screening settles passages without a model
     // call and counts them as progress, which is the point of it, so a run that
