@@ -418,9 +418,12 @@ async function status(): Promise<void> {
   out(`  total                  ${String(health.holdingsTotal).padStart(6)}`);
   out(`  verified               ${String(health.holdingsVerified).padStart(6)}`);
   out(`  embedded               ${String(health.holdingsEmbedded).padStart(6)}`);
+  // Said as a count of work outstanding rather than a percentage that looks
+  // like a defect rate. Nothing here failed: verification deletes what fails.
+  const awaiting = health.holdingsTotal - health.holdingsVerified;
   out(
-    `  verification failures  ${(health.verificationFailureRate * 100).toFixed(1).padStart(6)}%` +
-      (health.verificationFailureRate > 0.05 ? '   ABOVE THRESHOLD' : ''),
+    `  awaiting verification  ${String(awaiting).padStart(6)}` +
+      (awaiting > 0 ? '   run corpus:verify' : ''),
   );
   out(`  embedding coverage     ${(health.embeddingCoverage * 100).toFixed(1).padStart(6)}%`);
 

@@ -18,7 +18,11 @@ export default async function CorpusPage() {
   assertPlatformOrForbid(principal, 'admin:corpus');
 
   const health = await corpusHealth();
-  const failureRate = health.verificationFailureRate;
+
+  // Holdings extraction has produced that verification has not reached yet.
+  // Not failures: a holding whose quote does not check out is deleted, so this
+  // can only ever mean the stages are at different points in the same run.
+  const awaitingVerification = health.holdingsTotal - health.holdingsVerified;
 
   return (
     <div className="px-4 py-5">
@@ -33,9 +37,9 @@ export default async function CorpusPage() {
         <Tile label="Holdings verified" value={health.holdingsVerified.toLocaleString('en-US')} />
         <Tile label="Holdings total" value={health.holdingsTotal.toLocaleString('en-US')} />
         <Tile
-          label="Verification failure rate"
-          value={`${(failureRate * 100).toFixed(1)}%`}
-          tone={failureRate > 0.05 ? 'denied' : 'neutral'}
+          label="Awaiting verification"
+          value={awaitingVerification.toLocaleString('en-US')}
+          tone="neutral"
         />
         <Tile
           label="Embedding coverage"
@@ -43,15 +47,23 @@ export default async function CorpusPage() {
         />
       </div>
 
-      {failureRate > 0.05 ? (
-        <div className="mt-4 border border-denied/40 bg-denied-wash px-4 py-3 text-sm">
-          <p className="font-semibold text-denied">
-            Verification failure rate is above 5 percent
+      {awaitingVerification > 0 ? (
+        <div className="mt-4 border border-rule bg-paper-sunk px-4 py-3 text-sm">
+          <p className="font-semibold text-ink">
+            {awaitingVerification.toLocaleString('en-US')} holding
+            {awaitingVerification === 1 ? '' : 's'} have not been verified yet
           </p>
           <p className="mt-1 text-ink">
-            The extraction prompt is producing quotes that are not in the source
-            they cite. That is a prompt problem, not a threshold problem. Fix
-            lib/corpus/extract.ts rather than raising the number.
+            They are not offered to any appeal until their quotes have been
+            checked against the documents they cite. Run corpus:verify to
+            finish, then corpus:embed to make what passes retrievable.
+          </p>
+          <p className="mt-1 text-ink">
+            This page cannot report a failure rate, and saying otherwise was the
+            bug it used to have. A holding whose quote does not check out is
+            deleted rather than flagged, so the only rate it could compute is
+            how far verification is behind extraction. The real rate is the one
+            corpus:verify prints for the batch it just rejected.
           </p>
         </div>
       ) : null}

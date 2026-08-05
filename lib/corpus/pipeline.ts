@@ -898,7 +898,21 @@ export interface CorpusHealth {
   holdingsEmbedded: number;
   holdingsByServiceType: { serviceType: string | null; count: number }[];
   holdingsByDenialBasis: { denialBasis: string | null; count: number }[];
-  verificationFailureRate: number;
+  /**
+   * The share of holdings that have not been through verification yet.
+   *
+   * Not a failure rate, which is what this was called. Verification deletes a
+   * holding whose quote is not in its source, so nothing that failed is still
+   * counted here and the number can only ever mean "extraction has run ahead of
+   * verification". That is the normal state in the middle of a run.
+   *
+   * The old name printed "verification failures 29.5% ABOVE THRESHOLD" at a
+   * moment when nothing had failed and 13 holdings were simply waiting their
+   * turn. A quality alarm that fires on ordinary progress is worse than no
+   * alarm: the real one, which verifyStage() computes per run from what it
+   * actually rejected, is the number that decides the exit code.
+   */
+  unverifiedShare: number;
   embeddingCoverage: number;
 }
 
@@ -971,7 +985,7 @@ export async function corpusHealth(): Promise<CorpusHealth> {
     holdingsByDenialBasis: byBasis,
     // Holdings that failed verification were deleted, so what remains
     // unverified is work not yet done rather than work that failed.
-    verificationFailureRate: total === 0 ? 0 : (total - verified) / total,
+    unverifiedShare: total === 0 ? 0 : (total - verified) / total,
     embeddingCoverage: verified === 0 ? 0 : embedded / verified,
   };
 }
