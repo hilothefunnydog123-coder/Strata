@@ -115,10 +115,40 @@ export async function fetchStage(
         }
 
         await storage().put(key_, fetched.bytes, fetched.contentType);
-        result.notes.push(
-          `${document.citation}: the row existed but its stored bytes did not, so they ` +
-            'were written again. Parsing can proceed.',
-        );
+
+        // Re-parse it, if there is nothing to lose by doing so.
+        //
+        // A document whose bytes had to be rewritten was parsed in an
+        // environment that no longer exists, and on this project that parse was
+        // usually wrong: chapter 8 was read as binary and still carries its
+        // parsed flag, so the stage skips it and no amount of re-running fixes
+        // it. Clearing the flag is the only way back.
+        //
+        // Only when it produced no holdings. A document that yielded some was
+        // parsed well enough to be worth something, and re-parsing replaces its
+        // passages and takes those holdings with them, which would spend model
+        // allowance to arrive back where we started.
+        const [held] = await db
+          .select({ n: sql<number>`count(*)::int` })
+          .from(holding)
+          .where(eq(holding.sourceDocumentId, existing.id));
+
+        if ((held?.n ?? 0) === 0) {
+          await db
+            .update(sourceDocument)
+            .set({ parsedAt: null, extractedAt: null })
+            .where(eq(sourceDocument.id, existing.id));
+          result.notes.push(
+            `${document.citation}: stored bytes were missing and have been written again. ` +
+              'It held no holdings, so it will be parsed again from them.',
+          );
+        } else {
+          result.notes.push(
+            `${document.citation}: stored bytes were missing and have been written again. ` +
+              `Its ${held!.n} holdings are kept, so it is not re-parsed.`,
+          );
+        }
+
         result.processed += 1;
         continue;
       }
