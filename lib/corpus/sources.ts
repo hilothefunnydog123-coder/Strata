@@ -11,10 +11,12 @@
  * proxy, so none of this has run against the live sources. Each adapter is
  * written so that a wrong guess is a change in one place.
  */
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { fetchDocument, userAgent, type FetchedDocument } from './fetch';
 import { env } from '@/lib/env';
 import { log } from '@/lib/log';
+import { asStandaloneXml, splitTitleIntoParts } from './ecfr-split';
 
 export type SourceKey = 'dab' | 'ecfr' | 'manual';
 
@@ -230,48 +232,69 @@ const GOVINFO_ORIGIN = 'https://www.govinfo.gov';
  * from the single chapter someone had checked turned out to describe one of the
  * only two exceptions in the set.
  */
-const GOVINFO_ECFR_INDEX = '/bulkdata/json/ECFR/title-42';
-
-interface GovinfoFile {
-  link?: string;
-  justFileName?: string;
-  fileName?: string;
-  folder?: boolean;
-}
+const GOVINFO_ECFR_TITLE = '/bulkdata/ECFR/title-42/ECFR-title42.xml';
 
 /**
- * Pick the file for each part we want out of a govinfo listing.
+ * One download, four documents.
  *
- * Exported so it can be tested against a real listing without a network, and so
- * the shape this expects is written down somewhere a person can check it
- * against the live endpoint.
+ * govinfo does not publish per part files, which a live run established rather
+ * than anybody reasoning it out: asked for title 42 it listed exactly
+ * `ECFR-title42.xml` and `ECFR-title42-graphics.zip`. The previous code looked
+ * for `ECFR-title42-part409.xml` and had six passing unit tests written against
+ * a fixture invented from the same assumption, so they agreed with the code and
+ * proved nothing about govinfo.
+ *
+ * The recorded objection to falling back on the title was "do not put the whole
+ * of title 42 in the corpus to reach four parts", not "do not download it". So
+ * it is downloaded once, streamed, and cut into the four parts, and nothing
+ * else is kept. The title is fetched once per run and the slices held until it
+ * finishes, which is a few megabytes rather than the hundreds the file weighs.
  */
-export function selectEcfrParts(listing: unknown): DiscoveredDocument[] {
-  const files = (listing as { files?: GovinfoFile[] } | null)?.files;
-  if (!Array.isArray(files)) return [];
+let titleParts: Promise<Map<string, string>> | null = null;
 
-  const wanted = new Map(ECFR_PARTS.map((p) => [p.part, p.title]));
-  const found: DiscoveredDocument[] = [];
+async function ecfrParts(): Promise<Map<string, string>> {
+  titleParts ??= (async () => {
+    const url = `${GOVINFO_ORIGIN}${GOVINFO_ECFR_TITLE}`;
+    const response = await fetch(url, { headers: { 'user-agent': userAgent() } });
 
-  for (const file of files) {
-    const link = file.link;
-    const name = file.justFileName ?? file.fileName ?? '';
-    if (file.folder || !link || !/\.xml$/i.test(name)) continue;
+    if (!response.ok || !response.body) {
+      throw new Error(
+        `govinfo returned ${response.status} for the title 42 bulk file. eCFR's own API ` +
+          'cannot be used in its place: their robots.txt disallows /api/versioner/v1/full/ ' +
+          'explicitly, and it 404s anyway.',
+      );
+    }
 
-    // ECFR-title42-part409.xml, and any near relative of that spelling.
-    const part = /part[-_]?(\d{2,4})/i.exec(name)?.[1];
-    if (!part || !wanted.has(part)) continue;
+    const decoder = new TextDecoder('utf-8');
+    async function* text(): AsyncIterable<string> {
+      // @ts-expect-error the fetch body is async iterable at runtime in Node.
+      for await (const chunk of response.body) {
+        yield decoder.decode(chunk as Uint8Array, { stream: true });
+      }
+      yield decoder.decode();
+    }
 
-    found.push({
-      sourceType: 'regulation' as const,
-      citation: `42 CFR Part ${part}`,
-      title: wanted.get(part)!,
-      url: link.startsWith('http') ? link : `${GOVINFO_ORIGIN}${link}`,
-      decidedAt: null,
+    const { parts, seen } = await splitTitleIntoParts(
+      text(),
+      ECFR_PARTS.map((p) => p.part),
+    );
+
+    if (parts.size === 0) {
+      throw new Error(
+        `The title 42 bulk file held none of 42 CFR ${ECFR_PARTS.map((p) => p.part).join(', ')}. ` +
+          `It contained parts: ${seen.slice(0, 40).join(', ') || '(none)'}.`,
+      );
+    }
+
+    log.info('cut the parts out of title 42', {
+      found: [...parts.keys()],
+      partsInTitle: seen.length,
     });
-  }
 
-  return found;
+    return parts;
+  })();
+
+  return titleParts;
 }
 
 export const ecfrSource: Source = {
@@ -279,55 +302,46 @@ export const ecfrSource: Source = {
   label: 'eCFR Title 42, via govinfo bulk data',
 
   async discover() {
-    const response = await fetch(`${GOVINFO_ORIGIN}${GOVINFO_ECFR_INDEX}`, {
-      headers: { 'user-agent': userAgent(), accept: 'application/json' },
-    });
+    // Cut first, so a title that no longer holds these parts fails here with
+    // what it did hold rather than four times over in the fetch loop.
+    const parts = await ecfrParts();
 
-    if (!response.ok) {
-      throw new Error(
-        `The govinfo bulk index returned ${response.status}. eCFR's own API cannot be ` +
-          'used in its place: their robots.txt disallows /api/versioner/v1/full/ ' +
-          'explicitly, and it 404s anyway.',
-      );
-    }
+    const found = ECFR_PARTS.filter((p) => parts.has(p.part)).map((p) => ({
+      sourceType: 'regulation' as const,
+      citation: `42 CFR Part ${p.part}`,
+      title: p.title,
+      // The file these bytes came out of, with the part named. Provenance
+      // points at what was actually fetched rather than at a nicer page.
+      url: `${GOVINFO_ORIGIN}${GOVINFO_ECFR_TITLE}#part-${p.part}`,
+      decidedAt: null,
+    }));
 
-    const body = await response.text();
-
-    let listing: unknown;
-    try {
-      listing = JSON.parse(body);
-    } catch {
-      throw new Error(
-        'The govinfo bulk index did not return JSON. The first 200 characters were: ' +
-          body.slice(0, 200),
-      );
-    }
-
-    const parts = selectEcfrParts(listing);
-
-    if (parts.length === 0) {
-      // Loudly, with what was actually there. A silent empty result reads as
-      // "nothing new to fetch", and the regulations would simply never arrive
-      // while every run reported success. The listing is small enough to name.
-      const names = ((listing as { files?: GovinfoFile[] }).files ?? [])
-        .map((f) => f.justFileName ?? f.fileName ?? '')
-        .filter(Boolean)
-        .slice(0, 20);
-
-      throw new Error(
-        'The govinfo bulk index held no per part file for any of 42 CFR ' +
-          `${ECFR_PARTS.map((p) => p.part).join(', ')}. It listed: ${names.join(', ') || '(nothing)'}. ` +
-          'Fetching the whole of title 42 instead is not a fallback: it is hundreds of ' +
-          'megabytes to reach four parts, and every extra part is more surface for a ' +
-          'retrieval to wander into.',
-      );
-    }
-
-    log.info('discovered regulation parts', { count: parts.length });
-    return parts;
+    log.info('discovered regulation parts', { count: found.length });
+    return found;
   },
 
-  fetch: (document) => fetchDocument(document.url),
+  async fetch(document) {
+    const part = /#part-(\d+)$/.exec(document.url)?.[1];
+    const parts = await ecfrParts();
+    const xml = part ? parts.get(part) : undefined;
+
+    if (!xml) {
+      throw new Error(
+        `${document.citation} was not among the parts cut out of title 42. This is a bug: ` +
+          'discover only offers parts it has already found.',
+      );
+    }
+
+    const bytes = Buffer.from(asStandaloneXml(xml), 'utf8');
+
+    return {
+      url: document.url,
+      bytes,
+      contentType: 'application/xml',
+      contentHash: createHash('sha256').update(bytes).digest('hex'),
+      retrievedAt: new Date(),
+    };
+  },
 };
 
 /* ─── CMS Internet-Only Manuals ───────────────────────────────────────────── */
