@@ -413,6 +413,22 @@ export const organization = pgTable(
      * dollars. Integer so no rounding drift ever reaches an invoice.
      */
     contingencyRateBps: integer('contingency_rate_bps').notNull().default(1500),
+    /**
+     * The channel this hospital files through, once they have chosen one.
+     *
+     * Null means ask. A specialist filing their first appeal picks a channel
+     * and may tick a box to stop being asked, which writes this. Everything
+     * after that is one click, and it stays changeable from settings because a
+     * hospital that enrols in esMD three months in should not have to live with
+     * the answer they gave on their first afternoon.
+     *
+     * Deliberately per organisation rather than per user. Filing is a
+     * departmental habit with a paper trail behind it, not a personal
+     * preference, and two specialists at the same hospital filing the same
+     * plan's appeals through different channels is how a deadline gets missed
+     * by nobody in particular.
+     */
+    defaultFilingChannel: submissionChannelEnum('default_filing_channel'),
     status: orgStatusEnum('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
