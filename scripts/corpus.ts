@@ -26,6 +26,7 @@ import {
 } from '../lib/corpus/pipeline';
 import { runChecks } from '../lib/corpus/doctor';
 import { SOURCES, type SourceKey } from '../lib/corpus/sources';
+import { userAgent } from '../lib/corpus/fetch';
 import { llmConfigured } from '../lib/llm/client';
 import { log } from '../lib/log';
 
@@ -187,6 +188,67 @@ async function doctor(): Promise<void> {
   }
 }
 
+/**
+ * Candidate source endpoints, and what they answer.
+ *
+ * Listed rather than derived because the point is to compare the ones in use
+ * against the ones that might replace them, in a single round trip to an
+ * environment with egress.
+ */
+const PROBE_TARGETS: ReadonlyArray<[string, string]> = [
+  ['ecfr robots', 'https://www.ecfr.gov/robots.txt'],
+  ['ecfr versioner (in use)', 'https://www.ecfr.gov/api/versioner/v1/full/2026-08-05/title-42.xml?part=409'],
+  ['govinfo robots', 'https://www.govinfo.gov/robots.txt'],
+  ['govinfo ecfr bulk index', 'https://www.govinfo.gov/bulkdata/ECFR/title-42'],
+  ['govinfo ecfr bulk xml', 'https://www.govinfo.gov/bulkdata/ECFR/title-42/ECFR-title42.xml'],
+  ['healthdata socrata (in use)', 'https://healthdata.gov/resource/b8ey-rqrx.json?$limit=1'],
+  ['healthdata robots', 'https://healthdata.gov/robots.txt'],
+  ['hhs dab robots', 'https://www.hhs.gov/robots.txt'],
+  ['hhs dab decisions index', 'https://www.hhs.gov/about/agencies/dab/decisions/index.html'],
+  ['hhs dab council search', 'https://www.hhs.gov/about/agencies/dab/decisions/dab-decisions/index.html'],
+  ['cms robots', 'https://www.cms.gov/robots.txt'],
+  ['cms bpm ch8 (works)', 'https://www.cms.gov/regulations-and-guidance/guidance/manuals/downloads/bp102c08pdf.pdf'],
+  ['cms bpm ch1 (404s)', 'https://www.cms.gov/regulations-and-guidance/guidance/manuals/downloads/bp102c01pdf.pdf'],
+  ['cms bpm ch1 alt', 'https://www.cms.gov/files/document/bp102c01pdf.pdf'],
+  ['cms bpm ch7 alt', 'https://www.cms.gov/files/document/bp102c07pdf.pdf'],
+  ['cms bpm ch15 alt', 'https://www.cms.gov/files/document/bp102c15pdf.pdf'],
+];
+
+async function probe(): Promise<void> {
+  out('');
+  out('Source reachability');
+  out('─'.repeat(96));
+
+  for (const [label, url] of PROBE_TARGETS) {
+    try {
+      const response = await fetch(url, {
+        headers: { 'user-agent': userAgent() },
+        redirect: 'follow',
+      });
+      const type = response.headers.get('content-type') ?? '';
+      const length = response.headers.get('content-length') ?? '';
+      out(
+        `  ${String(response.status).padEnd(5)}${label.padEnd(30)}${type.slice(0, 28).padEnd(30)}${length}`,
+      );
+
+      // robots.txt is the whole answer for two of the failures, so print it
+      // rather than making someone open it in a browser and read it back.
+      if (url.endsWith('robots.txt') && response.ok) {
+        const body = await response.text();
+        for (const line of body.split('\n').slice(0, 40)) {
+          if (line.trim().length > 0) out(`        ${line.trim()}`);
+        }
+      }
+    } catch (error) {
+      out(`  ERR  ${label.padEnd(30)}${(error as Error).message}`);
+    }
+  }
+
+  out('');
+  out('  Nothing was fetched or stored. This only reports what each host answers.');
+  out('');
+}
+
 async function status(): Promise<void> {
   const health = await corpusHealth();
 
@@ -290,6 +352,23 @@ async function main(): Promise<void> {
   switch (command) {
     case 'fetch': {
       const requested = flag('source') ?? 'dab';
+
+      // A diagnostic that fetches nothing and stores nothing.
+      //
+      // Three sources failed on their first real run, each differently: a 403,
+      // a robots.txt refusal, and a 404. Fixing them means knowing what the
+      // alternatives actually answer, and the alternatives are unreachable from
+      // a development container by network policy and from a laptop behind the
+      // same. The runner can reach them. So this asks, from there, and prints
+      // status codes.
+      //
+      // It rides on the fetch stage because the workflow's source input is the
+      // only free text field that reaches this script, and a diagnostic worth
+      // one afternoon does not justify a new deployment to the default branch.
+      if (requested === 'probe') {
+        await probe();
+        break;
+      }
 
       // "all" rather than three separate invocations. Fetching costs no model
       // allowance, only bandwidth, so there is no reason to make someone press
