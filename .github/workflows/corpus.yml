@@ -47,6 +47,11 @@ on:
         required: false
         default: ''
         type: string
+      ref:
+        description: Which branch's code to run
+        required: false
+        default: work
+        type: string
 
 # One at a time. Two runs against the same database would fight over the same
 # unextracted passages, and the checkpointing that makes a run resumable assumes
@@ -90,7 +95,40 @@ jobs:
       LOCAL_STORAGE_DIR: .storage-corpus
 
     steps:
+      # The code, which is not necessarily the branch this was dispatched from.
+      #
+      # GitHub takes the workflow file from the default branch, and by default
+      # would take the code from there too. This repository deliberately keeps
+      # main at what is deployed and does the work on another branch, so a run
+      # that checked out main would run whatever was last released rather than
+      # what is being worked on. The first run did exactly that and failed with
+      # "Command corpus:doctor not found", because the command was three days
+      # newer than the branch it was looking at.
+      #
+      # So the file lives on main and the code comes from wherever this says.
+      # The consequence worth knowing: editing the pipeline takes effect on the
+      # next run, editing this file still needs a merge to main.
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Say what is being run
+        run: |
+          echo "Branch:  ${{ inputs.ref }}"
+          echo "Commit:  $(git rev-parse --short HEAD)"
+          echo "Subject: $(git log -1 --pretty=%s)"
+
+          # A missing command here means the branch predates it, which is a
+          # different problem from the command failing, and says so rather than
+          # leaving pnpm to guess at what was meant.
+          for script in corpus:doctor corpus:estimate corpus:extract; do
+            if ! node -e "process.exit(require('./package.json').scripts['$script'] ? 0 : 1)"; then
+              echo ""
+              echo "This branch has no \"$script\" script, so it is older than this workflow."
+              echo "Set the \"ref\" input to a branch that has the current pipeline."
+              exit 1
+            fi
+          done
 
       - uses: pnpm/action-setup@v6
         # No version pinned here on purpose. package.json's packageManager field
