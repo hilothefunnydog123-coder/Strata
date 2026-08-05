@@ -17,16 +17,33 @@ import { env, envStatus, NotConfiguredError } from '@/lib/env';
 import * as schema from './schema';
 
 /**
- * One type for both drivers.
+ * One type for both drivers, with transactions removed.
  *
  * The two `drizzle()` functions return structurally different types even though
  * the query builders are identical in use. Left as a union, every call to
  * `.returning({ ... })` fails to resolve an overload, which would push a cast
- * into hundreds of call sites instead of this one. The cast is sound: the Neon
- * HTTP driver implements the same PgDatabase surface, minus interactive
- * transactions, which this codebase does not use.
+ * into hundreds of call sites instead of this one.
+ *
+ * The cast is only sound where the two drivers agree, and there is exactly one
+ * place they do not: the Neon HTTP driver has no interactive transactions and
+ * throws "No transactions support in neon-http driver" the moment one is
+ * opened. This used to be a sentence in this comment saying the codebase does
+ * not use them. It was true when written and stopped being true later, and
+ * nothing noticed, because the cast had already told the type checker that a
+ * transaction was available and the local test database is node-postgres, where
+ * it is. The failure surfaced in production against the only driver that runs
+ * there.
+ *
+ * So the sentence is now an Omit. `db.transaction(...)` is a compile error, and
+ * the compile error is the whole point: it fails on the machine writing the
+ * code rather than on the one running it.
+ *
+ * Where atomicity is actually needed, write the sequence so that every
+ * interruption point leaves a state a re-run corrects. lib/corpus/pipeline.ts
+ * is the worked example: delete, insert, then mark done, so a crash anywhere
+ * leaves work that redoes itself rather than work that doubles.
  */
-type Client = NodePgDatabase<typeof schema>;
+type Client = Omit<NodePgDatabase<typeof schema>, 'transaction'>;
 
 function createClient(): Client {
   const url = env.DATABASE_URL;

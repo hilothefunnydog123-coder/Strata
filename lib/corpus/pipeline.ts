@@ -226,8 +226,6 @@ export async function extractStage(
         )
         .orderBy(sourceSpan.ordinal);
 
-      const byOrdinal = new Map(spans.map((s) => [s.ordinal, s]));
-
       const alreadyDone = await db
         .select({ n: sql<number>`count(*)::int` })
         .from(sourceSpan)
@@ -327,22 +325,23 @@ export async function extractStage(
           continue;
         }
 
-        // The holdings and the checkpoint commit together or not at all.
+        // Anchored within the batch, not the document.
         //
-        // Split apart, the two orderings fail in opposite directions and both
-        // are silent: mark first and a crash in between loses holdings from a
-        // span nothing will look at again, insert first and a crash leaves
-        // holdings whose span is still pending, so the next run extracts it
-        // again and writes a second copy. Duplicates are the worse of the two,
-        // because they verify perfectly, being genuine quotes from a genuine
-        // span, and retrieval offering the same authority three times reads as
-        // three sources agreeing.
+        // Only this batch's passages were in the prompt, so a holding citing an
+        // ordinal from outside it did not come from a passage the model read.
+        // Accepting one would attach a quote to text that was never shown,
+        // which usually fails verification and occasionally does not, when the
+        // same sentence appears in both places. That is the worst outcome
+        // available: a citation that checks out and points somewhere else.
+        const byOrdinal = new Map(batch.map((s) => [s.ordinal, s]));
+
         const rows: (typeof holding.$inferInsert)[] = [];
         for (const extracted of response.value.holdings) {
           const span = byOrdinal.get(extracted.spanOrdinal);
           if (!span) {
             result.notes.push(
-              `${document.citation}: holding cites span ${extracted.spanOrdinal}, which does not exist`,
+              `${document.citation}: a holding cited span ${extracted.spanOrdinal}, which ` +
+                'was not among the passages sent in that call, so it was discarded',
             );
             continue;
           }
@@ -360,14 +359,33 @@ export async function extractStage(
           });
         }
 
+        // Three statements in an order that survives being interrupted between
+        // any two of them, rather than one transaction.
+        //
+        // Not a stylistic choice. The Neon HTTP driver has no interactive
+        // transactions, and it is the driver production runs on, so a
+        // transaction here is an outage there. It is also unnecessary: what is
+        // actually required is that a re-run cannot double anything, and
+        // ordering gives that without atomicity.
+        //
+        //   after the delete   the passage is still pending and its holdings
+        //                      are gone, so the re-run redoes it
+        //   after the insert   the passage is still pending and its holdings
+        //                      are present, so the re-run deletes them and
+        //                      writes them again
+        //   after the mark     done
+        //
+        // The delete is what makes the middle case safe, and it is scoped to
+        // this batch's passages, which is sound because a holding can only cite
+        // a passage from the batch it came from.
         const batchIds = batch.map((s) => s.id);
-        await db.transaction(async (tx) => {
-          if (rows.length > 0) await tx.insert(holding).values(rows);
-          await tx
-            .update(sourceSpan)
-            .set({ extractedAt: new Date() })
-            .where(inArray(sourceSpan.id, batchIds));
-        });
+
+        await db.delete(holding).where(inArray(holding.spanId, batchIds));
+        if (rows.length > 0) await db.insert(holding).values(rows);
+        await db
+          .update(sourceSpan)
+          .set({ extractedAt: new Date() })
+          .where(inArray(sourceSpan.id, batchIds));
         kept += rows.length;
         spansExtracted += batch.length;
         done += batch.length;

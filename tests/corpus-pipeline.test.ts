@@ -572,6 +572,44 @@ describe('a run interrupted partway through a document', () => {
     vi.mocked(complete).mockImplementation(defaultComplete);
   });
 
+  it('does not double holdings when a crash landed between the write and the mark', async () => {
+    // The gap the ordering exists to close, and the one a thrown model call
+    // cannot reach: the writes are delete, insert, mark, and a process killed
+    // between the insert and the mark leaves holdings whose passage is still
+    // pending. The next run extracts that passage again and, without the
+    // delete, writes a second copy of everything it found.
+    //
+    // There is no interactive transaction to lean on here. The Neon HTTP driver
+    // has none, and that is the driver production runs on, so the ordering is
+    // the mechanism rather than a convenience.
+    //
+    // Simulated by reproducing the state a crash leaves rather than by crashing
+    // anything: a passage marked pending whose holdings are already written.
+    await db.delete(holding);
+    await reExtract();
+
+    vi.mocked(complete).mockImplementation(refusingLargeBatches());
+    await extractStage();
+
+    const before = await db.select().from(holding);
+    expect(before.length).toBeGreaterThan(0);
+
+    // Roll one passage back to pending, leaving its holding in place. The
+    // document flag goes with it, because a run that died mid document never
+    // set it, and without clearing it the document is not selected at all and
+    // this test passes by doing nothing.
+    await db
+      .update(sourceSpan)
+      .set({ extractedAt: null })
+      .where(eq(sourceSpan.id, before[0]!.spanId));
+    await db.update(sourceDocument).set({ extractedAt: null });
+
+    await extractStage();
+
+    const after = await db.select().from(holding);
+    expect(after).toHaveLength(before.length);
+  }, 60_000);
+
   it('does not leave duplicate holdings for the next run to double', async () => {
     await db.delete(holding);
     await reExtract();
