@@ -17,7 +17,12 @@ import { holding, sourceDocument, sourceSpan } from '@/lib/db/schema';
 import { log } from '@/lib/log';
 import { storage } from '@/lib/storage';
 import { verifyQuote } from '@/lib/appeals/verify';
-import { parseEcfrXml, parseHtml, parseText } from '@/lib/documents/parse';
+import {
+  MINIMUM_SPAN_CHARS,
+  parseEcfrXml,
+  parseHtml,
+  parseText,
+} from '@/lib/documents/parse';
 import { extractPdfText } from '@/lib/denials/pdf';
 import { ModelRateLimitedError, ModelRequestTooLargeError } from '@/lib/llm/client';
 import {
@@ -293,8 +298,34 @@ export async function parseStage(options: { reparse?: boolean } = {}): Promise<S
       const parsed = await parseByContentType(bytes, document.sourceType, document.url);
 
       if (parsed.spans.length === 0) {
+        // Say which way it went wrong, because the three causes look identical
+        // from here and have nothing in common.
+        //
+        // "produced no spans" was the entire message, and Chapter 9 sat on it
+        // for days. A document reaches this line having parsed successfully, so
+        // the text exists; what failed is that no block of it survived
+        // spanning. Either there was no text at all, or every block was shorter
+        // than a span has to be, which is what a PDF extracted one word per
+        // line looks like, or every block read as a heading.
         result.failed += 1;
-        result.notes.push(`${document.citation} produced no spans`);
+
+        const blocks = parsed.text.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean);
+        const longest = blocks.reduce((n, b) => Math.max(n, b.length), 0);
+
+        result.notes.push(
+          `${document.citation} produced no spans: ${parsed.text.length} characters of ` +
+            `text in ${blocks.length} block(s), longest ${longest} characters, and a span ` +
+            `must be at least ${MINIMUM_SPAN_CHARS}. ` +
+            (parsed.text.trim().length === 0
+              ? 'There is no text at all, so the parser read nothing from this format.'
+              : longest < MINIMUM_SPAN_CHARS
+                ? 'Every block is too short, which is what a PDF extracted one word or one ' +
+                  'line at a time looks like: the text is there but nothing is joined into ' +
+                  'paragraphs.'
+                : 'Blocks are long enough, so every one of them read as a heading. Check ' +
+                  'headingLevel against this document.') +
+            ` First 160 characters: ${JSON.stringify(parsed.text.slice(0, 160))}`,
+        );
         continue;
       }
 

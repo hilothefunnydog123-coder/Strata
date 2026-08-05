@@ -64,7 +64,7 @@ function headingLevel(line: string): number | null {
 }
 
 /** Spans shorter than this are page furniture: numbers, running heads, rules. */
-const MINIMUM_SPAN_CHARS = 40;
+export const MINIMUM_SPAN_CHARS = 40;
 
 /**
  * Split plain text into located spans.
