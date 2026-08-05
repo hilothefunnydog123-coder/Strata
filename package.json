@@ -18,6 +18,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/migrate.mjs",
     "provision:superadmin": "tsx scripts/provision-superadmin.ts",
+    "corpus:doctor": "tsx scripts/corpus.ts doctor",
     "corpus:fetch": "tsx scripts/corpus.ts fetch",
     "corpus:parse": "tsx scripts/corpus.ts parse",
     "corpus:extract": "tsx scripts/corpus.ts extract",

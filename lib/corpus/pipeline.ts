@@ -39,6 +39,29 @@ export interface StageResult {
 
 const empty = (): StageResult => ({ processed: 0, skipped: 0, failed: 0, notes: [] });
 
+/**
+ * The most ids to put in one `in (...)` clause.
+ *
+ * A manual chapter screens out around a thousand passages at once, and marking
+ * them in a single statement means a thousand bound parameters in one query.
+ * PostgreSQL itself allows far more than that, and against node-postgres it
+ * works, which is exactly the reasoning that produced the transaction that
+ * threw on Neon: the local driver agreeing proves nothing about the driver
+ * production uses. Neon's HTTP driver sends every statement as a JSON body over
+ * a request that has its own size limits, and those limits are not documented
+ * anywhere either of us can check.
+ *
+ * So the size is bounded, which costs three round trips instead of one on the
+ * largest document in the corpus and removes the question.
+ */
+const IDS_PER_STATEMENT = 400;
+
+function chunked<T>(items: readonly T[], size = IDS_PER_STATEMENT): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 /* ─── 1. Fetch ────────────────────────────────────────────────────────────── */
 
 export async function fetchStage(
@@ -132,17 +155,22 @@ export async function parseStage(): Promise<StageResult> {
       // leave two generations of spans behind.
       await db.delete(sourceSpan).where(eq(sourceSpan.sourceDocumentId, document.id));
 
-      await db.insert(sourceSpan).values(
-        parsed.spans.map((span) => ({
-          sourceDocumentId: document.id,
-          ordinal: span.ordinal,
-          page: span.page,
-          charStart: span.charStart,
-          charEnd: span.charEnd,
-          text: span.text,
-          headingPath: span.headingPath,
-        })),
-      );
+      // Chunked for the same reason the id lists are: a 400 page chapter is
+      // over a thousand rows, each carrying its full text, and one insert of
+      // that is a multi megabyte request body.
+      for (const group of chunked(parsed.spans, 200)) {
+        await db.insert(sourceSpan).values(
+          group.map((span) => ({
+            sourceDocumentId: document.id,
+            ordinal: span.ordinal,
+            page: span.page,
+            charStart: span.charStart,
+            charEnd: span.charEnd,
+            text: span.text,
+            headingPath: span.headingPath,
+          })),
+        );
+      }
 
       // Re-parsing replaced every span, so whatever was extracted from the old
       // ones is gone with them and the document has to go through the extractor
@@ -281,10 +309,12 @@ export async function extractStage(
         }
 
         for (const [reason, ids] of byReason) {
-          await db
-            .update(sourceSpan)
-            .set({ extractedAt: new Date(), screenedOut: reason })
-            .where(inArray(sourceSpan.id, ids));
+          for (const batch of chunked(ids)) {
+            await db
+              .update(sourceSpan)
+              .set({ extractedAt: new Date(), screenedOut: reason })
+              .where(inArray(sourceSpan.id, batch));
+          }
         }
 
         log.info('screened out passages that cannot hold a rule', {

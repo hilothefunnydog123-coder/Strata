@@ -1,6 +1,7 @@
 /**
  * The corpus command line.
  *
+ *   pnpm corpus:doctor                       # check everything a run depends on
  *   pnpm corpus:fetch    --source=dab [--since=2020-01-01] [--limit=1000]
  *   pnpm corpus:parse    --unparsed
  *   pnpm corpus:extract  --unextracted [--limit=100]
@@ -23,6 +24,7 @@ import {
   parseStage,
   verifyStage,
 } from '../lib/corpus/pipeline';
+import { runChecks } from '../lib/corpus/doctor';
 import { SOURCES, type SourceKey } from '../lib/corpus/sources';
 import { llmConfigured } from '../lib/llm/client';
 import { log } from '../lib/log';
@@ -154,6 +156,37 @@ async function estimate(): Promise<void> {
   out('');
 }
 
+/**
+ * Ask every question a run depends on, before the run.
+ *
+ * Each of the four failures this exists for was a single question with a
+ * definite answer, and each of them was instead discovered as an HTTP status in
+ * the middle of a forty minute run.
+ */
+async function doctor(): Promise<void> {
+  const checks = await runChecks();
+
+  out('');
+  for (const check of checks) {
+    out(`  ${check.ok ? 'ok  ' : 'FAIL'}  ${check.name.padEnd(16)} ${check.detail}`);
+    if (!check.ok && check.extra && check.extra.length > 0) {
+      // A provider's model list runs to dozens. Enough to choose from, not so
+      // many that the failure above scrolls away.
+      for (const line of check.extra.slice(0, 25)) out(`          ${line}`);
+      if (check.extra.length > 25) out(`          ... and ${check.extra.length - 25} more`);
+    }
+  }
+  out('');
+
+  const failed = checks.filter((c) => !c.ok);
+  if (failed.length > 0) {
+    out(`  ${failed.length} check${failed.length === 1 ? '' : 's'} failed. Fix those first:`);
+    out('  a corpus run will hit the same thing, later and less clearly.');
+    out('');
+    process.exitCode = 1;
+  }
+}
+
 async function status(): Promise<void> {
   const health = await corpusHealth();
 
@@ -261,6 +294,10 @@ async function main(): Promise<void> {
       reportStage('embed', await embedStage());
       break;
 
+    case 'doctor':
+      await doctor();
+      break;
+
     case 'estimate':
       await estimate();
       break;
@@ -272,7 +309,7 @@ async function main(): Promise<void> {
     default:
       throw new Error(
         `Unknown command "${command ?? ''}". ` +
-          'Use one of: fetch, parse, extract, estimate, verify, embed, status.',
+          'Use one of: doctor, fetch, parse, extract, estimate, verify, embed, status.',
       );
   }
 }

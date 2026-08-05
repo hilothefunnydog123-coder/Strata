@@ -219,6 +219,61 @@ export function llmConfigured(): boolean {
   return Boolean(env.MODEL_API_KEY);
 }
 
+export interface ProviderProbe {
+  ok: boolean;
+  detail: string;
+  /** Model ids the provider offers, when it would say. */
+  available?: string[];
+}
+
+/**
+ * Ask the provider whether the key works and the model exists.
+ *
+ * Everything about a misconfigured model boundary looks the same from the
+ * outside: a run starts, works for a while or not at all, and dies with an HTTP
+ * status buried in generated client code. A key belonging to a different
+ * provider, a model id that was retired last quarter, and a base URL with a
+ * missing path segment all present as a number.
+ *
+ * This asks directly, before any work starts, and it is cheap: listing models
+ * costs nothing against any allowance and takes a second. Retired model ids are
+ * the case worth the trouble, because providers rotate them without notice and
+ * the failure arrives in the middle of a long run rather than at the start of
+ * it.
+ */
+export async function probeProvider(): Promise<ProviderProbe> {
+  if (!env.MODEL_API_KEY) {
+    return { ok: false, detail: 'MODEL_API_KEY is not set.' };
+  }
+
+  try {
+    const provider = assertTransmissionPermitted(false);
+    const listing = await provider.models.list();
+    const available = listing.data.map((m) => m.id).sort();
+
+    const wanted = [modelName(), modelName('corpus_extract')].filter(
+      (name, index, all) => all.indexOf(name) === index,
+    );
+    const missing = wanted.filter((name) => !available.includes(name));
+
+    if (missing.length > 0) {
+      return {
+        ok: false,
+        available,
+        detail:
+          `The provider accepted the key but does not offer ${missing.join(' or ')}. ` +
+          'Model ids are retired without notice, and the run would fail on the first ' +
+          'call. Pick one from the list below.',
+      };
+    }
+
+    return { ok: true, available, detail: `Key accepted. ${wanted.join(' and ')} available.` };
+  } catch (error) {
+    const readable = asReadableError(error);
+    return { ok: false, detail: (readable as Error).message };
+  }
+}
+
 function costCents(inputTokens: number, outputTokens: number): number {
   const price = pricePerMtokCents();
   const cents =
