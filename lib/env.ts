@@ -81,6 +81,18 @@ const schema = z.object({
   MODEL_PRICE_INPUT_CENTS: z.coerce.number().nonnegative().default(0),
   MODEL_PRICE_OUTPUT_CENTS: z.coerce.number().nonnegative().default(0),
 
+  /**
+   * A free Socrata application token, for the healthdata.gov dataset the
+   * Departmental Appeals Board decisions are published through.
+   *
+   * Optional, and the corpus fetcher works without it against any dataset that
+   * still answers anonymously. It exists because that one does not: it returns
+   * 403 to an anonymous caller while its own robots.txt permits the path, which
+   * is Socrata's documented behaviour when the shared anonymous pool is
+   * exhausted. A token moves a caller onto its own allowance.
+   */
+  SOCRATA_APP_TOKEN: optionalString,
+
   PHI_MODE: z.enum(['synthetic', 'live']).default('synthetic'),
   // Key material rather than the key: lib/db/crypto.ts turns this into the 32
   // bytes AES-256-GCM needs. The minimum length is enforced here so that a
@@ -289,6 +301,7 @@ function unconfigured(): Env {
     R2_ACCOUNT_ID: undefined,
     R2_ACCESS_KEY_ID: undefined,
     R2_SECRET_ACCESS_KEY: undefined,
+    SOCRATA_APP_TOKEN: undefined,
     R2_BUCKET: undefined,
     LOCAL_STORAGE_DIR: undefined,
     SUPERADMIN_EMAIL: undefined,

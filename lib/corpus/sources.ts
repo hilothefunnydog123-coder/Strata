@@ -13,6 +13,7 @@
  */
 import { z } from 'zod';
 import { fetchDocument, userAgent, type FetchedDocument } from './fetch';
+import { env } from '@/lib/env';
 import { log } from '@/lib/log';
 
 export type SourceKey = 'dab' | 'ecfr' | 'manual';
@@ -123,12 +124,29 @@ export const dabSource: Source = {
         );
       }
 
-      const response = await fetch(url, { headers: { 'user-agent': userAgent() } });
+      // Socrata answers 403 to anonymous callers on a rising share of
+      // datasets, and it is not a robots question: healthdata.gov's robots.txt
+      // permits /resource/ outright. An application token, which is free and
+      // needs an account, moves a caller from the shared anonymous pool onto
+      // its own. Sent when there is one; the request goes out plain when there
+      // is not, so nothing about this is required to develop against a dataset
+      // that still answers.
+      const response = await fetch(url, {
+        headers: {
+          'user-agent': userAgent(),
+          ...(env.SOCRATA_APP_TOKEN ? { 'X-App-Token': env.SOCRATA_APP_TOKEN } : {}),
+        },
+      });
       if (!response.ok) {
         throw new Error(
           `The Council dataset returned ${response.status}. If this is a 400, the ` +
             'column names in lib/corpus/sources.ts do not match the dataset. Check with: ' +
-            `curl -s '${SOCRATA_ORIGIN}/resource/${SOCRATA_DATASET}.json?$limit=1'`,
+            `curl -s '${SOCRATA_ORIGIN}/resource/${SOCRATA_DATASET}.json?$limit=1'` +
+              (env.SOCRATA_APP_TOKEN
+                ? ''
+                : '\nA 403 with no token set is usually the anonymous rate pool. ' +
+                  'A free application token from a healthdata.gov account, set as ' +
+                  'SOCRATA_APP_TOKEN, is the documented remedy.'),
         );
       }
 
