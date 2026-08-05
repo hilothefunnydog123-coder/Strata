@@ -25,6 +25,11 @@ export type AuditAction =
   | 'update'
   | 'delete'
   | 'export'
+  // Sending an appeal to a payer, which is not the same act as producing the
+  // document. An export leaves the building in a person's hands; a filing goes
+  // to the payer over a channel this system chose, and the two need to be told
+  // apart when someone asks what was sent and when.
+  | 'file'
   | 'login'
   | 'login_failed'
   | 'logout'

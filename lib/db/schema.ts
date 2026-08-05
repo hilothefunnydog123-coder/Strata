@@ -969,6 +969,36 @@ export const submissionEvent = pgTable(
   (t) => [index('submission_event_submission_idx').on(t.submissionId, t.at)],
 );
 
+/**
+ * Where a payer takes appeals, remembered so nobody types it twice.
+ *
+ * Per organisation as well as per payer, because the address a plan gives one
+ * hospital is not always the address it gives another: plans route by region,
+ * by line of business, and by contract. Guessing that they are the same is how
+ * an appeal goes to a fax machine in another state and is never heard of again.
+ *
+ * Filled in the first time someone files to a payer through a channel, and
+ * offered back every time after.
+ */
+export const payerContact = pgTable(
+  'payer_contact',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    /** As written on the denial letter, which is what the specialist has. */
+    payerName: text('payer_name').notNull(),
+    channel: submissionChannelEnum('channel').notNull(),
+    /** An address, a fax number, or whatever the channel addresses by. */
+    destination: text('destination').notNull(),
+    createdAt: now(),
+  },
+  (t) => [
+    uniqueIndex('payer_contact_idx').on(t.organizationId, t.payerName, t.channel),
+  ],
+);
+
 export const outcome = pgTable(
   'outcome',
   {
