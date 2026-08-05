@@ -50,6 +50,13 @@
       "when": 1785950000000,
       "tag": "0006_holding_embedding_version",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785951000000,
+      "tag": "0007_appeal_levels",
+      "breakpoints": true
     }
   ]
 }

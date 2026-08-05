@@ -202,6 +202,52 @@ export const outcomeResultEnum = pgEnum('outcome_result', [
   'partial',
   'withdrawn',
 ]);
+/**
+ * Which rung of the Medicare appeal ladder an attempt sits on.
+ *
+ * Both ladders in one enum, keyed rather than numbered, because a Medicare
+ * Advantage denial and a Traditional Medicare denial climb different rungs at
+ * the bottom and the same ones from the ALJ up. lib/appeals/levels.ts holds the
+ * order, the deadlines, and the authority for each.
+ */
+export const appealLevelEnum = pgEnum('appeal_level', [
+  'redetermination',
+  'reconsideration',
+  'plan_reconsideration',
+  'independent_review',
+  'alj',
+  'council',
+  'judicial',
+]);
+
+/**
+ * How a filing reached the payer, which decides what can be proven about it.
+ *
+ * The distinction is not cosmetic. Certified mail produces a receipt that
+ * establishes the filing date, which is the only thing that matters when a
+ * payer says a deadline was missed. A portal upload produces a confirmation
+ * number. A fax produces a transmission report. Recording which channel was
+ * used is what makes the tracking evidence rather than assertion.
+ */
+export const submissionChannelEnum = pgEnum('submission_channel', [
+  'payer_portal',
+  'clearinghouse',
+  'esmd',
+  'fax',
+  'certified_mail',
+  'email',
+  'other',
+]);
+
+export const submissionStatusEnum = pgEnum('submission_status', [
+  'prepared',
+  'sending',
+  'sent',
+  'acknowledged',
+  'rejected',
+  'failed',
+]);
+
 export const invoiceStatusEnum = pgEnum('invoice_status', [
   'draft',
   'issued',
@@ -790,6 +836,20 @@ export const reviewAction = pgTable(
   (t) => [index('review_action_draft_idx').on(t.appealDraftId)],
 );
 
+/**
+ * A filing, and what can be proven about it.
+ *
+ * This recorded that a person had filed something: who, when, by what method.
+ * That is the right record for a filing a human does and the wrong one for a
+ * filing the system does, which exists before it has been sent, may fail, may
+ * be retried by another channel, and has to be watched afterwards.
+ *
+ * So submittedAt and submittedBy are nullable now. A row appears when the
+ * filing is prepared, and neither a timestamp nor a user is honest until it has
+ * actually gone. One appeal level can have several of these: a portal upload
+ * that fails and is retried by fax before the deadline is two submissions and
+ * one appeal, and the tracking has to show both attempts.
+ */
 export const submission = pgTable(
   'submission',
   {
@@ -797,15 +857,100 @@ export const submission = pgTable(
     appealDraftId: uuid('appeal_draft_id')
       .notNull()
       .references(() => appealDraft.id, { onDelete: 'cascade' }),
-    submittedAt: timestamp('submitted_at', { withTimezone: true }).notNull(),
-    submittedBy: text('submitted_by')
-      .notNull()
-      .references(() => user.id),
-    method: text('method').notNull(),
+    /** The ladder rung this filing is for. Null on rows predating levels. */
+    appealId: uuid('appeal_id').references(() => appeal.id, { onDelete: 'cascade' }),
+    channel: submissionChannelEnum('channel'),
+    status: submissionStatusEnum('status').notNull().default('sent'),
+    /** Null until it has actually been sent. */
+    submittedAt: timestamp('submitted_at', { withTimezone: true }),
+    /** Null for a filing the system made rather than a person. */
+    submittedBy: text('submitted_by').references(() => user.id),
+    method: text('method'),
     trackingRef: text('tracking_ref'),
+    /** Where the receipt is stored, which is what proves the filing date. */
+    receiptDocKey: text('receipt_doc_key'),
+    acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true }),
+    /** Last time anything checked on this, so a stalled poll is visible. */
+    lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
+    failureReason: text('failure_reason'),
     createdAt: now(),
   },
-  (t) => [index('submission_draft_idx').on(t.appealDraftId)],
+  (t) => [
+    index('submission_draft_idx').on(t.appealDraftId),
+    index('submission_appeal_idx').on(t.appealId),
+    index('submission_status_idx').on(t.status),
+  ],
+);
+
+/**
+ * One attempt at one level of the appeal ladder.
+ *
+ * The system used to model a denial as having one appeal, decided once, with a
+ * loss terminal. Losing at the first level is ordinary and claims are won at an
+ * ALJ hearing after being denied twice below, so a denial has many of these and
+ * each carries its own deadline, its own filing, and its own result.
+ */
+export const appeal = pgTable(
+  'appeal',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    denialId: uuid('denial_id')
+      .notNull()
+      .references(() => denial.id, { onDelete: 'cascade' }),
+    level: appealLevelEnum('level').notNull(),
+    /** Position in its ladder, from 1, so ordering does not depend on the enum. */
+    levelOrdinal: integer('level_ordinal').notNull(),
+    /**
+     * The draft filed at this level.
+     *
+     * Nullable because the row exists from the moment the level becomes
+     * available, which is what gives the deadline something to hang on before
+     * anything has been written.
+     */
+    appealDraftId: uuid('appeal_draft_id').references(() => appealDraft.id),
+    /**
+     * When this level must be filed by, computed from the notice below it.
+     *
+     * Counted from the decision being appealed rather than from the original
+     * denial. A case reconsidered eight months after the denial still has its
+     * full period to reach an ALJ, and counting from the denial would report it
+     * as long expired.
+     */
+    dueBy: timestamp('due_by', { withTimezone: true }),
+    filedAt: timestamp('filed_at', { withTimezone: true }),
+    /** The date on the notice deciding this level, which starts the next clock. */
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    result: outcomeResultEnum('result'),
+    createdAt: now(),
+  },
+  (t) => [
+    uniqueIndex('appeal_level_idx').on(t.denialId, t.levelOrdinal),
+    index('appeal_denial_idx').on(t.denialId),
+    index('appeal_due_idx').on(t.dueBy),
+  ],
+);
+
+/**
+ * Everything that has happened to a submission, append only.
+ *
+ * The live tracking a hospital sees is this table read back. Append only
+ * because a status field alone cannot answer "when did the payer acknowledge
+ * it", which is the question asked when a payer later claims it never arrived.
+ */
+export const submissionEvent = pgTable(
+  'submission_event',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    submissionId: uuid('submission_id')
+      .notNull()
+      .references(() => submission.id, { onDelete: 'cascade' }),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    /** A short machine readable kind: sent, acknowledged, rejected, polled. */
+    kind: text('kind').notNull(),
+    detail: text('detail').notNull(),
+    createdAt: now(),
+  },
+  (t) => [index('submission_event_submission_idx').on(t.submissionId, t.at)],
 );
 
 export const outcome = pgTable(
