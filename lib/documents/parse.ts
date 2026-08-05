@@ -218,6 +218,72 @@ export function parseText(raw: string): ParsedDocument {
 }
 
 /**
+ * The named entities government markup actually uses.
+ *
+ * Not the full HTML set. These are the ones that appear in eCFR XML and on CMS
+ * pages, and an unknown entity is left exactly as written rather than guessed
+ * at, so it shows up in a quote where someone can see it.
+ */
+const NAMED_ENTITIES: Readonly<Record<string, string>> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+  ndash: '\u2013',
+  mdash: '\u2014',
+  lsquo: '‘',
+  rsquo: '’',
+  ldquo: '“',
+  rdquo: '”',
+  hellip: '…',
+  sect: '§',
+  para: '¶',
+  deg: '°',
+  bull: '•',
+};
+
+/**
+ * Turn character references into the characters they stand for.
+ *
+ * Hex references were the bug. The decoder handled `&#8217;` and not
+ * `&#x2019;`, and eCFR XML is written almost entirely in the hex form: section
+ * signs are `&#xA7;`, the dash in "PART 409-HOSPITAL INSURANCE BENEFITS" is
+ * `&#x2014;`, and every quoted term in the regulations is wrapped in `&#x201C;`
+ * and `&#x201D;`.
+ *
+ * What makes this worth care rather than a patch: verification cannot catch it.
+ * A quote is checked by finding it in the parsed document, so a quote reading
+ * `requires &#x201C;skilled&#x201D; care` is found in a document that says the
+ * same thing, passes, is marked verified, and goes into a letter to a hospital
+ * exactly like that. Every downstream check agrees, because they all read the
+ * same corrupted parse. The regulations had never been fetched, so no run had
+ * ever put this in front of anyone.
+ *
+ * One pass, because two are wrong: decoding `&amp;` and then `&lt;` turns the
+ * literal text `&amp;lt;` into a `<` that nobody wrote.
+ */
+export function decodeEntities(text: string): string {
+  return text.replace(/&(#[Xx][0-9A-Fa-f]+|#\d+|[A-Za-z][A-Za-z0-9]{1,10});/g, (whole, body: string) => {
+    if (body.startsWith('#')) {
+      const isHex = body[1] === 'x' || body[1] === 'X';
+      const code = Number.parseInt(isHex ? body.slice(2) : body.slice(1), isHex ? 16 : 10);
+
+      // Surrogates and out of range values are not characters. Leaving the
+      // reference visible is better than emitting a replacement character that
+      // reads as if the document contained one.
+      if (!Number.isFinite(code) || code <= 0 || code > 0x10ffff) return whole;
+      if (code >= 0xd800 && code <= 0xdfff) return whole;
+
+      return String.fromCodePoint(code);
+    }
+
+    return NAMED_ENTITIES[body.toLowerCase()] ?? whole;
+  });
+}
+
+/**
  * Strip tags from an HTML document, keeping block structure as blank lines.
  *
  * Deliberately not a full HTML parser. The documents this reads are government
@@ -230,15 +296,9 @@ export function parseHtml(html: string): ParsedDocument {
     .replace(/<style\b[\s\S]*?<\/style>/gi, '')
     .replace(/<\/(p|div|section|article|li|tr|h[1-6]|blockquote)>/gi, '\n\n')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#(\d+);/g, (_m, code: string) => String.fromCodePoint(Number(code)));
+    .replace(/<[^>]+>/g, '');
 
-  return parseText(text);
+  return parseText(decodeEntities(text));
 }
 
 /**
@@ -251,13 +311,12 @@ export function parseHtml(html: string): ParsedDocument {
 export function parseEcfrXml(xml: string): ParsedDocument {
   const text = xml
     .replace(/<\?xml[\s\S]*?\?>/g, '')
+    // Comments before tags, because a comment may contain a ">" and the tag
+    // stripper below would then end it early and spill markup into the text.
+    .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<HEAD>([\s\S]*?)<\/HEAD>/gi, '\n\n$1\n\n')
     .replace(/<\/(P|DIV\d?|SECTION|HEAD)>/gi, '\n\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#(\d+);/g, (_m, code: string) => String.fromCodePoint(Number(code)));
+    .replace(/<[^>]+>/g, '');
 
-  return parseText(text);
+  return parseText(decodeEntities(text));
 }
