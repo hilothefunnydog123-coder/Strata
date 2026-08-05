@@ -689,8 +689,26 @@ export async function estimateExtraction(): Promise<DocumentEstimate[]> {
 
 /* ─── Status ──────────────────────────────────────────────────────────────── */
 
+export interface CorpusDocument {
+  sourceType: string;
+  citation: string;
+  url: string;
+  retrievedAt: Date;
+  holdings: number;
+}
+
 export interface CorpusHealth {
   documentsBySource: { sourceType: string; count: number; lastRetrieved: Date | null }[];
+  /**
+   * Every document, named, with where it came from.
+   *
+   * A count cannot answer the only question that matters about a legal corpus,
+   * which is whether what is in it is real. Five rows and two holdings looked
+   * healthy on every summary this reported for a week, while nobody could say
+   * what four of those rows were or who put them there. A citation and a URL
+   * are checkable in a browser; "regulation: 2" is not.
+   */
+  documents: CorpusDocument[];
   holdingsTotal: number;
   holdingsVerified: number;
   holdingsEmbedded: number;
@@ -701,7 +719,7 @@ export interface CorpusHealth {
 }
 
 export async function corpusHealth(): Promise<CorpusHealth> {
-  const [bySource, totals, byService, byBasis] = await Promise.all([
+  const [bySource, totals, byService, byBasis, documents] = await Promise.all([
     db
       .select({
         sourceType: sourceDocument.sourceType,
@@ -733,6 +751,24 @@ export async function corpusHealth(): Promise<CorpusHealth> {
       .from(holding)
       .where(isNotNull(holding.verifiedAt))
       .groupBy(holding.denialBasis),
+    db
+      .select({
+        sourceType: sourceDocument.sourceType,
+        citation: sourceDocument.citation,
+        url: sourceDocument.url,
+        retrievedAt: sourceDocument.retrievedAt,
+        holdings: sql<number>`count(${holding.id})::int`,
+      })
+      .from(sourceDocument)
+      .leftJoin(holding, eq(holding.sourceDocumentId, sourceDocument.id))
+      .groupBy(
+        sourceDocument.id,
+        sourceDocument.sourceType,
+        sourceDocument.citation,
+        sourceDocument.url,
+        sourceDocument.retrievedAt,
+      )
+      .orderBy(sourceDocument.retrievedAt),
   ]);
 
   const total = totals[0]?.total ?? 0;
@@ -741,6 +777,7 @@ export async function corpusHealth(): Promise<CorpusHealth> {
 
   return {
     documentsBySource: bySource,
+    documents,
     holdingsTotal: total,
     holdingsVerified: verified,
     holdingsEmbedded: embedded,

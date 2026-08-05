@@ -209,6 +209,32 @@ async function status(): Promise<void> {
     }
   }
 
+  if (health.documents.length > 0) {
+    out('');
+    out('Documents');
+    out('─'.repeat(78));
+    out(
+      `  ${'retrieved'.padEnd(12)}${'holdings'.padStart(9)}  ${'citation'.padEnd(32)}source`,
+    );
+
+    // Every document, named. A summary that says "regulation: 2" cannot answer
+    // the question that matters about a legal corpus, which is whether what is
+    // in it is real and where it came from. A citation and a URL can be checked
+    // in a browser in ten seconds.
+    for (const doc of health.documents) {
+      const when = new Date(doc.retrievedAt).toISOString().slice(0, 10);
+      const cite = doc.citation.length > 31 ? `${doc.citation.slice(0, 30)}…` : doc.citation;
+      out(`  ${when.padEnd(12)}${String(doc.holdings).padStart(9)}  ${cite.padEnd(32)}${doc.url}`);
+    }
+
+    const unattributed = health.documents.filter((d) => !/^https?:\/\/(www\.)?(ecfr|cms|hhs|govinfo|federalregister)\.gov/i.test(d.url));
+    if (unattributed.length > 0) {
+      out('');
+      out(`  ${unattributed.length} document${unattributed.length === 1 ? ' does' : 's do'} not come from a government source.`);
+      out('  Anything cited from these is only as trustworthy as wherever it came from.');
+    }
+  }
+
   out('');
   out('Holdings');
   out('─'.repeat(64));
