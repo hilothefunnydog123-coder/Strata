@@ -22,6 +22,29 @@ const optionalString = z
   .optional()
   .transform((v) => (v && v.trim().length > 0 ? v.trim() : undefined));
 
+/**
+ * A string with a default, where an empty value counts as absent.
+ *
+ * Zod fills a default only for undefined, and an environment variable that
+ * exists and is empty is not undefined. Every CI system produces those: a
+ * GitHub workflow writing `FOO: ${{ vars.FOO }}` with the variable unset sets
+ * FOO to the empty string, which then fails a min(1) check and takes the whole
+ * environment down. That is what happened here, and the message was accurate
+ * and unhelpful: "MODEL_NAME_CORPUS: String must contain at least 1
+ * character(s)" about a variable nobody had ever set.
+ *
+ * Trimmed as well, because a value with a trailing space pasted out of a
+ * console is the same kind of accident and fails in a way nothing prints.
+ */
+const withDefault = (fallback: string) =>
+  z
+    .string()
+    .optional()
+    .transform((v) => {
+      const trimmed = v?.trim();
+      return trimmed && trimmed.length > 0 ? trimmed : fallback;
+    });
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
@@ -47,11 +70,10 @@ const schema = z.object({
    * OpenRouter, a local llama.cpp server, Gemini and Vertex AI all expose one,
    * so changing provider is this plus MODEL_NAME and a key.
    */
-  MODEL_BASE_URL: z
-    .string()
-    .url('MODEL_BASE_URL must be an absolute URL')
-    .default('https://api.groq.com/openai/v1'),
-  MODEL_NAME: z.string().min(1).default('llama-3.3-70b-versatile'),
+  MODEL_BASE_URL: withDefault('https://api.groq.com/openai/v1').pipe(
+    z.string().url('MODEL_BASE_URL must be an absolute URL'),
+  ),
+  MODEL_NAME: withDefault('llama-3.3-70b-versatile'),
   /**
    * The model corpus extraction uses, when it should differ from the one that
    * drafts appeals. Falls back to MODEL_NAME.
@@ -82,7 +104,7 @@ const schema = z.object({
    * Point it elsewhere for a paid account, where the reason to split the two
    * disappears.
    */
-  MODEL_NAME_CORPUS: z.string().min(1).default('llama-3.1-8b-instant'),
+  MODEL_NAME_CORPUS: withDefault('llama-3.1-8b-instant'),
   /** Off for a provider that rejects response_format outright. */
   MODEL_JSON_MODE: z
     .enum(['true', 'false', '1', '0', ''])
