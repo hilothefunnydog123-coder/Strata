@@ -24,6 +24,9 @@ import {
   parseStage,
   verifyStage,
 } from '../lib/corpus/pipeline';
+import { eq } from 'drizzle-orm';
+import { db } from '../lib/db';
+import { sourceDocument, sourceSpan } from '../lib/db/schema';
 import { runChecks } from '../lib/corpus/doctor';
 import { SOURCES, type SourceKey } from '../lib/corpus/sources';
 import { userAgent } from '../lib/corpus/fetch';
@@ -296,6 +299,55 @@ async function probe(): Promise<void> {
   out('');
 }
 
+async function screeningReport(): Promise<void> {
+  const rows = await db
+    .select({
+      citation: sourceDocument.citation,
+      ordinal: sourceSpan.ordinal,
+      text: sourceSpan.text,
+      headingPath: sourceSpan.headingPath,
+      screenedOut: sourceSpan.screenedOut,
+    })
+    .from(sourceSpan)
+    .innerJoin(sourceDocument, eq(sourceSpan.sourceDocumentId, sourceDocument.id))
+    .orderBy(sourceSpan.ordinal)
+    .limit(4000);
+
+  out('');
+  out('Screening, by reason');
+  out('─'.repeat(96));
+
+  const byReason = new Map<string, number>();
+  for (const row of rows) {
+    const key = row.screenedOut ?? 'sent to the model';
+    byReason.set(key, (byReason.get(key) ?? 0) + 1);
+  }
+  for (const [reason, count] of [...byReason].sort((a, b) => b[1] - a[1])) {
+    out(`  ${String(count).padStart(6)}  ${reason}`);
+  }
+
+  out('');
+  out('A sample, with the heading trail the screen saw');
+  out('─'.repeat(96));
+
+  // Spread across the document rather than the first N, because the front of a
+  // manual really is a contents page and a sample of it would confirm nothing.
+  const step = Math.max(1, Math.floor(rows.length / 24));
+  for (let i = 0; i < rows.length; i += step) {
+    const row = rows[i]!;
+    const verdict = row.screenedOut ?? 'KEPT';
+    const heading = row.headingPath.length > 0 ? row.headingPath.join(' > ') : '(none)';
+    out('');
+    out(`  #${row.ordinal}  ${verdict}`);
+    out(`     heading: ${heading.slice(0, 90)}`);
+    out(`     text:    ${row.text.replace(/\s+/g, ' ').slice(0, 140)}`);
+  }
+
+  out('');
+  out('  Nothing was changed. This only reports what the screen decided and why.');
+  out('');
+}
+
 async function status(): Promise<void> {
   const health = await corpusHealth();
 
@@ -414,6 +466,19 @@ async function main(): Promise<void> {
       // one afternoon does not justify a new deployment to the default branch.
       if (requested === 'probe') {
         await probe();
+        break;
+      }
+
+      // Why the screen decided what it decided, on real passages.
+      //
+      // The screen threw away 1,019 of 1,027 passages of a CMS chapter as
+      // contents listings and sent nothing to the model, which is not a
+      // plausible reading of a coverage manual. Reasoning about the regexes
+      // produced the regexes. This prints the verdict, the reason and the
+      // heading trail beside the text for a sample, from rows already in the
+      // database, so the answer comes from the data rather than from me.
+      if (requested === 'screening') {
+        await screeningReport();
         break;
       }
 

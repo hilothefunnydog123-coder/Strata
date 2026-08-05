@@ -83,13 +83,46 @@ export async function fetchStage(
       const existing = await db.query.sourceDocument.findFirst({
         where: eq(sourceDocument.contentHash, fetched.contentHash),
       });
+
+      const key_ = `corpus/${document.sourceType}/${fetched.contentHash}`;
+
       if (existing) {
-        result.skipped += 1;
+        // The row is not proof the bytes are still there.
+        //
+        // The database outlives the storage when storage is a directory on a
+        // CI runner. A fetch on one runner wrote eleven chapters and their
+        // rows; the runner went away with the files; the next run saw the
+        // hashes, skipped all eleven, and then the parse stage failed ten
+        // times with ENOENT on blobs nothing would ever write again. The
+        // document was stuck: fetch would not re-store it because the row
+        // existed, and parse could not read it because the bytes did not.
+        //
+        // So the skip now depends on the bytes as well as the row. Re-storing
+        // costs one write of something already downloaded, and it is the only
+        // thing that makes this state recoverable without deleting rows by
+        // hand.
+        let present = true;
+        try {
+          await storage().get(key_);
+        } catch {
+          present = false;
+        }
+
+        if (present) {
+          result.skipped += 1;
+          continue;
+        }
+
+        await storage().put(key_, fetched.bytes, fetched.contentType);
+        result.notes.push(
+          `${document.citation}: the row existed but its stored bytes did not, so they ` +
+            'were written again. Parsing can proceed.',
+        );
+        result.processed += 1;
         continue;
       }
 
       // Raw bytes are stored before anything reads them, and never mutated.
-      const key_ = `corpus/${document.sourceType}/${fetched.contentHash}`;
       await storage().put(key_, fetched.bytes, fetched.contentType);
 
       await db
