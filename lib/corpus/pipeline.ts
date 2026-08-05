@@ -190,6 +190,25 @@ export async function fetchStage(
 /* ─── 2. Parse ────────────────────────────────────────────────────────────── */
 
 /**
+ * How much of a document has to be letters and spaces before it is text.
+ *
+ * Deliberately generous. English prose sits around 0.85, a page of a rate table
+ * nearer 0.6, and compressed PDF bytes around 0.2. This is not trying to judge
+ * quality, only to catch a document that is not text at all, which is a
+ * mistake this pipeline made silently for a week.
+ */
+const MINIMUM_PROSE_RATIO = 0.5;
+
+function proseRatio(text: string): number {
+  if (text.length === 0) return 0;
+  // Sampled rather than measured whole: a 400 page chapter is megabytes, the
+  // answer does not move after a few thousand characters, and this runs on
+  // every document of every run.
+  const sample = text.length > 20_000 ? text.slice(0, 20_000) : text;
+  return sample.replace(/[^A-Za-z\s]/g, '').length / sample.length;
+}
+
+/**
  * A PDF, by its magic bytes rather than by its file extension.
  *
  * The extension lies both ways here: the CMS chapter that works is served at
@@ -274,6 +293,31 @@ export async function parseStage(options: { reparse?: boolean } = {}): Promise<S
       if (parsed.spans.length === 0) {
         result.failed += 1;
         result.notes.push(`${document.citation} produced no spans`);
+        continue;
+      }
+
+      // Does this look like something a person wrote?
+      //
+      // The one question no stage was asking, and the reason a chapter of
+      // compressed PDF bytes travelled the entire pipeline reporting success at
+      // every step. It became 1,302 passages, the screen discarded most of them
+      // as furniture, the model found no holdings in the rest, and each of
+      // those was the correct response to the input. Correct responses all the
+      // way down to an empty corpus.
+      //
+      // Prose is overwhelmingly letters and spaces. Compressed bytes are not,
+      // and neither is a page of a table, so the threshold is set low enough
+      // that a genuinely tabular document passes and only something that is not
+      // text at all fails.
+      const ratio = proseRatio(parsed.text);
+      if (ratio < MINIMUM_PROSE_RATIO) {
+        result.failed += 1;
+        result.notes.push(
+          `${document.citation}: the parsed text is ${(ratio * 100).toFixed(0)} percent ` +
+            'letters and spaces, so it is not prose. The parser is reading the wrong ' +
+            'format for this document, and nothing was stored. Check what the URL ' +
+            'actually serves.',
+        );
         continue;
       }
 

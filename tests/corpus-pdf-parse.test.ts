@@ -94,3 +94,40 @@ describe('a PDF reaching the corpus parser', () => {
     expect((await extractPdfText(blank)).trim()).toBe('');
   });
 });
+
+/**
+ * The guard that would have caught all of this on day one.
+ *
+ * Every stage behaved correctly on binary input and the corpus still came out
+ * empty, because no stage had any idea what text is supposed to look like. The
+ * parse stage now asks, once, before storing anything.
+ */
+describe('refusing to store something that is not text', () => {
+  const ratio = (text: string): number => {
+    const sample = text.length > 20_000 ? text.slice(0, 20_000) : text;
+    return sample.replace(/[^A-Za-z\s]/g, '').length / sample.length;
+  };
+
+  it('scores real prose well above the threshold', () => {
+    expect(ratio(SENTENCE)).toBeGreaterThan(0.8);
+  });
+
+  it('scores a PDF read as UTF-8 far below it', async () => {
+    // The exact mistake: 1,302 passages of this went into the database.
+    const bytes = await pdfWithText(SENTENCE.repeat(20));
+
+    expect(ratio(bytes.toString('utf8'))).toBeLessThan(0.5);
+  });
+
+  it('still passes a document that is mostly numbers', async () => {
+    // The threshold has to tolerate a rate table or a fee schedule, which is
+    // legitimate content and is nothing like as dense as compressed bytes. A
+    // guard that rejected those would be worse than the bug it replaces.
+    const table = Array.from(
+      { length: 40 },
+      (_, i) => `Rate year ${2000 + i} payment ${i * 170}.50 adjusted ${i * 185}.75`,
+    ).join('\n');
+
+    expect(ratio(table)).toBeGreaterThan(0.5);
+  });
+});

@@ -25,6 +25,7 @@
  * can diagnose.
  */
 import { inflateSync, inflateRawSync, unzipSync } from 'node:zlib';
+import { extractText, getDocumentProxy } from 'unpdf';
 import { PAGE_BREAK } from '@/lib/documents/parse';
 
 /** Every stream in the file, decompressed where we can manage it. */
@@ -161,7 +162,7 @@ function textFromContent(content: string): string {
  * Returns an empty string rather than throwing when nothing readable is found,
  * so the caller can produce a message about OCR instead of a stack trace.
  */
-export async function extractPdfText(bytes: Buffer): Promise<string> {
+async function extractByContentStreams(bytes: Buffer): Promise<string> {
   const pages: string[] = [];
 
   for (const stream of streams(bytes)) {
@@ -179,4 +180,45 @@ export async function extractPdfText(bytes: Buffer): Promise<string> {
     .replace(/\r\n?/g, '\n')
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n');
+}
+
+/**
+ * Extract text, falling back to a real PDF engine when the reader above finds
+ * nothing.
+ *
+ * The reader above handles the shape a word processor emits and cost no
+ * dependency, which was the right trade while the only PDFs were denial letters
+ * exported from Word. It does not handle a document whose fonts carry their own
+ * character maps, where a hex string is an index into a CMap rather than
+ * character codes, and there is no honest way to resolve that without
+ * implementing a large part of the format.
+ *
+ * Every chapter of the CMS Benefit Policy Manual is that kind of document. All
+ * eleven came back empty, and empty was then reported as "this is a scan, find
+ * a text edition", about files that are entirely machine readable. A message
+ * that confidently misdiagnoses is worse than a stack trace.
+ *
+ * So pdf.js runs when the cheap path finds nothing. Order matters only for
+ * speed: where the simple reader works it is faster and its page breaks are
+ * already right, and where it does not, correctness is the only thing that
+ * counts.
+ */
+export async function extractPdfText(bytes: Buffer): Promise<string> {
+  const simple = await extractByContentStreams(bytes);
+  if (simple.trim().length > 0) return simple;
+
+  try {
+    const document = await getDocumentProxy(new Uint8Array(bytes));
+    const { text } = await extractText(document, { mergePages: false });
+    const pages = (Array.isArray(text) ? text : [String(text)]).map((page) => page.trim());
+
+    // Page breaks are kept so a citation can name a page. A reviewer checking a
+    // manual reference needs one; a character offset into a 400 page chapter is
+    // not something anyone can act on.
+    return pages.filter((page) => page.length > 0).join(PAGE_BREAK);
+  } catch {
+    // A genuinely unreadable file. The caller says so, and for the corpus that
+    // is a refusal rather than an invitation to OCR.
+    return '';
+  }
 }

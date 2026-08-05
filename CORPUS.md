@@ -193,7 +193,7 @@ actually applies when it decides a skilled nursing coverage case, so an appeal
 that quotes the regulation without the manual section is arguing at the wrong
 altitude.
 
-Handling: the PDF parser in `lib/corpus/parse.ts` extracts text with page
+Handling: `lib/denials/pdf.ts` extracts text with page
 numbers, so a manual citation resolves to a page rather than to a document. That
 is the granularity a reviewer needs to check it.
 
@@ -315,21 +315,57 @@ select screened_out, count(*) from source_span group by screened_out;
 
 ## 8. Current state
 
-**The corpus is empty.** Nothing has been ingested, because nothing can be
-reached from this environment. The pipeline is written, typechecked, and
-unit tested against fixtures; it has never made a live request.
+Ingestion runs from GitHub Actions rather than a laptop, because the sources are
+unreachable from a development container by network policy and were unreachable
+from the owner's network too. Actions > Corpus > Run workflow.
 
-To populate it, in an environment with egress:
+### What the sources actually answer
+
+Measured from a runner with egress, not assumed. Every one of the three was
+wrong on its first real run.
+
+| Source | State |
+| --- | --- |
+| CMS manuals | Working. Chapters are discovered from the manual's index page. |
+| eCFR | Broken. Their robots.txt disallows the versioner API this calls, and that URL 404s regardless. govinfo publishes the same regulations for bulk download, answers 200, and permits it. Not yet implemented. |
+| DAB decisions | Blocked. healthdata.gov answers 403 to an anonymous caller although its robots.txt permits the path, which a free Socrata token may fix. hhs.gov answers 403 to every path including its own robots.txt, which is edge protection refusing datacenter traffic and which no token fixes. |
+
+Filenames were the first lesson. Chapter 8 of the Benefit Policy Manual is
+served as `bp102c08pdf.pdf` and was found by hand; every other chapter was
+written by pattern from it and 404'd, because chapters 3 and 8 are the only two
+carrying the doubled `pdf` and chapter 8 was one of the exceptions. Nothing is
+derived from a sample of one any more: the index is read.
+
+### The failure worth remembering
+
+Chapter 8 was ingested, parsed, screened, extracted, and produced nothing, with
+every stage reporting success. It was a PDF, the parse stage had no branch for
+PDFs, and it was read as UTF-8. The paragraph splitter turned compressed object
+streams into 1,302 passages of binary and stored them as text.
+
+Every stage downstream then behaved correctly. The screen discarded 1,019 of
+those passages as unreadable furniture, which was the right call. The model
+found no holdings in the rest, also right, because there was nothing in them.
+Verification had nothing to verify. Correct responses the whole way down to an
+empty corpus.
+
+Nothing was asking whether the text was text. The parse stage now does, once,
+before storing: a document whose extracted text is less than half letters and
+spaces is refused with the reason, rather than stored. The threshold is
+deliberately generous, so a rate table passes and only something that is not
+text at all fails.
 
 ```
-pnpm corpus:fetch --source=ecfr        # regulations first: smallest and cleanest
-pnpm corpus:fetch --source=dab
-pnpm corpus:parse --unparsed
+pnpm corpus:doctor                     # every precondition, in one second
+pnpm corpus:fetch --source=all
+pnpm corpus:parse --unparsed           # --reparse re-reads everything crawled
+pnpm corpus:estimate                   # what extraction will cost, before it runs
 pnpm corpus:extract --unextracted      # requires MODEL_API_KEY
 pnpm corpus:verify --unverified
 pnpm corpus:embed --unembedded
-pnpm corpus:status
+pnpm corpus:status                     # every document, named, with its source
 ```
+
 
 `corpus:status` prints documents by source, holdings by service type and denial
 basis, the verification failure rate, and embedding coverage. The same figures
