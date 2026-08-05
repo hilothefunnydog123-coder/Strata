@@ -138,6 +138,29 @@ export const documentKindEnum = pgEnum('document_kind', [
  */
 export const textSourceEnum = pgEnum('text_source', ['text_layer', 'ocr']);
 
+/**
+ * How a corpus document got here, which decides whether it may be cited.
+ *
+ *   crawled  fetched from its stated URL by lib/corpus/fetch.ts, with the
+ *            content hash of those bytes and a retrieved_at that means what it
+ *            says. Citable.
+ *   demo     written into the database by the demonstration seeder. Never
+ *            citable, whatever it says about itself.
+ *
+ * This exists because the two were indistinguishable, and the demonstration
+ * seeder had put four documents into the production corpus. Two of them are
+ * decisions written for the demo, DEMO-DAB-0001 and DEMO-DAB-0002, at
+ * example.invalid, and they were the only two holdings the product could cite.
+ * Retrieval would have offered them to a real appeal for a real patient.
+ *
+ * Verification does not catch this and never could. It proves a quote appears
+ * in the passage it cites, and for these it does: the seeder slices its quotes
+ * out of its own text. What it cannot prove is that the passage came from
+ * anywhere real, and a fabricated decision quoted accurately is still a
+ * fabricated decision.
+ */
+export const corpusProvenanceEnum = pgEnum('corpus_provenance', ['crawled', 'demo']);
+
 export const factTypeEnum = pgEnum('fact_type', [
   'diagnosis',
   'functional_status',
@@ -427,6 +450,13 @@ export const sourceDocument = pgTable(
     rawPath: text('raw_path').notNull(),
     parsedAt: timestamp('parsed_at', { withTimezone: true }),
     extractedAt: timestamp('extracted_at', { withTimezone: true }),
+    /**
+     * Whether this may be cited. See corpusProvenanceEnum.
+     *
+     * Defaults to crawled because that is what the fetch stage produces, and
+     * the seeder is the one caller that has to say otherwise.
+     */
+    provenance: corpusProvenanceEnum('provenance').notNull().default('crawled'),
     createdAt: now(),
   },
   (t) => [

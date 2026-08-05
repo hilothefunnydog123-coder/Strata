@@ -695,6 +695,7 @@ export interface CorpusDocument {
   url: string;
   retrievedAt: Date;
   holdings: number;
+  provenance: string;
 }
 
 export interface CorpusHealth {
@@ -757,6 +758,7 @@ export async function corpusHealth(): Promise<CorpusHealth> {
         citation: sourceDocument.citation,
         url: sourceDocument.url,
         retrievedAt: sourceDocument.retrievedAt,
+        provenance: sourceDocument.provenance,
         holdings: sql<number>`count(${holding.id})::int`,
       })
       .from(sourceDocument)
@@ -767,6 +769,7 @@ export async function corpusHealth(): Promise<CorpusHealth> {
         sourceDocument.citation,
         sourceDocument.url,
         sourceDocument.retrievedAt,
+        sourceDocument.provenance,
       )
       .orderBy(sourceDocument.retrievedAt),
   ]);

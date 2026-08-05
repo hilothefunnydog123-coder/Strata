@@ -120,6 +120,16 @@ export async function retrieveAuthority(
     .where(
       and(
         isNotNull(holding.verifiedAt),
+        // Nothing the demonstration seeder wrote may be offered to a real
+        // appeal, whatever it says about itself.
+        //
+        // This is not belt and braces on top of verification, it is the only
+        // thing standing here. Verification proves a quote appears in the
+        // passage it cites, and for seeded documents it does, because the
+        // seeder slices its quotes out of its own text. A fabricated decision
+        // quoted accurately is still fabricated, and DEMO-DAB-0001 was for a
+        // while the only authority this corpus held.
+        eq(sourceDocument.provenance, 'crawled'),
         facets.length > 0 ? or(...facets) : sql`true`,
       ),
     )

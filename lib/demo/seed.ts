@@ -259,6 +259,15 @@ async function seedCorpus() {
         parsedAt: new Date(),
         extractedAt: new Date(),
         decidedAt: d.real ? null : days(-420),
+        // Marked, so retrieval will not offer any of it to a real appeal.
+        //
+        // Including the two regulation passages, whose text is genuine federal
+        // law. Their provenance still is not what the row claims: retrieved_at
+        // says a moment ago and url says ecfr.gov, and nothing was retrieved
+        // from ecfr.gov. The text was typed into a source file. A document is
+        // citable because it was fetched from the place it names, not because
+        // someone believes the words are right.
+        provenance: 'demo',
       })
       .returning({ id: sourceDocument.id });
 
