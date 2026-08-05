@@ -17,6 +17,7 @@ import { log } from '@/lib/log';
 import { storage } from '@/lib/storage';
 import { verifyQuote } from '@/lib/appeals/verify';
 import { parseEcfrXml, parseHtml, parseText } from '@/lib/documents/parse';
+import { extractPdfText } from '@/lib/denials/pdf';
 import { ModelRateLimitedError, ModelRequestTooLargeError } from '@/lib/llm/client';
 import {
   batchSpans,
@@ -158,15 +159,77 @@ export async function fetchStage(
 
 /* ─── 2. Parse ────────────────────────────────────────────────────────────── */
 
-function parseByContentType(bytes: Buffer, sourceType: string, url: string) {
+/**
+ * A PDF, by its magic bytes rather than by its file extension.
+ *
+ * The extension lies both ways here: the CMS chapter that works is served at
+ * bp102c08pdf.pdf, and a URL ending .pdf can still answer with an HTML error
+ * page. The first five bytes do not lie.
+ */
+function isPdf(bytes: Buffer): boolean {
+  return bytes.subarray(0, 5).toString('latin1') === '%PDF-';
+}
+
+async function parseByContentType(bytes: Buffer, sourceType: string, url: string) {
+  // Extract a PDF before anything else looks at it.
+  //
+  // This branch did not exist, and its absence is the reason the corpus has no
+  // holdings. Benefit Policy Manual chapter 8 is a PDF. It was read as UTF-8,
+  // which turns compressed object streams into replacement characters, and the
+  // spanner then split that into 1,302 "paragraphs" of binary. They went into
+  // the database as passages, the screen threw 1,019 of them away as unreadable
+  // furniture, and the 279 it did send produced no holdings because there was
+  // nothing in them to find. Every stage reported success.
+  //
+  // What made it invisible: nothing downstream of the parser has any idea what
+  // text is supposed to look like. The screen was right, the extractor was
+  // right, verification was right, and the answer was still zero.
+  if (isPdf(bytes)) {
+    const text = await extractPdfText(bytes);
+
+    // A PDF with no text layer is a scan. The corpus has no business guessing
+    // at one: OCR belongs to uploaded denial documents, where a human reviewer
+    // sees the recognised text beside the page image before anything is signed.
+    // A misread word in a manual would become a citation nobody could check.
+    if (text.trim().length === 0) {
+      throw new Error(
+        'This PDF has no text layer, so it is a scan. The corpus does not OCR: a ' +
+          'misrecognised word would become a citation that verifies against its own ' +
+          'misreading. Find a text edition of this document.',
+      );
+    }
+
+    return parseText(text);
+  }
+
   const text = bytes.toString('utf8');
   if (sourceType === 'regulation' || url.endsWith('.xml')) return parseEcfrXml(text);
   if (/<html|<body|<div/i.test(text.slice(0, 2000))) return parseHtml(text);
   return parseText(text);
 }
 
-export async function parseStage(): Promise<StageResult> {
+export async function parseStage(options: { reparse?: boolean } = {}): Promise<StageResult> {
   const result = empty();
+
+  if (options.reparse) {
+    // Everything crawled goes through the parser again.
+    //
+    // Needed when the parser itself was wrong rather than the document: a
+    // chapter parsed as binary is stored, flagged parsed, and never looked at
+    // again, and no amount of re-running fixes it because the flag says the
+    // work is done. Demonstration rows are left alone; they were written
+    // directly and have no stored bytes to re-read.
+    const reset = await db
+      .update(sourceDocument)
+      .set({ parsedAt: null, extractedAt: null })
+      .where(eq(sourceDocument.provenance, 'crawled'))
+      .returning({ id: sourceDocument.id });
+
+    result.notes.push(
+      `${reset.length} crawled document${reset.length === 1 ? '' : 's'} were reset for ` +
+        're-parsing. Their passages and any holdings drawn from them are replaced.',
+    );
+  }
 
   const pending = await db
     .select()
@@ -176,7 +239,7 @@ export async function parseStage(): Promise<StageResult> {
   for (const document of pending) {
     try {
       const bytes = await storage().get(document.rawPath);
-      const parsed = parseByContentType(bytes, document.sourceType, document.url);
+      const parsed = await parseByContentType(bytes, document.sourceType, document.url);
 
       if (parsed.spans.length === 0) {
         result.failed += 1;

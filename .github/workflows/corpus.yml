@@ -178,12 +178,19 @@ jobs:
           LIMIT=""
           if [ -n "${{ inputs.limit }}" ]; then LIMIT="--limit=${{ inputs.limit }}"; fi
 
+          # "--limit=reparse" on the parse stage means re-read every crawled
+          # document. Overloaded onto an existing input rather than added as a
+          # new one, because a new input means a merge to the default branch
+          # before it can be used and this is needed now.
+          REPARSE=""
+          if [ "${{ inputs.limit }}" = "reparse" ]; then REPARSE="--reparse"; LIMIT=""; fi
+
           case "${{ inputs.stage }}" in
             doctor)   echo "Preflight above is the whole job." ;;
             estimate) pnpm corpus:estimate ;;
             status)   pnpm corpus:status ;;
             fetch)    pnpm corpus:fetch --source=${{ inputs.source }} $LIMIT ;;
-            parse)    pnpm corpus:parse ;;
+            parse)    pnpm corpus:parse $REPARSE ;;
             extract)  pnpm corpus:extract --unextracted ;;
             verify)   pnpm corpus:verify ;;
             embed)    pnpm corpus:embed ;;

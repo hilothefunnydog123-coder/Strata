@@ -6,9 +6,15 @@
  * content streams directly.
  *
  * What it handles: the text showing operators (Tj, TJ, ', ") in uncompressed
- * and Flate-compressed content streams, which is what a payer's denial letter
- * and a hospital's exported chart note are in practice, because both come out
- * of a word processor or a reporting tool.
+ * and Flate-compressed content streams, with strings in either of the two forms
+ * PDF allows, (literal) and <hex>. That covers a payer's denial letter and a
+ * hospital's exported chart note, because both come out of a word processor or
+ * a reporting tool.
+ *
+ * Hex was missing until a CMS manual chapter extracted as nothing at all. The
+ * text was in the file, spelled the other way, and the failure looked exactly
+ * like a scanned document: empty text, and a message telling the user to OCR
+ * something that was already machine readable.
  *
  * What it does not handle: scanned images, and PDFs using a font with a
  * non-standard encoding map. Both come back as empty text, and the caller turns
@@ -80,14 +86,36 @@ function unescapePdfString(input: string): string {
     .replace(/\\([0-7]{1,3})/g, (_m, oct: string) => String.fromCharCode(parseInt(oct, 8)));
 }
 
+/**
+ * Decode a hex string: <48656C6C6F> is "Hello".
+ *
+ * PDF allows either form wherever a string is expected, and plenty of producers
+ * use hex throughout. This one did not read hex at all, which meant those files
+ * extracted as empty and were then reported as needing OCR: the text was right
+ * there in the file, in the other of the two spellings the format allows.
+ *
+ * An odd number of digits is legal and means a trailing zero, per the spec.
+ */
+function decodeHexString(input: string): string {
+  const digits = input.replace(/[^0-9A-Fa-f]/g, '');
+  const padded = digits.length % 2 === 1 ? `${digits}0` : digits;
+
+  let out = '';
+  for (let i = 0; i < padded.length; i += 2) {
+    out += String.fromCharCode(parseInt(padded.slice(i, i + 2), 16));
+  }
+  return out;
+}
+
 /** Pull the shown text out of one content stream. */
 function textFromContent(content: string): string {
   const out: string[] = [];
 
   // Tj and ' and " show a single string. TJ shows an array of strings and
-  // kerning numbers; a large negative kern is a word space.
+  // kerning numbers; a large negative kern is a word space. A string is either
+  // (literal) or <hex>, and both appear in the wild.
   const operators =
-    /\((?:[^()\\]|\\.)*\)\s*(?:Tj|')|\[(?:[^\][\\]|\\.)*\]\s*TJ|T\*|\bTd\b|\bTD\b|\bET\b/g;
+    /(?:\((?:[^()\\]|\\.)*\)|<[0-9A-Fa-f\s]*>)\s*(?:Tj|')|\[(?:[^\][\\]|\\.)*\]\s*TJ|T\*|\bTd\b|\bTD\b|\bET\b/g;
 
   let match: RegExpExecArray | null;
   while ((match = operators.exec(content)) !== null) {
@@ -100,10 +128,13 @@ function textFromContent(content: string): string {
 
     if (token.trimEnd().endsWith('TJ')) {
       const array = token.slice(token.indexOf('[') + 1, token.lastIndexOf(']'));
-      const pieces = array.match(/\((?:[^()\\]|\\.)*\)|-?\d+(?:\.\d+)?/g) ?? [];
+      const pieces =
+        array.match(/\((?:[^()\\]|\\.)*\)|<[0-9A-Fa-f\s]*>|-?\d+(?:\.\d+)?/g) ?? [];
       for (const piece of pieces) {
         if (piece.startsWith('(')) {
           out.push(unescapePdfString(piece.slice(1, -1)));
+        } else if (piece.startsWith('<')) {
+          out.push(decodeHexString(piece.slice(1, -1)));
         } else if (Number(piece) < -180) {
           // A kern this wide is a space between words.
           out.push(' ');
@@ -112,8 +143,12 @@ function textFromContent(content: string): string {
       continue;
     }
 
-    const literal = token.slice(token.indexOf('(') + 1, token.lastIndexOf(')'));
-    out.push(unescapePdfString(literal));
+    if (token.trimStart().startsWith('<')) {
+      out.push(decodeHexString(token.slice(token.indexOf('<') + 1, token.lastIndexOf('>'))));
+    } else {
+      const literal = token.slice(token.indexOf('(') + 1, token.lastIndexOf(')'));
+      out.push(unescapePdfString(literal));
+    }
     if (token.trimEnd().endsWith("'")) out.push('\n');
   }
 

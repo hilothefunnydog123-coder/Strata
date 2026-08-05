@@ -527,7 +527,11 @@ async function main(): Promise<void> {
     }
 
     case 'parse':
-      reportStage('parse', await parseStage());
+      // --reparse re-reads every crawled document from its stored bytes. For
+      // when the parser was wrong rather than the source, which is not a
+      // hypothetical: a chapter parsed as binary keeps its parsed flag and is
+      // never revisited, so re-running the stage normally changes nothing.
+      reportStage('parse', await parseStage({ reparse: process.argv.includes('--reparse') }));
       break;
 
     case 'extract': {
