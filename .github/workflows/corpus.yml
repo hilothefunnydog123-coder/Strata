@@ -213,9 +213,32 @@ jobs:
               EXTRACT_STATUS=0
               pnpm corpus:extract --unextracted || EXTRACT_STATUS=$?
 
-              pnpm corpus:verify
+              # Verify raises the same way, and for the same reason.
+              #
+              # A failure rate over the threshold says the extractor is quoting
+              # things that are not in the document, which is worth failing the
+              # run over. It says nothing about the holdings that did verify:
+              # those have been checked character for character against their
+              # source and are exactly the rows retrieval is allowed to use.
+              # Under "bash -e" the non-zero exit skipped embed, so a bad batch
+              # left every good holding unembedded and therefore invisible to
+              # retrieval. That happened: 29 verified holdings sat unusable
+              # behind an 8 holding failure until someone ran embed by hand.
+              VERIFY_STATUS=0
+              pnpm corpus:verify || VERIFY_STATUS=$?
+
               pnpm corpus:embed
               pnpm corpus:status
+
+              if [ "$VERIFY_STATUS" -ne 0 ]; then
+                echo ""
+                echo "Verification failures are above the threshold. The holdings"
+                echo "that did verify are embedded and citable; the ones that did"
+                echo "not are not offered to any appeal. Read the failures above:"
+                echo "a quote that is not in its document means the extractor"
+                echo "wrote it rather than found it."
+                exit "$VERIFY_STATUS"
+              fi
 
               if [ "$EXTRACT_STATUS" -ne 0 ]; then
                 echo ""
