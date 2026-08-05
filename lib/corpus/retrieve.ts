@@ -21,7 +21,7 @@
  * whatever service it arose from. Filtering it out because the service differs
  * would discard the best authority we have. See CORPUS.md section 1.
  */
-import { and, eq, isNotNull, or, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { holding, sourceDocument, sourceSpan } from '@/lib/db/schema';
 import { cosine, embed } from './embed';
@@ -79,9 +79,31 @@ export async function retrieveAuthority(
 ): Promise<RetrievedHolding[]> {
   const limit = query.limit ?? 12;
 
-  // Narrow first. Anything matching at least one structured facet, plus every
-  // proprietary criteria holding regardless of facet, because that argument
-  // travels across service types.
+  // Narrow first. Anything matching at least one structured facet, every
+  // proprietary criteria holding regardless of facet because that argument
+  // travels across service types, and every holding that states no facets at
+  // all.
+  //
+  // That last clause is not a widening for its own sake, it is the difference
+  // between this corpus being usable and being furniture. These facets were
+  // safe to require while every holding came from a DAB decision, which always
+  // states a service type and a denial basis because it decides a case about
+  // one. A manual chapter decides nothing: it states the rule the decision
+  // would apply, and leaves all three null. Extraction was taught to accept
+  // that and this was not, so an OR over facet equality could never match a
+  // manual holding, because SQL null is not equal to anything, including the
+  // value someone is searching for.
+  //
+  // Measured rather than reasoned about: 39 verified holdings drawn from four
+  // CMS chapters, every one of them embedded and citable, and retrieveAuthority
+  // returned zero for every query that could be put to it. Generation then
+  // refused to draft for want of authority it was holding the whole time. The
+  // same probe with one facet filled in returned the holding immediately.
+  //
+  // Scoring already handles these correctly and always did: a holding with no
+  // facets simply collects none of the structured weights and is ranked on
+  // similarity, which is the right answer for a rule statement. The bug was
+  // upstream of the scoring, in deciding what was allowed to be scored.
   const facets = [
     query.denialBasis
       ? eq(holding.denialBasis, query.denialBasis as 'medical_necessity')
@@ -93,6 +115,13 @@ export async function retrieveAuthority(
       ? eq(holding.serviceType, query.serviceType as 'skilled_nursing')
       : undefined,
     eq(holding.denialBasis, 'proprietary_criteria'),
+    // A rule stated without reference to any particular case: the shape every
+    // holding drawn from a manual or a regulation has.
+    and(
+      isNull(holding.serviceType),
+      isNull(holding.payerType),
+      isNull(holding.denialBasis),
+    ),
   ].filter(Boolean);
 
   const rows = await db
@@ -171,6 +200,17 @@ export async function retrieveAuthority(
       // Kept in the set, scored on merit, and labelled so nobody wonders why a
       // decision about a different service is in the list.
       reasons.push('addresses proprietary criteria, which travels across service types');
+    }
+
+    // Say why a rule statement is in the list.
+    //
+    // Every other reason here comes from a facet matching, and a holding out of
+    // a manual has none to match, so without this it would arrive in front of a
+    // legal reviewer with an empty explanation. "It states a rule" is the
+    // honest answer and it is also the useful one: a reviewer treats a manual
+    // provision differently from a decision that went someone's way.
+    if (!row.serviceType && !row.payerType && !row.denialBasis) {
+      reasons.push('states a rule rather than deciding a case, so it applies on its terms');
     }
 
     const similarity = row.embedding ? cosine(queryVector, row.embedding) : 0;
