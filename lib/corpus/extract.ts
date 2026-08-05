@@ -14,6 +14,39 @@
 import { z } from 'zod';
 import { complete, type LlmResponse } from '@/lib/llm/client';
 
+/**
+ * A facet the document may simply not state, taken from a model that has
+ * several ways of saying so.
+ *
+ * Measured on a real run: 74 holdings were discarded across seven chapters, and
+ * the dominant reason was `outcome: Invalid enum value, received 'null'`. Not
+ * JSON null, the four character string. A model asked for a nullable field
+ * writes "null", or "none", or "N/A", or an empty string, or the value with
+ * different capitalisation, and every one of those is the model correctly
+ * saying the document is silent.
+ *
+ * An unrecognised value becomes null rather than discarding the holding. These
+ * three fields are retrieval hints: they decide which cases a holding surfaces
+ * for, not whether it is true. A verified quote from a CMS manual with an
+ * unknown payer type is still authority, and throwing it away because the model
+ * wrote "Medicare" instead of "traditional_medicare" trades something valuable
+ * for nothing. The quote is what must be exact, and it is checked separately
+ * against its source.
+ */
+function statedOrNull<const T extends readonly [string, ...string[]]>(values: T) {
+  return z.preprocess((raw) => {
+    if (raw === null || raw === undefined) return null;
+    if (typeof raw !== 'string') return null;
+
+    const normalised = raw.trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (['', 'null', 'none', 'n/a', 'na', 'unknown', 'unspecified'].includes(normalised)) {
+      return null;
+    }
+
+    return (values as readonly string[]).includes(normalised) ? normalised : null;
+  }, z.enum(values).nullable());
+}
+
 export const holdingSchema = z.object({
   /** The ordinal of the span the quote comes from, as given in the prompt. */
   spanOrdinal: z.number().int().positive(),
@@ -31,45 +64,33 @@ export const holdingSchema = z.object({
    * true answer. The model returned something that failed validation and every
    * batch of nine chapters was discarded whole.
    */
-  outcome: z
-    .enum(['claimant_favorable', 'plan_favorable', 'mixed'])
-    .nullish()
-    .transform((v) => v ?? null),
-  serviceType: z
-    .enum([
-      'skilled_nursing',
-      'inpatient_rehab',
-      'home_health',
-      'long_term_care_hospital',
-      'inpatient_acute',
-      'outpatient',
-      'dme',
-      'other',
-    ])
-    .nullish()
-    .transform((v) => v ?? null),
-  payerType: z
-    .enum([
-      'medicare_advantage',
-      'traditional_medicare',
-      'medicaid_managed_care',
-      'commercial',
-      'other',
-    ])
-    .nullish()
-    .transform((v) => v ?? null),
-  denialBasis: z
-    .enum([
-      'medical_necessity',
-      'level_of_care',
-      'not_covered_benefit',
-      'insufficient_documentation',
-      'proprietary_criteria',
-      'administrative',
-      'other',
-    ])
-    .nullish()
-    .transform((v) => v ?? null),
+  outcome: statedOrNull(['claimant_favorable', 'plan_favorable', 'mixed']),
+  serviceType: statedOrNull([
+    'skilled_nursing',
+    'inpatient_rehab',
+    'home_health',
+    'long_term_care_hospital',
+    'inpatient_acute',
+    'outpatient',
+    'dme',
+    'other',
+  ]),
+  payerType: statedOrNull([
+    'medicare_advantage',
+    'traditional_medicare',
+    'medicaid_managed_care',
+    'commercial',
+    'other',
+  ]),
+  denialBasis: statedOrNull([
+    'medical_necessity',
+    'level_of_care',
+    'not_covered_benefit',
+    'insufficient_documentation',
+    'proprietary_criteria',
+    'administrative',
+    'other',
+  ]),
 });
 
 export type ExtractedHolding = z.infer<typeof holdingSchema>;
