@@ -557,6 +557,16 @@ export const holding = pgTable(
     verifiedAt: timestamp('verified_at', { withTimezone: true }),
     /** Cosine similarity is computed in app: pgvector is not assumed present. */
     embedding: real('embedding').array(),
+    /**
+     * Which embedding function produced the vector above.
+     *
+     * Two vectors from different versions are points in unrelated spaces, and
+     * the cosine between them is noise wearing the same clothes as a score.
+     * Nothing would fail. Retrieval would return rows in a plausible order,
+     * ranked against a query it could not actually compare to. This is what
+     * lets the embed stage find the stale ones and redo them.
+     */
+    embeddingVersion: integer('embedding_version'),
     createdAt: now(),
   },
   (t) => [

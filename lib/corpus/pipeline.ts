@@ -10,7 +10,7 @@
  * Idempotence comes from the content hash. A document whose bytes have not
  * changed is skipped, which is what makes re-running the whole pipeline safe.
  */
-import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { env } from '@/lib/env';
 import { holding, sourceDocument, sourceSpan } from '@/lib/db/schema';
@@ -34,7 +34,7 @@ import {
   parseHoldings,
 } from './extract';
 import { estimateTokens, screen } from './screen';
-import { cosine, embed, holdingEmbeddingText } from './embed';
+import { cosine, embed, EMBEDDING_VERSION, holdingEmbeddingText } from './embed';
 import { RobotsDisallowedError } from './fetch';
 import { SOURCES, type SourceKey } from './sources';
 
@@ -938,16 +938,31 @@ export async function verifyStage(): Promise<StageResult & { failureRate: number
 export async function embedStage(): Promise<StageResult> {
   const result = empty();
 
+  // Anything unembedded, and anything embedded by a version that no longer
+  // exists. The second half is what keeps the corpus from quietly holding two
+  // incompatible embedding spaces at once after the function changes.
   const pending = await db
     .select()
     .from(holding)
-    .where(and(isNotNull(holding.verifiedAt), isNull(holding.embedding)));
+    .where(
+      and(
+        isNotNull(holding.verifiedAt),
+        or(
+          isNull(holding.embedding),
+          isNull(holding.embeddingVersion),
+          ne(holding.embeddingVersion, EMBEDDING_VERSION),
+        ),
+      ),
+    );
 
   for (const row of pending) {
     try {
       await db
         .update(holding)
-        .set({ embedding: embed(holdingEmbeddingText(row)) })
+        .set({
+          embedding: embed(holdingEmbeddingText(row)),
+          embeddingVersion: EMBEDDING_VERSION,
+        })
         .where(eq(holding.id, row.id));
       result.processed += 1;
     } catch (error) {
