@@ -7,6 +7,7 @@ import { audit } from '@/lib/audit';
 import { assertCan, requirePrincipalOrThrow } from '@/lib/auth/guards';
 import { db } from '@/lib/db';
 import { denial, outcome } from '@/lib/db/schema';
+import { closeCurrentRung } from '@/lib/appeals/rungs';
 import { transition } from '@/lib/appeals/workflow';
 import { denialDocumentKey, storage } from '@/lib/storage';
 import { assertReadable } from '@/lib/denials/upload';
@@ -171,6 +172,11 @@ export async function recordOutcome(
       recordedBy: principal.userId,
     });
   }
+
+  // The result also belongs on the level it decided. Without this the ladder
+  // shows a level still open on a claim that has been decided and billed, and
+  // the product would go on offering to escalate a case that is finished.
+  await closeCurrentRung(denialId, input.result, input.decidedAt);
 
   await audit({
     userId: principal.userId,

@@ -14,10 +14,14 @@ import {
 import { daysUntil, STATUS_LABELS, type Status } from '@/lib/appeals/workflow';
 import { LetterView } from '@/components/appeal/letter-view';
 import { EmptyState, Money, PanelHeader, Tag } from '@/components/ui/primitives';
+import { filingStatus } from '@/lib/filing/status';
 import { GenerateButton } from './generate-button';
 import { OutcomeForm } from './outcome-form';
 import { SubmitForm } from './submit-form';
 import { ExportButtons } from './export-buttons';
+import { AppealProgress } from './appeal-progress';
+import { FileAppealButton } from './file-appeal-button';
+import { filingOptions } from './filing-actions';
 
 export const metadata: Metadata = { title: 'Denial' };
 
@@ -55,6 +59,17 @@ export default async function DenialDetailPage({
   const approvals = detail.draft
     ? await hasBothApprovals(detail.draft.id)
     : { clinical: false, legal: false, both: false };
+
+  const filing = await filingStatus(
+    id,
+    detail.denial.planType,
+    detail.denial.appealDeadline,
+  );
+
+  // Resolved on the server so the button can name the channel and the address
+  // before it is pressed. A filing control that only discovers where it is
+  // sending after the click is one that files to a stale address for a year.
+  const filingPrompt = mayExport && detail.draft ? await filingOptions(id) : null;
 
   // The outcome form appears once the appeal has actually been filed, or once
   // an outcome exists, so a specialist cannot record a result for something
@@ -113,6 +128,8 @@ export default async function DenialDetailPage({
             </Row>
           ) : null}
         </dl>
+
+        <AppealProgress status={filing} />
 
         <PanelHeader title="Documents" className="mt-0" />
         <ul className="divide-y divide-rule text-sm">
@@ -199,6 +216,14 @@ export default async function DenialDetailPage({
                 denialId={id}
                 draftId={detail.draft.id}
                 enabled={approvals.both}
+              />
+            ) : null}
+            {filingPrompt && detail.draft ? (
+              <FileAppealButton
+                denialId={id}
+                draftId={detail.draft.id}
+                enabled={approvals.both}
+                initial={filingPrompt}
               />
             ) : null}
           </div>

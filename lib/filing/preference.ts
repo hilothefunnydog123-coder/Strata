@@ -24,6 +24,15 @@ export type FilingPrompt =
       kind: 'ready';
       channel: SubmissionChannel;
       label: string;
+      /**
+       * The other channels anyway.
+       *
+       * A preset is a default rather than a lock. One appeal in fifty has to go
+       * a different way because a plan has moved its appeals address, and
+       * making that case a trip to the settings page and back is how a filing
+       * misses a deadline over a formality.
+       */
+      options: ChannelAvailability[];
     }
   | {
       /** No preference yet, or it can no longer be used. Offer the choice. */
@@ -57,7 +66,7 @@ export async function filingPrompt(organizationId: string): Promise<FilingPrompt
   const entry = options.find((o) => o.channel.key === preferred);
 
   if (entry?.available) {
-    return { kind: 'ready', channel: preferred, label: entry.channel.label };
+    return { kind: 'ready', channel: preferred, label: entry.channel.label, options };
   }
 
   return {

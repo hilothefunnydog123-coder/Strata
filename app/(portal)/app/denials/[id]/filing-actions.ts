@@ -27,22 +27,41 @@ import { log } from '@/lib/log';
 import { exportAppeal } from './actions';
 
 export interface FilingOption {
-  key: string;
+  key: SubmissionChannel;
   label: string;
   summary: string;
   evidence: string;
   available: boolean;
   reason: string | null;
+  /**
+   * Where this payer was last filed to through this channel, or null.
+   *
+   * Sent with every option rather than only the preferred one, so switching
+   * channel in the picker fills the field in instead of emptying it. A
+   * specialist who has to retype an appeals fax number because they changed
+   * their mind about the channel is a specialist who mistypes it.
+   */
+  destination: string | null;
 }
 
 export type FilingPromptState =
-  | { status: 'ready'; channel: string; label: string; destination: string | null }
+  | {
+      /** A usable default is set: one press files it. */
+      status: 'ready';
+      channel: SubmissionChannel;
+      label: string;
+      destination: string | null;
+      /**
+       * The full list anyway, so "file this one another way" is one click and
+       * does not require going to settings and back.
+       */
+      options: FilingOption[];
+    }
   | {
       status: 'choose';
       options: FilingOption[];
       /** Set when a saved choice has stopped working, so the screen says why. */
       lapsed: { label: string; reason: string } | null;
-      destination: string | null;
     }
   | { status: 'error'; message: string };
 
@@ -57,38 +76,45 @@ export async function filingOptions(denialId: string): Promise<FilingPromptState
 
   const prompt = await filingPrompt(record.organizationId);
 
-  const known = async (channel: SubmissionChannel) =>
-    (
-      await db.query.payerContact.findFirst({
-        where: and(
-          eq(payerContact.organizationId, record.organizationId),
-          eq(payerContact.payerName, record.payerName),
-          eq(payerContact.channel, channel),
-        ),
-      })
-    )?.destination ?? null;
+  // One query for every channel this payer has been filed to, rather than one
+  // per option.
+  const contacts = await db
+    .select()
+    .from(payerContact)
+    .where(
+      and(
+        eq(payerContact.organizationId, record.organizationId),
+        eq(payerContact.payerName, record.payerName),
+      ),
+    );
+
+  const destinationFor = (channel: SubmissionChannel | null): string | null =>
+    contacts.find((c) => c.channel === channel)?.destination ?? null;
+
+  const options: FilingOption[] = prompt.options.map((o) => ({
+    key: o.channel.key,
+    label: o.channel.label,
+    summary: o.channel.summary,
+    evidence: o.channel.evidence,
+    available: o.available,
+    reason: o.reason,
+    destination: destinationFor(o.channel.key),
+  }));
 
   if (prompt.kind === 'ready') {
     return {
       status: 'ready',
       channel: prompt.channel,
       label: prompt.label,
-      destination: await known(prompt.channel),
+      destination: destinationFor(prompt.channel),
+      options,
     };
   }
 
   return {
     status: 'choose',
-    options: prompt.options.map((o) => ({
-      key: o.channel.key,
-      label: o.channel.label,
-      summary: o.channel.summary,
-      evidence: o.channel.evidence,
-      available: o.available,
-      reason: o.reason,
-    })),
+    options,
     lapsed: prompt.lapsed ? { label: prompt.lapsed.label, reason: prompt.lapsed.reason } : null,
-    destination: null,
   };
 }
 

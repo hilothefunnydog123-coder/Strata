@@ -10,11 +10,17 @@ import { ErrorState } from '@/components/ui/primitives';
 const METHODS = ['Payer portal', 'Fax', 'Post', 'Email', 'Clearinghouse'];
 
 /**
- * Marking an approved appeal as filed.
+ * Recording an appeal that was filed outside this product.
  *
- * We do not file on the hospital's behalf: they send it through whatever channel
- * this payer takes. What this records is when it went and how, so the deadline
- * stops counting and the outcome has something to hang off.
+ * This used to be the only way an appeal got filed: export a PDF, send it by
+ * hand, come back and say you had. File appeal does that now, and a filing made
+ * through it records itself.
+ *
+ * This stays for the appeals that go another way, and there will always be
+ * some: a plan that only takes its own portal, a channel this deployment has
+ * not been given an account for, a specialist standing at a fax machine. An
+ * appeal that went out and cannot be recorded is an appeal the system believes
+ * is still sitting there, and it would count the deadline down to nothing.
  */
 export function SubmitForm({ denialId }: { denialId: string }) {
   const router = useRouter();
@@ -29,8 +35,8 @@ export function SubmitForm({ denialId }: { denialId: string }) {
         Approved by both reviews, ready to file
       </p>
       <p className="mt-1 text-xs text-ink">
-        Export it, send it through whichever channel this payer takes, then record
-        it here so the deadline stops counting.
+        Press File appeal to send it. If it went out another way, record it here so the
+        deadline stops counting.
       </p>
 
       {error ? (

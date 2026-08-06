@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import { audit } from '@/lib/audit';
 import { assertCan, requirePrincipalOrThrow } from '@/lib/auth/guards';
 import { db } from '@/lib/db';
-import { assertion, denial, organization } from '@/lib/db/schema';
+import { denial, organization } from '@/lib/db/schema';
 import { generateAppeal, GenerationError, NoAuthorityError } from '@/lib/appeals/generate';
 import { canExport } from '@/lib/appeals/workflow';
 import { loadDenialDetail } from '@/lib/denials/detail';
@@ -196,5 +196,3 @@ function formatRange(from: Date | null, to: Date | null): string {
   if (from && to) return `${iso(from)} to ${iso(to)}`;
   return iso((from ?? to)!);
 }
-
-export { assertion };
