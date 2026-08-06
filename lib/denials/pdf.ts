@@ -58,7 +58,7 @@ if (typeof (Math as { sumPrecise?: unknown }).sumPrecise !== 'function') {
     return sum + compensation;
   };
 }
-import { PAGE_BREAK } from '@/lib/documents/parse';
+import { MINIMUM_SPAN_CHARS, PAGE_BREAK } from '@/lib/documents/parse';
 
 /** Every stream in the file, decompressed where we can manage it. */
 function* streams(bytes: Buffer): Generator<Buffer> {
@@ -215,10 +215,67 @@ async function extractByContentStreams(bytes: Buffer): Promise<string> {
 }
 
 /**
- * Extract text, falling back to a real PDF engine when the reader above finds
- * nothing.
+ * How much of this text is worth anything downstream.
  *
- * The reader above handles the shape a word processor emits and cost no
+ * Not the character count. A passage has to be prose, and it has to be joined
+ * into blocks big enough to be a span, or the pipeline behind this stores
+ * nothing and reports success. So the measure is: characters living in blocks
+ * that could actually become a passage, and zero for anything that does not
+ * read as text at all.
+ *
+ * The 0.5 matches the threshold the parse stage applies to the same text a
+ * moment later. Two different answers to "is this prose" would mean text that
+ * passes here and is thrown away there, which is the shape of a bug nobody can
+ * find from either end.
+ */
+function usableProseLength(text: string): number {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return 0;
+
+  // Sampled, like the parse stage does, because a 400 page chapter is megabytes
+  // and the ratio stops moving after a few thousand characters.
+  const sample = trimmed.length > 20_000 ? trimmed.slice(0, 20_000) : trimmed;
+  if (sample.replace(/[^A-Za-z\s]/g, '').length / sample.length < 0.5) return 0;
+
+  return trimmed
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter((block) => block.length >= MINIMUM_SPAN_CHARS)
+    .reduce((total, block) => total + block.length, 0);
+}
+
+/**
+ * Which of two extractions to keep.
+ *
+ * Exported because it is the whole decision and it is worth testing on its own.
+ *
+ * The rule this replaces was "whichever answered first, if it answered at all",
+ * and that is wrong in a way that is invisible from the outside. A chapter
+ * where a few pages use a standard font and the rest carry their own character
+ * maps gives the cheap reader a handful of fragments. Those fragments are more
+ * than nothing, so they won, and the engine that could have read the entire
+ * document never ran. What came out the other end was a chapter that parsed
+ * successfully and produced no passages, or passages of debris that failed the
+ * prose check. Both look exactly like a document with nothing in it.
+ *
+ * On a tie the engine wins, because it handles strictly more of the format.
+ */
+export function preferReadable(simple: string, engine: string): string {
+  const s = usableProseLength(simple);
+  const e = usableProseLength(engine);
+  if (s !== e) return e > s ? engine : simple;
+
+  // Neither produced anything spannable. Keep whatever text there is, so the
+  // caller's diagnostic has something to quote rather than an empty string that
+  // says only "no text", which is the message that misdiagnosed eleven readable
+  // chapters as scans.
+  return engine.trim().length >= simple.trim().length ? engine : simple;
+}
+
+/**
+ * Extract text, by whichever of two readers actually read the document.
+ *
+ * The cheap reader handles the shape a word processor emits and cost no
  * dependency, which was the right trade while the only PDFs were denial letters
  * exported from Word. It does not handle a document whose fonts carry their own
  * character maps, where a hex string is an index into a CMap rather than
@@ -230,15 +287,14 @@ async function extractByContentStreams(bytes: Buffer): Promise<string> {
  * a text edition", about files that are entirely machine readable. A message
  * that confidently misdiagnoses is worse than a stack trace.
  *
- * So pdf.js runs when the cheap path finds nothing. Order matters only for
- * speed: where the simple reader works it is faster and its page breaks are
- * already right, and where it does not, correctness is the only thing that
- * counts.
+ * Both now run, and the better result wins. Running only the second when the
+ * first found nothing sounds like the same thing and is not: it hands the
+ * document to the weaker reader whenever the weaker reader finds a scrap.
  */
 export async function extractPdfText(bytes: Buffer): Promise<string> {
   const simple = await extractByContentStreams(bytes);
-  if (simple.trim().length > 0) return simple;
 
+  let engine = '';
   try {
     const document = await getDocumentProxy(new Uint8Array(bytes));
     const { text } = await extractText(document, { mergePages: false });
@@ -247,10 +303,12 @@ export async function extractPdfText(bytes: Buffer): Promise<string> {
     // Page breaks are kept so a citation can name a page. A reviewer checking a
     // manual reference needs one; a character offset into a 400 page chapter is
     // not something anyone can act on.
-    return pages.filter((page) => page.length > 0).join(PAGE_BREAK);
+    engine = pages.filter((page) => page.length > 0).join(PAGE_BREAK);
   } catch {
-    // A genuinely unreadable file. The caller says so, and for the corpus that
-    // is a refusal rather than an invitation to OCR.
-    return '';
+    // A file this engine cannot open. Not fatal on its own: the cheap reader
+    // may still have read it, and if neither did, the caller says so.
+    engine = '';
   }
+
+  return preferReadable(simple, engine);
 }

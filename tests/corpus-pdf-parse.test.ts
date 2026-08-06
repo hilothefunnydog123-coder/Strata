@@ -165,3 +165,61 @@ describe('the summation pdf.js expects', () => {
     expect(sum([])).toBe(0);
   });
 });
+
+describe('choosing between two readers of the same file', () => {
+  // The rule this replaces was "whichever answered first, if it answered at
+  // all". That is wrong in a way nothing downstream can see: a chapter where a
+  // few pages use a standard font and the rest carry their own character maps
+  // hands the cheap reader a handful of fragments, the fragments are more than
+  // nothing, so they win and the engine that could read the whole document
+  // never runs. What comes out is a chapter that parsed successfully and
+  // produced no passages.
+  const PROSE =
+    'Skilled nursing care must be needed and provided on a daily basis for the stay ' +
+    'to be covered under the extended care benefit, and the need must be documented ' +
+    'in the medical record by the attending physician.';
+
+  it('keeps the whole document over a handful of fragments', async () => {
+    const { preferReadable } = await import('@/lib/denials/pdf');
+
+    // What a partially readable chapter gives the cheap reader: real words,
+    // one line at a time, never joined into anything a span could be made of.
+    const fragments = 'Chapter 9\nCoverage of\nHospice\nServices\nUnder\nHospital\nInsurance';
+
+    expect(preferReadable(fragments, PROSE)).toBe(PROSE);
+  });
+
+  it('keeps prose over debris that happens to be longer', async () => {
+    const { preferReadable } = await import('@/lib/denials/pdf');
+
+    // Length alone is the wrong measure. A mis-decoded font produces plenty of
+    // characters and none of them are words.
+    const debris = '�'.repeat(400);
+
+    expect(preferReadable(debris, PROSE)).toBe(PROSE);
+  });
+
+  it('keeps the cheap reader when the engine cannot open the file', async () => {
+    const { preferReadable } = await import('@/lib/denials/pdf');
+
+    expect(preferReadable(PROSE, '')).toBe(PROSE);
+  });
+
+  it('returns something rather than nothing when neither could read it', async () => {
+    const { preferReadable } = await import('@/lib/denials/pdf');
+
+    // So the diagnostic downstream has something to quote. An empty string is
+    // the message that misdiagnosed eleven machine readable chapters as scans.
+    expect(preferReadable('Chapter 9', '')).toBe('Chapter 9');
+    expect(preferReadable('', 'Chapter 9')).toBe('Chapter 9');
+    expect(preferReadable('', '')).toBe('');
+  });
+
+  it('still reads an ordinary PDF end to end', async () => {
+    // The regression that matters: a denial letter exported from a word
+    // processor must come through exactly as before.
+    const bytes = await pdfWithText(SENTENCE);
+
+    expect(await extractPdfText(bytes)).toContain('skilled nursing care');
+  });
+});
