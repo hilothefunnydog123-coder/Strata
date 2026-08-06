@@ -94,6 +94,43 @@ describe('batching by size as well as by count', () => {
   });
 });
 
+describe('labelling a span so its number cannot be misread', () => {
+  it('closes every span with its own ordinal', () => {
+    // A span used to carry an opening marker only, which left its text sitting
+    // between its own number above and the next span's number below. Over two
+    // manual chapters llama-3.1-8b-instant misfiled 34 holdings that way, every
+    // one of them off by exactly one in the same direction: text from span 5
+    // reported as span 6, 22 as 23, 27 as 28. The quotes were real and were
+    // deleted anyway, because a citation pointing at the wrong passage is not a
+    // citation. Closing the span puts the same number on both sides of the text.
+    const prompt = buildExtractionPrompt('DAB No. 1', 'A decision', [
+      { ordinal: 5, text: 'The plan may not apply proprietary criteria.', headingPath: [] },
+      { ordinal: 6, text: 'Coverage is determined under the manual.', headingPath: ['Analysis'] },
+    ]);
+
+    expect(prompt).toContain('--- span 5 ---');
+    expect(prompt).toContain('--- end of span 5 ---');
+    expect(prompt).toContain('--- end of span 6 ---');
+
+    // The point of the change: between a span's text and the number below it,
+    // the number below is now that same span's, not its neighbour's.
+    const five = prompt.indexOf('The plan may not apply proprietary criteria.');
+    const nextMarker = prompt.indexOf('--- end of span', five);
+    expect(prompt.slice(nextMarker)).toMatch(/^--- end of span 5 ---/);
+  });
+
+  it('counts both markers when batching, not just the opening one', () => {
+    // The wrapper grew, so the per span allowance had to grow with it. If it
+    // did not, the batcher would build calls larger than it believes it is
+    // building, which is how the first live run earned an HTTP 413.
+    const input = spans(SPANS_PER_EXTRACTION_CALL, 400);
+    const [batch] = batchSpans(input);
+    const prompt = buildExtractionPrompt('DAB No. 1', 'A decision', batch!);
+
+    expect(prompt.length).toBeLessThanOrEqual(CHARS_PER_EXTRACTION_CALL);
+  });
+});
+
 describe('halving a batch the provider refused', () => {
   it('splits in two, losing nothing', () => {
     const halves = halveBatch([1, 2, 3, 4, 5]);

@@ -122,8 +122,8 @@ const RULE_PHRASE = 'may not apply coverage criteria more';
  * stage is then a real check on all of that.
  */
 function quoteFromPrompt(user: string): { spanOrdinal: number; verbatimQuote: string } | null {
-  // Spans arrive as "--- span N [heading] ---\ntext".
-  const blocks = [...user.matchAll(/--- span (\d+)[^\n]*---\n([\s\S]*?)(?=\n\n--- span |\s*$)/g)];
+  // Spans arrive as "--- span N [heading] ---\ntext\n--- end of span N ---".
+  const blocks = [...user.matchAll(/--- span (\d+)[^\n]*---\n([\s\S]*?)\n--- end of span \1 ---/g)];
 
   for (const [, ordinal, text] of blocks) {
     const at = text!.indexOf(RULE_PHRASE);

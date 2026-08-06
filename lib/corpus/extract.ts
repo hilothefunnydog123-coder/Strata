@@ -185,7 +185,7 @@ Rules, in order of importance:
 
 7. outcome is from the appellant's perspective: claimant_favorable when the appellant prevailed, plan_favorable when the plan or contractor prevailed, mixed when relief was partial. Use null for a regulation or a manual, which state a rule and decide nothing. Most passages you are given are rule text, so null is the common answer, not the exception.
 
-8. spanOrdinal must be the ordinal of the span your quote came from, exactly as labelled in the input. A quote assembled from two spans is not a quote.
+8. spanOrdinal must be the ordinal of the span your quote came from, exactly as labelled in the input. Each span is enclosed by two markers carrying the same number, "--- span N ---" above the text and "--- end of span N ---" below it, so the quote you take sits between two copies of the number you must report. A quote assembled from two spans is not a quote.
 
 Return only JSON of the shape {"holdings": [...]}. No preamble, no commentary, no markdown fence.`;
 
@@ -202,6 +202,19 @@ export interface SpanForExtraction {
  * to a database row, and with their heading trail so the model can tell an
  * analysis section from a recitation of the parties' arguments. That
  * distinction matters: what a party argued is not what the adjudicator held.
+ *
+ * Each span is closed by a marker repeating its own ordinal, and the reason is
+ * measured rather than defensive. With an opening marker alone, a run of
+ * llama-3.1-8b-instant over two manual chapters misfiled 34 holdings, and every
+ * one of them was off by exactly one in the same direction: the quote came from
+ * span 5 and was reported as span 6, from 22 reported as 23, from 27 reported
+ * as 28. The text sat between two numbers and the model read the one below it.
+ * Those holdings were real quotes and were deleted anyway, because a citation
+ * that points at the wrong passage is not a citation.
+ *
+ * Closing each span means the nearest marker in either direction carries the
+ * same number, so there is no longer a reading of the input that produces a
+ * neighbour's ordinal.
  */
 export function buildExtractionPrompt(
   citation: string,
@@ -211,7 +224,7 @@ export function buildExtractionPrompt(
   const body = spans
     .map((span) => {
       const trail = span.headingPath.length > 0 ? ` [${span.headingPath.join(' > ')}]` : '';
-      return `--- span ${span.ordinal}${trail} ---\n${span.text}`;
+      return `--- span ${span.ordinal}${trail} ---\n${span.text}\n--- end of span ${span.ordinal} ---`;
     })
     .join('\n\n');
 
@@ -326,7 +339,10 @@ export function batchSpans<T extends { text: string }>(
   let chars = 0;
 
   for (const span of spans) {
-    const cost = span.text.length + 64; // The span's label and separator.
+    // The span's two markers and the separator. A span now carries a closing
+    // marker as well as an opening one, and this number has to move with it or
+    // the batcher quietly builds calls larger than it believes it is building.
+    const cost = span.text.length + 88;
 
     if (current.length > 0 && (current.length >= maxSpans || chars + cost > maxChars)) {
       batches.push(current);
