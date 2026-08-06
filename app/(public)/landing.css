@@ -1,0 +1,565 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   The landing page picture show.
+
+   Six acts, staged with the same five colours the application uses, because
+   the argument is the same: denied money is red, recovered money is green,
+   and the only thing standing between the two is whether anyone answers.
+
+   Nothing here moves for the sake of moving. Every animation is a plot point:
+   the burn counter is the cost of waiting, the stamps are what actually
+   happens to a denial, the scrolling wall is the corpus nobody reads.
+
+   Reduced motion collapses all of it to a plain readable page through the
+   global rule in globals.css. Every class is prefixed ld- and used only by
+   app/(public)/page.tsx.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Dark acts. The denial red and recovery green are lifted here because the
+   paper versions sit below 3:1 on ink. Both hexes were checked. */
+.ld-dark {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  --ld-red: #ff6f5e;
+  --ld-green: #56c998;
+}
+
+.ld-dark a {
+  color: var(--color-paper);
+}
+
+.ld-dark ::selection {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+/* Loss and win read as denied red and recovered green on paper, and switch to
+   the lifted pair inside a dark act. */
+.ld-loss {
+  color: var(--color-denied);
+}
+.ld-win {
+  color: var(--color-recovered);
+}
+.ld-dark .ld-loss {
+  color: var(--ld-red);
+}
+.ld-dark .ld-win {
+  color: var(--ld-green);
+}
+
+/* ─── Shared staging ──────────────────────────────────────────────────────── */
+
+/* Act marker: a solid square and a mono slug, always in a meaning colour. */
+.ld-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.ld-kicker::before {
+  content: '';
+  width: 0.55rem;
+  height: 0.55rem;
+  background: currentColor;
+  flex: none;
+}
+
+.ld-title {
+  font-size: clamp(2.9rem, 8.5vw, 7.25rem);
+  line-height: 0.98;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.ld-h2 {
+  font-size: clamp(2.1rem, 5vw, 3.9rem);
+  line-height: 1.04;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.ld-big {
+  font-size: clamp(1.45rem, 3.2vw, 2.5rem);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  max-width: 56rem;
+}
+
+/* Anything that enters when its scene switches on. Delay per element via --d. */
+.ld-fx {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--d, 0s);
+}
+.is-on .ld-fx,
+.is-on.ld-fx {
+  opacity: 1;
+  transform: none;
+}
+
+@keyframes ld-fade {
+  to {
+    opacity: 1;
+  }
+}
+
+/* The stamp arrival: oversized, then planted. */
+@keyframes ld-slam {
+  0% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ─── Act I: the bet ──────────────────────────────────────────────────────── */
+
+.ld-hero {
+  display: flex;
+  min-height: 94svh;
+}
+
+/* Title lines rise out of a clipping mask like a title sequence. The padding
+   keeps descenders from being sheared off by the mask. */
+.ld-rise {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.09em;
+  margin-bottom: -0.09em;
+}
+.ld-rise > span {
+  display: block;
+  transform: translateY(118%);
+  animation: ld-rise 0.95s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.ld-rise:nth-child(1) > span {
+  animation-delay: 0.15s;
+}
+.ld-rise:nth-child(2) > span {
+  animation-delay: 0.28s;
+}
+.ld-rise:nth-child(3) > span {
+  animation-delay: 0.41s;
+}
+@keyframes ld-rise {
+  to {
+    transform: translateY(0);
+  }
+}
+
+.ld-hero .ld-kicker {
+  opacity: 0;
+  animation: ld-fade 0.7s ease 0.05s forwards;
+}
+
+.ld-burn {
+  opacity: 0;
+  animation: ld-fade 0.9s ease 1.05s forwards;
+}
+.ld-burn-label {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.ld-burn-num {
+  margin-top: 0.4rem;
+  font-size: clamp(3.2rem, 9vw, 7.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  color: var(--ld-red);
+}
+.ld-burn-tail {
+  margin-top: 0.9rem;
+  max-width: 42rem;
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.ld-cue {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 3.5rem;
+  opacity: 0;
+  animation: ld-fade 0.9s ease 1.6s forwards;
+}
+.ld-cue-line {
+  display: block;
+  width: 2px;
+  height: 2.4rem;
+  background: var(--color-paper);
+  transform-origin: top;
+  animation: ld-pulse 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes ld-pulse {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.ld-cue-word {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+/* ─── Act II: the odds ────────────────────────────────────────────────────── */
+
+.ld-ticket {
+  position: relative;
+  background: var(--color-paper-2);
+  border: 1px solid var(--color-rule-strong);
+  padding: 0.8rem 0.9rem;
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.55s ease,
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: calc(var(--i) * 60ms);
+}
+.is-on .ld-ticket {
+  opacity: 1;
+  transform: none;
+}
+
+.ld-amt {
+  transition: color 0.3s ease;
+  transition-delay: calc(1.15s + var(--i) * 110ms);
+}
+.is-on .ld-dead .ld-amt {
+  color: var(--color-denied);
+  text-decoration: line-through;
+  text-decoration-thickness: 3px;
+}
+.is-on .ld-won .ld-amt {
+  color: var(--color-recovered);
+}
+.is-on .ld-lost .ld-amt {
+  color: var(--color-denied);
+}
+
+/* The verdict lands rotated in the middle of the ticket. The outer element
+   holds the rotation so the slam only animates scale, which keeps it working
+   without individual transform properties. */
+.ld-verdict {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(-9deg);
+  pointer-events: none;
+}
+.ld-verdict > span {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  border: 2px solid currentColor;
+  padding: 2px 7px;
+  white-space: nowrap;
+  opacity: 0;
+  transform: scale(2.4);
+}
+.is-on .ld-verdict > span {
+  animation: ld-slam 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(1.05s + var(--i) * 110ms);
+}
+.ld-dead .ld-verdict > span,
+.ld-lost .ld-verdict > span {
+  color: var(--color-denied);
+  background: var(--color-denied-wash);
+}
+.ld-won .ld-verdict > span {
+  color: var(--color-recovered);
+  background: var(--color-recovered-wash);
+}
+
+/* ─── Act III: the letter ─────────────────────────────────────────────────── */
+
+/* A sheet of paper with a flat offset shadow. Print, not glass. */
+.ld-doc {
+  position: relative;
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule-strong);
+  padding: 1.75rem;
+  box-shadow: 8px 8px 0 var(--color-paper-sunk);
+}
+
+.ld-stamp {
+  position: absolute;
+  top: 1.1rem;
+  right: 1.25rem;
+  transform: rotate(-12deg);
+  pointer-events: none;
+}
+.ld-stamp > span {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: clamp(1rem, 1.8vw, 1.5rem);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: 3px solid currentColor;
+  padding: 0.28em 0.55em;
+  opacity: 0;
+  transform: scale(2.6);
+}
+.ld-stamp-denied {
+  color: var(--color-denied);
+}
+.ld-stamp-denied > span {
+  background: var(--color-denied-wash);
+}
+.ld-stamp-verified {
+  color: var(--color-recovered);
+}
+.ld-stamp-verified > span {
+  background: var(--color-recovered-wash);
+}
+.is-on .ld-stamp-denied > span {
+  animation: ld-slam 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.35s forwards;
+}
+.is-on .ld-stamp-verified > span {
+  animation: ld-slam 0.45s cubic-bezier(0.16, 1, 0.3, 1) 2.1s forwards;
+}
+
+/* The sheet takes the hit when the stamp lands. */
+.is-on.ld-scene-letter .ld-doc {
+  animation: ld-jolt 0.26s linear 0.58s;
+}
+@keyframes ld-jolt {
+  0%,
+  100% {
+    transform: none;
+  }
+  30% {
+    transform: translate(1px, -2px);
+  }
+  60% {
+    transform: translate(-2px, 1px);
+  }
+  80% {
+    transform: translate(1px, 1px);
+  }
+}
+
+/* Each assertion enters, then a green rule draws under it, then its sources
+   snap in. The choreography is the product: sentence, verification, citation. */
+.ld-assert {
+  position: relative;
+  padding-bottom: 0.7rem;
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--d, 0s);
+}
+.ld-assert::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--color-recovered);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: calc(var(--d, 0s) + 0.35s);
+}
+.is-on .ld-assert {
+  opacity: 1;
+  transform: none;
+}
+.is-on .ld-assert::after {
+  transform: scaleX(1);
+}
+
+.ld-chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-recovered);
+  background: var(--color-recovered-wash);
+  border: 1px solid var(--color-recovered);
+  border-radius: 2px;
+  padding: 3px 8px;
+  opacity: 0;
+  transform: translateX(-10px);
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: calc(var(--d, 0s) + 0.55s);
+}
+.is-on .ld-chip {
+  opacity: 1;
+  transform: none;
+}
+
+/* ─── Act IV: the record ──────────────────────────────────────────────────── */
+
+.ld-wall {
+  position: relative;
+  overflow: hidden;
+  height: min(92svh, 64rem);
+  min-height: 42rem;
+}
+
+.ld-cols {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  padding: 0 1.5rem;
+}
+.ld-colwrap {
+  overflow: hidden;
+}
+.ld-colwrap:nth-child(n + 3) {
+  display: none;
+}
+@media (min-width: 64rem) {
+  .ld-cols {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .ld-colwrap:nth-child(n + 3) {
+    display: block;
+  }
+}
+
+/* The column holds two copies of its list, so a half-height translate loops
+   seamlessly. Spacing lives on the items, not in a gap, to keep both copies
+   exactly the same height. */
+.ld-col {
+  display: flex;
+  flex-direction: column;
+  animation: ld-scroll var(--dur, 40s) linear infinite;
+}
+.ld-col-rev {
+  animation-direction: reverse;
+}
+@keyframes ld-scroll {
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+.ld-cite {
+  display: block;
+  margin-bottom: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--color-paper);
+  border: 1px solid var(--color-ink-2);
+  padding: 0.5rem 0.65rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ld-cite-hot {
+  color: var(--ld-green);
+  border-color: var(--ld-green);
+  font-weight: 600;
+}
+
+/* The title card sits on a solid panel over the scroll, like a slate. */
+.ld-wall-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+}
+.ld-card {
+  max-width: 44rem;
+  background: var(--color-ink);
+  border: 1px solid var(--color-paper);
+  padding: clamp(1.5rem, 4vw, 3rem);
+  box-shadow: 12px 12px 0 var(--color-recovered);
+}
+
+/* ─── Act V: the math ─────────────────────────────────────────────────────── */
+
+.ld-stat-num {
+  font-size: clamp(2.6rem, 7.5vw, 6.75rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ld-stat-cap {
+  margin-top: 0.9rem;
+  max-width: 44rem;
+  font-size: clamp(1.15rem, 2.2vw, 1.6rem);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+/* ─── Act VI: the call ────────────────────────────────────────────────────── */
+
+.ld-final {
+  display: flex;
+  min-height: 92svh;
+}
+
+.ld-cta {
+  display: inline-block;
+  background: var(--color-action);
+  border: 1px solid var(--color-action);
+  border-radius: 3px;
+  color: #ffffff;
+  font-size: clamp(1.15rem, 2vw, 1.4rem);
+  font-weight: 700;
+  padding: 1.05rem 2.3rem;
+  text-decoration: none;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+.ld-cta:hover {
+  background: #163d76;
+  transform: translateY(-2px);
+}
+.ld-dark a.ld-cta {
+  color: #ffffff;
+}
+
+.ld-final-alt {
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-underline-offset: 4px;
+}
