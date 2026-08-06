@@ -879,6 +879,23 @@ export async function extractStage(
  * from. A holding that fails is deleted, not flagged: the corpus is what the
  * product cites from, and a citation that does not check out has no business
  * being available to cite.
+ *
+ * A failure is also the only evidence we get that extraction is going wrong, so
+ * before the row is deleted the quote is chased through the rest of the
+ * document. Two very different faults both surface here as
+ * `not_found_in_source`, and the count alone cannot tell them apart:
+ *
+ *   The model invented text. Nothing in the document contains the quote. This
+ *   is the fault the citation invariant exists to catch.
+ *
+ *   The model quoted faithfully and filed it against the wrong span. Extraction
+ *   sends several passages per call and splits the batch when the provider
+ *   refuses it as too large, so a holding can land on its neighbour. The quote
+ *   is real, the corpus loses it anyway, and no prompt change fixes it.
+ *
+ * The first needs the prompt fixed. The second needs attribution fixed. Telling
+ * the operator which one they have costs one query per failure, and failures
+ * are rare by construction.
  */
 export async function verifyStage(): Promise<StageResult & { failureRate: number }> {
   const result = empty();
@@ -887,6 +904,9 @@ export async function verifyStage(): Promise<StageResult & { failureRate: number
     .select({
       id: holding.id,
       quote: holding.verbatimQuote,
+      spanId: holding.spanId,
+      documentId: holding.sourceDocumentId,
+      spanOrdinal: sourceSpan.ordinal,
       spanText: sourceSpan.text,
       citation: sourceDocument.citation,
     })
@@ -896,6 +916,8 @@ export async function verifyStage(): Promise<StageResult & { failureRate: number
     .where(isNull(holding.verifiedAt));
 
   const discarded: string[] = [];
+  const siblingSpans = new Map<string, SiblingSpan[]>();
+  let misattributed = 0;
 
   for (const row of pending) {
     const check = verifyQuote(row.quote, row.spanText);
@@ -905,14 +927,33 @@ export async function verifyStage(): Promise<StageResult & { failureRate: number
         .set({ verifiedAt: new Date() })
         .where(eq(holding.id, row.id));
       result.processed += 1;
-    } else {
-      discarded.push(row.id);
-      result.failed += 1;
-      log.warn('holding discarded: the quote is not in the span it cites', {
-        citation: row.citation,
-        reason: check.reason,
-      });
+      continue;
     }
+
+    discarded.push(row.id);
+    result.failed += 1;
+
+    // Only a quote that was well formed and simply absent is worth chasing. An
+    // empty or too-short quote failed on its own shape and no span will hold it.
+    const elsewhere =
+      check.reason === 'not_found_in_source'
+        ? await findQuoteElsewhereInDocument(row.documentId, row.spanId, row.quote, siblingSpans)
+        : null;
+
+    if (elsewhere) misattributed += 1;
+
+    log.warn('holding discarded: the quote is not in the span it cites', {
+      citation: row.citation,
+      reason: check.reason,
+      spanId: row.spanId,
+      spanOrdinal: row.spanOrdinal,
+      // Enough of the quote to recognise it in the source, and bounded so a run
+      // that discards many does not bury the rest of the log.
+      quote: row.quote.slice(0, QUOTE_LOG_CHARS),
+      // The span the quote actually lives in, or null when it lives nowhere in
+      // this document. This is the field that separates the two faults.
+      foundInSpanOrdinal: elsewhere?.ordinal ?? null,
+    });
   }
 
   for (const id of discarded) {
@@ -922,7 +963,16 @@ export async function verifyStage(): Promise<StageResult & { failureRate: number
   const total = pending.length;
   const failureRate = total === 0 ? 0 : result.failed / total;
 
-  if (failureRate > 0.05) {
+  if (misattributed > 0) {
+    result.notes.push(
+      `${misattributed} of ${result.failed} discarded quote(s) were found verbatim in ` +
+        'another span of the same document, so extraction is attributing holdings to the ' +
+        'wrong span rather than inventing text. Look at batching in lib/corpus/extract.ts, ' +
+        'not at the prompt.',
+    );
+  }
+
+  if (exceedsFailureThreshold(result.failed, total)) {
     result.notes.push(
       `Verification failure rate is ${(failureRate * 100).toFixed(1)} percent, above the ` +
         '5 percent threshold. The extraction prompt is producing quotes that are not in ' +
@@ -931,6 +981,87 @@ export async function verifyStage(): Promise<StageResult & { failureRate: number
   }
 
   return { ...result, failureRate };
+}
+
+interface SiblingSpan {
+  id: string;
+  ordinal: number;
+  text: string;
+}
+
+/** How much of a discarded quote goes into the log line. */
+const QUOTE_LOG_CHARS = 120;
+
+/**
+ * Look for a failed quote in every other span of the same document.
+ *
+ * Matching goes through `verifyQuote` rather than a plain `includes`, so the
+ * answer means the same thing as the check that just rejected it: same
+ * normalisation, same minimum length, same notion of a match. A hit here proves
+ * the quote is real and the span reference is wrong.
+ *
+ * Spans are cached per document because failures cluster: a batch that
+ * misattributed one holding usually misattributed its neighbours too, and they
+ * all belong to the same chapter.
+ */
+async function findQuoteElsewhereInDocument(
+  documentId: string,
+  citedSpanId: string,
+  quote: string,
+  cache: Map<string, SiblingSpan[]>,
+): Promise<SiblingSpan | null> {
+  let spans = cache.get(documentId);
+
+  if (!spans) {
+    spans = await db
+      .select({ id: sourceSpan.id, ordinal: sourceSpan.ordinal, text: sourceSpan.text })
+      .from(sourceSpan)
+      .where(eq(sourceSpan.sourceDocumentId, documentId));
+    cache.set(documentId, spans);
+  }
+
+  for (const span of spans) {
+    if (span.id === citedSpanId) continue;
+    if (verifyQuote(quote, span.text).ok) return span;
+  }
+
+  return null;
+}
+
+/**
+ * Whether the evidence supports the claim that extraction is failing more than
+ * 5 percent of the time.
+ *
+ * The 5 percent target is not the thing that changed here. What changed is that
+ * a ratio taken over a handful of holdings is not a measurement of it. A run
+ * that verifies 23 holdings trips a bare `failed / total > 0.05` on its second
+ * discard, and one on its first if it verifies 19, which is how a batch well
+ * inside the established rate can stop the line for no reason.
+ *
+ * So the comparison is against the lower bound of the Wilson score interval:
+ * the smallest true rate consistent with what was observed, at 95 percent
+ * confidence. Three failures in 23 gives a lower bound of 4.5 percent, which
+ * does not clear 5 and does not fail. Five in 102 gives 2.1 percent and does
+ * not fail either, matching the runs that established the baseline. Eight in 23
+ * gives 18.8 percent and does fail, so a genuinely broken small batch still
+ * stops the line rather than being excused for being small.
+ *
+ * Wilson rather than the textbook normal interval because the normal one is
+ * badly behaved exactly where this lives: small samples and rates near zero.
+ */
+export function exceedsFailureThreshold(failed: number, total: number): boolean {
+  if (total === 0 || failed === 0) return false;
+
+  const z = 1.96;
+  const p = failed / total;
+  const zSquaredOverN = (z * z) / total;
+
+  const centre = (p + zSquaredOverN / 2) / (1 + zSquaredOverN);
+  const margin =
+    (z / (1 + zSquaredOverN)) *
+    Math.sqrt((p * (1 - p)) / total + (z * z) / (4 * total * total));
+
+  return centre - margin > 0.05;
 }
 
 /* ─── 5. Embed ────────────────────────────────────────────────────────────── */

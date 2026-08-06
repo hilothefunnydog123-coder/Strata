@@ -406,9 +406,45 @@ describe('the stages after the fetch', () => {
     expect(after).toHaveLength(0);
   }, 60_000);
 
+  it('tells a misattributed quote apart from an invented one', async () => {
+    // Both faults arrive as the same failure, and the operator needs to know
+    // which one they have. An invented quote means the extraction prompt is
+    // wrong. A real quote filed against the wrong span means batching is wrong,
+    // and no amount of prompt work will fix it.
+    await db.delete(holding);
+    await reExtract();
+    await extractStage();
+
+    const [row] = await db.select().from(holding).limit(1);
+    // Keep the genuine quote and move the holding onto a different span of the
+    // same document, which is exactly what a split batch does when a holding
+    // lands on its neighbour.
+    const elsewhere = await db
+      .select()
+      .from(sourceSpan)
+      .where(sql`${sourceSpan.id} <> ${row!.spanId} and ${sourceSpan.sourceDocumentId} = ${row!.sourceDocumentId}`)
+      .limit(1);
+
+    await db
+      .update(holding)
+      .set({ spanId: elsewhere[0]!.id, verifiedAt: null })
+      .where(eq(holding.id, row!.id));
+
+    const result = await verifyStage();
+
+    // Still discarded. A holding that does not check out against the span it
+    // names is not citable, whatever the reason, and this must not soften that.
+    expect(result.failed).toBe(1);
+    expect(await db.select().from(holding).where(eq(holding.id, row!.id))).toHaveLength(0);
+
+    // The part that is new: the run says which fault it was.
+    expect(result.notes.join(' ')).toContain('another span of the same document');
+  }, 60_000);
+
   it('embeds holdings so retrieval can score them', async () => {
-    // The previous test broke the stored quote deliberately. Re-running the
-    // extraction from scratch restores a real one rather than a typed copy.
+    // The previous tests broke the stored quote and then its span reference.
+    // Re-running the extraction from scratch restores a real one rather than a
+    // typed copy.
     await db.delete(holding);
     await reExtract();
     await extractStage();
