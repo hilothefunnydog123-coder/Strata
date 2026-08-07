@@ -140,10 +140,9 @@ export default function Home() {
             <p className="ld-burn-num">
               <BurnCounter ratePerSecond={BURN_RATE_PER_SECOND} />
             </p>
-            <p className="ld-burn-tail">
-              Denied claims nobody appealed: <strong className="ld-loss">$634 every second</strong>,{' '}
-              <strong className="ld-loss">$20 billion every year</strong>. Not because the denials
-              were right. Because answering one costs 40 minutes nobody has.
+            <p className="ld-burn-tail ld-loss">
+              Denied claims nobody appealed: $634 every second, $20 billion every year. Not
+              because the denials were right. Because answering one costs 40 minutes nobody has.
             </p>
           </div>
 
@@ -286,12 +285,12 @@ export default function Home() {
             <div className="ld-card ld-fx">
               <p className="ld-kicker ld-win">04 · The record</p>
               <h2 className="ld-h2 mt-5">The arguments that win are public record.</h2>
-              <p className="mt-5 text-lg font-medium leading-relaxed">
+              <p className="ld-win mt-5 text-lg font-bold leading-relaxed">
                 Every Medicare appeal that reaches the Departmental Appeals Board becomes a
-                published decision: the argument made, the facts that mattered, who won.{' '}
-                <strong className="ld-win">Thousands of decisions, read by almost nobody.</strong>{' '}
-                Medeal indexes every holding against the passage it came from and retrieves the
-                ones that already won your argument.
+                published decision: the argument made, the facts that mattered, who won.
+                Thousands of decisions, read by almost nobody. Medeal indexes every holding
+                against the passage it came from and retrieves the ones that already won your
+                argument.
               </p>
             </div>
           </div>
@@ -350,10 +349,10 @@ export default function Home() {
             <br />
             one denial.
           </h2>
-          <p className="ld-fx mt-8 max-w-2xl text-lg font-medium leading-relaxed sm:text-xl" style={delay(0.3)}>
+          <p className="ld-win ld-fx mt-8 max-w-2xl text-lg font-bold leading-relaxed sm:text-xl" style={delay(0.3)}>
             Bring one denial letter and the matching record to a 30 minute call. You leave with a
-            drafted appeal and <strong className="ld-win">every citation resolvable</strong>.
-            Until a business associate agreement is in place, we work from a redacted copy.
+            drafted appeal and every citation resolvable. Until a business associate agreement is
+            in place, we work from a redacted copy.
           </p>
           <p className="ld-fx mt-12 flex flex-wrap items-center gap-6" style={delay(0.45)}>
             <Link href="/demo" className="ld-cta on-action">
