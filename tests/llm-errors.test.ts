@@ -12,6 +12,7 @@ import {
   asReadableError,
   complete,
   LlmBoundaryError,
+  ModelMalformedOutputError,
   ModelRateLimitedError,
   ModelRequestTooLargeError,
 } from '@/lib/llm/client';
@@ -108,6 +109,66 @@ describe('provider errors name the remedy', () => {
     const malformed = Object.assign(new Error('unknown field: temperatur'), { status: 400 });
 
     expect(asReadableError(malformed)).toBe(malformed);
+  });
+
+  it('a completion the provider refuses as invalid JSON is its own class', () => {
+    // The failure that stalled Benefit Policy Manual Ch. 7 on fourteen passages
+    // across repeated runs. Groq validates the completion against the requested
+    // response format and refuses its own model's output with a 400, which is
+    // not a rate limit and not a size refusal, so nothing in the extractor
+    // caught it and it ended the document instead of the call.
+    const groq = Object.assign(new Error('json validate failed'), {
+      status: 400,
+      code: 'json_validate_failed',
+      error: { code: 'json_validate_failed', type: 'invalid_request_error' },
+    });
+
+    const translated = asReadableError(groq);
+
+    expect(translated).toBeInstanceOf(ModelMalformedOutputError);
+    expect((translated as Error).message).toContain('json_validate_failed');
+  });
+
+  it('recognises it from the code alone, whatever the message says', () => {
+    // The SDK's message is generated client noise on some versions and the
+    // provider's sentence on others. The code is the part that is stable.
+    const coded = Object.assign(new Error('generated client noise'), {
+      status: 400,
+      code: 'json_validate_failed',
+    });
+
+    expect(asReadableError(coded)).toBeInstanceOf(ModelMalformedOutputError);
+  });
+
+  it('recognises it from the message alone, for a provider that sends no code', () => {
+    const worded = Object.assign(
+      new Error('The model failed to generate valid JSON for the requested format.'),
+      { status: 400 },
+    );
+
+    expect(asReadableError(worded)).toBeInstanceOf(ModelMalformedOutputError);
+  });
+
+  it('does not mistake an ordinary bad request for a cut off answer', () => {
+    // The mirror of the test above it, and the reason this classifier is
+    // narrow where the size one is generous. Both arrive as a 400. Treating a
+    // bug in our prompt assembly as something to retry smaller would bury it
+    // in a splitting loop that ends with a passage skipped for no reason.
+    const bug = Object.assign(new Error('unknown field: temperatur'), { status: 400 });
+
+    expect(asReadableError(bug)).not.toBeInstanceOf(ModelMalformedOutputError);
+  });
+
+  it('keeps a size refusal a size refusal, even worded as a JSON problem', () => {
+    // Order matters between the two 400 classifiers. A context length message
+    // is answered by splitting either way, but the class names the reason, and
+    // the reason is what someone reads in the log.
+    const sized = Object.assign(
+      new Error("This model's maximum context length is 8192 tokens."),
+      { status: 400 },
+    );
+
+    expect(asReadableError(sized)).toBeInstanceOf(ModelRequestTooLargeError);
   });
 
   it('reads Retry-After off a Headers instance, not just a plain object', () => {

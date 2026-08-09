@@ -24,7 +24,11 @@ import {
   parseText,
 } from '@/lib/documents/parse';
 import { extractPdfText } from '@/lib/denials/pdf';
-import { ModelRateLimitedError, ModelRequestTooLargeError } from '@/lib/llm/client';
+import {
+  ModelMalformedOutputError,
+  ModelRateLimitedError,
+  ModelRequestTooLargeError,
+} from '@/lib/llm/client';
 import {
   batchSpans,
   EXTRACTION_MAX_OUTPUT_TOKENS,
@@ -615,6 +619,10 @@ export async function extractStage(
       // be replaced by its two halves and tried again.
       const queue = batchSpans(spans);
 
+      // Passages already given a second call with a larger output reservation,
+      // so one that fails twice is given up on rather than tried forever.
+      const enlarged = new Set<string>();
+
       while (queue.length > 0) {
         const batch = queue.shift();
         if (!batch) break;
@@ -630,6 +638,11 @@ export async function extractStage(
               headingPath: s.headingPath,
             })),
             models[modelIndex],
+            // The usual reservation, except for a lone passage whose answer
+            // has already been cut off once.
+            batch.length === 1 && batch[0] && enlarged.has(batch[0].id)
+              ? EXTRACTION_MAX_OUTPUT_TOKENS * 2
+              : undefined,
           );
         } catch (error) {
           // A spent per minute allowance is not a failure, it is a wait. The
@@ -709,33 +722,80 @@ export async function extractStage(
             continue;
           }
 
-          if (!(error instanceof ModelRequestTooLargeError)) throw error;
+          // Two refusals, one remedy: send less.
+          //
+          // Too large is the provider declining to read the request. Malformed
+          // output is the provider declining to return what the model wrote,
+          // because the completion stopped at the output reservation partway
+          // through an object. Splitting fixes both, because half as many
+          // passages make both halves of the exchange smaller.
+          //
+          // This was worth a day. A batch of five passages of Benefit Policy
+          // Manual Ch. 7 came back as json_validate_failed on every run, and
+          // because only the too large class was caught here, the error left
+          // the loop and ended the document. Being deterministic, the next run
+          // reached the same batch and died at the same passage, so a chapter
+          // sat at fourteen passages remaining across repeated runs and read
+          // like an exhausted daily allowance. It was twenty seconds of work
+          // failing the same way.
+          const malformed = error instanceof ModelMalformedOutputError;
+          if (!malformed && !(error instanceof ModelRequestTooLargeError)) throw error;
 
           const halves = halveBatch(batch);
-          if (halves === null) {
-            // One span the provider will not accept at any size. Skipping it
-            // loses whatever it held, so it is recorded by ordinal rather than
-            // counted: someone can go and look at that passage. Marked done, or
-            // every future run would retry it and fail the same way.
-            result.notes.push(
-              `${document.citation}: span ${batch[0]?.ordinal} is too large for the model ` +
-                'to accept on its own and was skipped. Nothing was extracted from it.',
+          if (halves !== null) {
+            log.info(
+              malformed
+                ? 'batch came back as malformed JSON, splitting'
+                : 'batch refused as too large, splitting',
+              {
+                citation: document.citation,
+                from: batch.length,
+                to: halves.map((h) => h.length),
+              },
             );
-            if (batch[0]) {
-              await db
-                .update(sourceSpan)
-                .set({ extractedAt: new Date() })
-                .where(eq(sourceSpan.id, batch[0].id));
-            }
+            queue.unshift(...halves);
             continue;
           }
 
-          log.info('batch refused as too large, splitting', {
-            citation: document.citation,
-            from: batch.length,
-            to: halves.map((h) => h.length),
-          });
-          queue.unshift(...halves);
+          // Nothing left to halve: one passage, on its own.
+          const only = batch[0];
+
+          // For a cut off answer there is one thing left to try, and it is not
+          // sending less. A single passage whose holdings do not fit in the
+          // reservation needs a larger reservation, so it gets one call with a
+          // doubled one before being given up on. Once per passage, tracked by
+          // id, because a second failure means the size was never the problem
+          // and repeating it would spin.
+          if (malformed && only && !enlarged.has(only.id)) {
+            enlarged.add(only.id);
+            log.info('passage answered with invalid JSON on its own, retrying with more room', {
+              citation: document.citation,
+              ordinal: only.ordinal,
+              maxTokens: EXTRACTION_MAX_OUTPUT_TOKENS * 2,
+            });
+            queue.unshift(batch);
+            continue;
+          }
+
+          // A passage nothing has worked on. Skipping it loses whatever it
+          // held, so it is recorded by ordinal rather than counted: someone can
+          // go and look at that passage. Marked done, or every future run would
+          // retry it and fail the same way, which is the failure this whole
+          // branch exists to end.
+          result.notes.push(
+            malformed
+              ? `${document.citation}: span ${only?.ordinal} was answered with invalid JSON ` +
+                  'on its own and again with a doubled output reservation, so it was ' +
+                  'skipped. Nothing was extracted from it.'
+              : `${document.citation}: span ${only?.ordinal} is too large for the model ` +
+                  'to accept on its own and was skipped. Nothing was extracted from it.',
+          );
+          if (only) {
+            await db
+              .update(sourceSpan)
+              .set({ extractedAt: new Date() })
+              .where(eq(sourceSpan.id, only.id));
+          }
           continue;
         }
 

@@ -254,6 +254,15 @@ ${body}`;
  * was under 900 tokens. A truncated response is not a silent corruption either:
  * it is unparseable JSON, which fails the batch loudly rather than producing a
  * short list that looks complete.
+ *
+ * Loudly was the word to be careful about. Failing the batch is right and it is
+ * what happens, but for a long time nothing caught it: the provider refuses a
+ * truncated completion with HTTP 400 and code json_validate_failed, only the
+ * too large refusal was handled, and the error ended the document rather than
+ * the call. A chapter stopped at the same passage on every run and looked like
+ * a spent allowance. The extractor now splits on this exactly as it does on a
+ * request that was too large, and a single passage that still cannot answer
+ * inside the reservation is retried once with twice as much room.
  */
 export const EXTRACTION_MAX_OUTPUT_TOKENS = 2048;
 
@@ -263,6 +272,11 @@ export async function extractHoldings(
   spans: readonly SpanForExtraction[],
   /** Set when the stage has rotated off a model whose allowance is spent. */
   model?: string,
+  /**
+   * Set only for a single passage whose answer was already cut off once, where
+   * sending less is not available because there is nothing left to split.
+   */
+  maxTokens?: number,
 ): Promise<LlmResponse<{ holdings: unknown[] }>> {
   return complete({
     stage: 'corpus_extract',
@@ -273,7 +287,7 @@ export async function extractHoldings(
     // Published government decisions. There is no patient data in this corpus,
     // which is why extraction can run in synthetic mode.
     containsPhi: false,
-    maxTokens: EXTRACTION_MAX_OUTPUT_TOKENS,
+    maxTokens: maxTokens ?? EXTRACTION_MAX_OUTPUT_TOKENS,
   });
 }
 

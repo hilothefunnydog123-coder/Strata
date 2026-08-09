@@ -117,6 +117,32 @@ export class ModelRequestTooLargeError extends LlmBoundaryError {
 }
 
 /**
+ * The model wrote something that is not valid JSON, and nothing came back to
+ * read.
+ *
+ * Its own class for the same reason as the one above: the caller can act on it
+ * without a person. The usual cause is not a confused model but a cut off one.
+ * A completion stops at the output reservation wherever it has got to, and
+ * stopping partway through an object leaves JSON that no reader will accept,
+ * so the remedy is the same as for a request that was too large: send fewer
+ * passages, because half as many produce half as much answer.
+ *
+ * Where it is noticed depends on the provider rather than on what happened.
+ * Groq validates the completion itself and refuses it with HTTP 400 and code
+ * json_validate_failed, so the request fails and no text arrives. A provider
+ * that does not enforce the response format returns the truncated text and it
+ * fails here instead, when it is parsed. Identical condition, identical
+ * remedy, so both land in this class and the caller does not have to know
+ * which provider it is talking to.
+ */
+export class ModelMalformedOutputError extends LlmBoundaryError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ModelMalformedOutputError';
+  }
+}
+
+/**
  * The provider's per minute allowance is spent, and it will accept the same
  * request again shortly.
  *
@@ -321,8 +347,39 @@ function extractJson(text: string): unknown {
     if (start !== -1 && end > start) {
       return JSON.parse(candidate.slice(start, end + 1));
     }
-    throw new Error('The model did not return parseable JSON.');
+    throw new ModelMalformedOutputError(
+      'The model did not return parseable JSON. The usual cause is a completion cut ' +
+        'off at the output reservation partway through an object, so the remedy is to ' +
+        'ask for less in one call. The corpus extractor splits and retries on its own.',
+    );
   }
+}
+
+/**
+ * Does this error mean "the model's answer was not JSON"?
+ *
+ * Narrower than isTooLarge above, and deliberately so. That one errs toward
+ * matching because a false match costs one wasted retry at half the size. This
+ * one is reached with the same remedy but from an ordinary 400, which is also
+ * the status a genuinely malformed request arrives with, and treating a bug in
+ * our own prompt assembly as something to retry smaller would hide it behind a
+ * splitting loop that ends in a passage skipped for no reason. So this matches
+ * the provider saying it was the generation that failed validation, and
+ * nothing else.
+ */
+function isMalformedGeneration(error: unknown, status: number | undefined): boolean {
+  if (status !== 400) return false;
+
+  // The SDK lifts the body's error code onto the error, and older versions and
+  // hand rolled errors leave it in the body, so both are read.
+  const shape = error as { code?: unknown; error?: { code?: unknown } } | null;
+  const code = shape?.code ?? shape?.error?.code;
+  if (code === 'json_validate_failed') return true;
+
+  const message = (error as { message?: string } | null)?.message ?? '';
+  return /json_validate_failed|failed to generate valid json|generated json.*not valid|invalid json/i.test(
+    message,
+  );
 }
 
 /**
@@ -422,6 +479,17 @@ export function asReadableError(error: unknown): unknown {
         'once it is split. A free tier sets this low, often a few thousand tokens per ' +
         'request. The corpus extractor splits and retries on its own; anything else ' +
         'reaching this needs a smaller input.',
+    );
+  }
+
+  if (isMalformedGeneration(error, status)) {
+    return new ModelMalformedOutputError(
+      'The model provider refused its own completion for not being valid JSON (HTTP ' +
+        '400, json_validate_failed). This is the model being cut off rather than a ' +
+        'broken key or a bad prompt: the completion stopped at the output reservation ' +
+        'partway through an object. The same request succeeds once it is split, because ' +
+        'fewer passages produce a shorter answer. The corpus extractor splits and ' +
+        'retries on its own.',
     );
   }
 
@@ -539,6 +607,16 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
       log.info('model refused the request as too large', {
         stage: request.stage,
         tokens: inputTokens,
+      });
+    } else if (readable instanceof ModelMalformedOutputError) {
+      // Routine for the same reason, and handled the same way: the caller
+      // splits the batch and the passages come back on the next call. A stack
+      // trace here would make a run that is recovering read like one that is
+      // failing, which is exactly how this one was first diagnosed as a quota
+      // problem.
+      log.info('model returned output that was not valid JSON', {
+        stage: request.stage,
+        outputTokens,
       });
     } else if (readable instanceof ModelRateLimitedError) {
       // Same reasoning. The caller waits this out and says so; a stack trace

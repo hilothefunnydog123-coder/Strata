@@ -25,7 +25,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { rm } from 'node:fs/promises';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { eq, sql } from 'drizzle-orm';
+import { eq, isNull, sql } from 'drizzle-orm';
 
 /* ─── The documents the fake source serves ────────────────────────────────── */
 
@@ -243,9 +243,9 @@ const { fetchDocument, resetCrawlerState, RobotsDisallowedError, userAgent } = a
 );
 const { db } = await import('@/lib/db');
 const { holding, sourceDocument, sourceSpan } = await import('@/lib/db/schema');
-const { complete, ModelRateLimitedError, ModelRequestTooLargeError } = await import(
-  '@/lib/llm/client'
-);
+const { complete, ModelMalformedOutputError, ModelRateLimitedError, ModelRequestTooLargeError } =
+  await import('@/lib/llm/client');
+const { EXTRACTION_MAX_OUTPUT_TOKENS } = await import('@/lib/corpus/extract');
 
 /** The stand-in defined above, so a test can borrow and restore it. */
 const defaultComplete = vi.mocked(complete).getMockImplementation()!;
@@ -269,6 +269,28 @@ function refusingLargeBatches(alsoRefuse?: (user: string) => boolean): typeof co
   return (async (request: CompleteRequest) => {
     if (spanCount(request.user) > 1 || alsoRefuse?.(request.user)) {
       throw new ModelRequestTooLargeError('refused: too many tokens');
+    }
+    return defaultComplete(request);
+  }) as typeof complete;
+}
+
+/**
+ * A provider that refuses its own model's completion for not being valid JSON.
+ *
+ * The predicate takes the whole request rather than the prompt, because what
+ * decides this one is not only how many passages went in but how much room the
+ * answer was given, and the second attempt at a lone passage changes exactly
+ * that.
+ */
+function answeringWithInvalidJson(
+  refuse: (request: CompleteRequest) => boolean,
+): typeof complete {
+  return (async (request: CompleteRequest) => {
+    if (refuse(request)) {
+      throw new ModelMalformedOutputError(
+        'The model provider refused its own completion for not being valid JSON ' +
+          '(HTTP 400, json_validate_failed).',
+      );
     }
     return defaultComplete(request);
   }) as typeof complete;
@@ -527,6 +549,140 @@ describe('a provider that refuses the request size', () => {
     // The span that was skipped is named, because someone has to be able to go
     // and look at what was lost.
     expect(result.notes.some((note) => /span \d+ is too large/.test(note))).toBe(true);
+  }, 60_000);
+});
+
+/**
+ * A completion the provider refuses as invalid JSON.
+ *
+ * This is the failure that stalled the corpus on its last fourteen passages,
+ * and it cost a day of being read as something else. Benefit Policy Manual
+ * Ch. 7 sat at 94 passages done and 14 remaining across repeated runs, each one
+ * ending in about twenty seconds. That reads exactly like a spent daily
+ * allowance and it was nothing of the kind: one batch of five passages produced
+ * an answer longer than the output reservation, the completion was cut off
+ * partway through an object, and Groq refused its own model's output with an
+ * HTTP 400 whose code is json_validate_failed.
+ *
+ * Only the too large refusal was caught in the extract loop, so this one left
+ * the loop and ended the document. Deterministic, so every subsequent run
+ * reached the same batch and died at the same passage. A daily schedule would
+ * have repeated it forever.
+ *
+ * The remedy is the one already there for a request that was too large, and for
+ * the same reason: fewer passages in, less answer out.
+ */
+describe('a provider that refuses its own output as invalid JSON', () => {
+  beforeAll(async () => {
+    await db.delete(holding);
+    await reExtract();
+  });
+
+  afterAll(() => {
+    vi.mocked(complete).mockImplementation(defaultComplete);
+  });
+
+  it('splits the batch and finishes the document rather than abandoning it', async () => {
+    vi.mocked(complete).mockImplementation(
+      answeringWithInvalidJson((request) => spanCount(request.user) > 1),
+    );
+
+    const result = await extractStage();
+
+    // The regression, stated as the thing that was actually wrong: before this,
+    // the error propagated out of the batch loop and the document ended
+    // unfinished with passages still pending.
+    expect(result.failed).toBe(0);
+    expect(result.processed).toBe(2);
+
+    const pending = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(sourceSpan)
+      .where(isNull(sourceSpan.extractedAt));
+    expect(pending[0]!.n).toBe(0);
+
+    const holdings = await db.select().from(holding);
+    expect(holdings).toHaveLength(1);
+    expect(holdings[0]!.verbatimQuote).toContain('may not apply coverage criteria');
+
+    // And splitting did not break the anchoring, which is the thing worth
+    // checking every time a batch is reshaped.
+    const verified = await verifyStage();
+    expect(verified.failureRate).toBe(0);
+  }, 60_000);
+
+  it('gives a lone passage more room rather than giving up on it', async () => {
+    await db.delete(holding);
+    await reExtract();
+
+    // Splitting has an end, and this is what lies past it. One passage whose
+    // answer does not fit cannot be made smaller, so the only thing left to
+    // change is how much room the answer gets.
+    vi.mocked(complete).mockImplementation(
+      answeringWithInvalidJson(
+        (request) => (request.maxTokens ?? 0) <= EXTRACTION_MAX_OUTPUT_TOKENS,
+      ),
+    );
+
+    const result = await extractStage();
+
+    expect(result.failed).toBe(0);
+    expect(result.processed).toBe(2);
+
+    // Nothing was skipped: the passage came back on the second attempt.
+    expect(result.notes.some((note) => /was answered with invalid JSON/.test(note))).toBe(false);
+
+    const holdings = await db.select().from(holding);
+    expect(holdings).toHaveLength(1);
+
+    const verified = await verifyStage();
+    expect(verified.failureRate).toBe(0);
+  }, 60_000);
+
+  it('skips a passage that fails at any size, names it, and keeps going', async () => {
+    await db.delete(holding);
+    await reExtract();
+
+    // A passage nothing works on. The stage has to record the loss, mark the
+    // passage done so the next run does not meet the same wall, and carry on
+    // with the rest of the chapter.
+    const rulePhrase = 'may not apply coverage criteria more';
+
+    // Counted only once the splitting has finished, because the batches that
+    // carried this passage on the way down were refused too and those refusals
+    // are the loop working rather than the loop repeating itself.
+    let alone = 0;
+    vi.mocked(complete).mockImplementation(
+      answeringWithInvalidJson((request) => {
+        if (!request.user.includes(rulePhrase)) return spanCount(request.user) > 1;
+        if (spanCount(request.user) === 1) alone += 1;
+        return true;
+      }),
+    );
+
+    const result = await extractStage();
+
+    expect(result.failed).toBe(0);
+    expect(result.processed).toBe(2);
+
+    // Named by ordinal, because someone has to be able to go and look at what
+    // was lost rather than read that a number went down.
+    expect(
+      result.notes.some((note) => /span \d+ was answered with invalid JSON/.test(note)),
+    ).toBe(true);
+
+    // Twice and no more: once at the ordinary reservation and once at double
+    // it. A third attempt would mean the loop had found a way to spin, which
+    // is the failure mode this whole branch is here to avoid.
+    expect(alone).toBe(2);
+
+    // Marked done, or the next run meets the same passage and dies the same
+    // way, which is precisely what happened to Ch. 7 for a day.
+    const pending = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(sourceSpan)
+      .where(isNull(sourceSpan.extractedAt));
+    expect(pending[0]!.n).toBe(0);
   }, 60_000);
 });
 
