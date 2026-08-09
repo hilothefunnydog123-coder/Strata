@@ -141,8 +141,14 @@ describe('provider errors name the remedy', () => {
   });
 
   it('recognises it from the message alone, for a provider that sends no code', () => {
+    // Groq's actual sentence, copied from the run that stalled Ch. 7 rather
+    // than invented. The wording is close enough to a dozen other messages
+    // that guessing at it was not good enough.
     const worded = Object.assign(
-      new Error('The model failed to generate valid JSON for the requested format.'),
+      new Error(
+        "400 Failed to generate JSON. Please adjust your prompt. See 'failed_generation' " +
+          'for more details.',
+      ),
       { status: 400 },
     );
 

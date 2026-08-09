@@ -376,8 +376,13 @@ function isMalformedGeneration(error: unknown, status: number | undefined): bool
   const code = shape?.code ?? shape?.error?.code;
   if (code === 'json_validate_failed') return true;
 
+  // Groq's own sentence, measured off the failing run rather than guessed at:
+  // "400 Failed to generate JSON. Please adjust your prompt. See
+  // 'failed_generation' for more details." The code above is what actually
+  // matches it, and this is here for a provider that sends the sentence
+  // without a code.
   const message = (error as { message?: string } | null)?.message ?? '';
-  return /json_validate_failed|failed to generate valid json|generated json.*not valid|invalid json/i.test(
+  return /json_validate_failed|failed to generate (valid )?json|generated json.*not valid|invalid json/i.test(
     message,
   );
 }
