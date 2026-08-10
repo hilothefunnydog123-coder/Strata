@@ -30,6 +30,11 @@ on:
         required: false
         default: '3'
         type: string
+      model:
+        description: Which model writes the letters
+        required: false
+        default: openai/gpt-oss-120b
+        type: string
       ref:
         description: Which branch's code to run
         required: false
@@ -62,7 +67,13 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
       MODEL_BASE_URL: ${{ vars.MODEL_BASE_URL || 'https://api.groq.com/openai/v1' }}
-      MODEL_NAME: ${{ vars.MODEL_NAME || 'llama-3.3-70b-versatile' }}
+      # Not llama-3.3-70b-versatile, which is the account default and whose
+      # free daily allowance is spent: it answered the second drafting attempt
+      # with a Retry-After of 600 seconds, which is the daily signal rather than
+      # a throttle. Groq meters each model separately, so a model this account
+      # has not used today has a full bucket, and this one is larger than the
+      # default anyway. Override it from the Actions tab with the model input.
+      MODEL_NAME: ${{ inputs.model || 'openai/gpt-oss-120b' }}
 
       # Deliberately not set to MODEL_NAME_CORPUS. That variable points at the
       # small model extraction runs on, which is the right economy for reading a
