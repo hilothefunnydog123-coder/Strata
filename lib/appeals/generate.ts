@@ -30,7 +30,7 @@ import { retrieveAuthority, retrieveControllingAuthority } from '@/lib/corpus/re
 import { formatCents } from '@/components/ui/primitives';
 import { assertion, sourceKindMatches, type Section } from './assertion';
 import { classifyDenial } from './classify';
-import { extractClinicalFacts, findGaps, type DocumentationGap } from './facts';
+import { extractClinicalFacts, findGaps, parseFacts, type DocumentationGap } from './facts';
 import { buildDraftPrompt, draftAppeal, type DraftContext } from './draft';
 import { verifyDraft, type AssertionCandidate } from './verify';
 
@@ -199,7 +199,18 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
     text: string;
   }[] = [];
 
-  for (const fact of facts.value.facts) {
+  const { facts: usable, discarded: unparsable } = parseFacts(facts.value.facts);
+  if (unparsable.length > 0) {
+    // Reported rather than swallowed: a record that yields fewer facts than it
+    // holds produces a thinner letter, and nobody can see that from the letter.
+    log.info('clinical facts that did not parse were dropped', {
+      denialId,
+      dropped: unparsable.length,
+      firstReason: unparsable[0],
+    });
+  }
+
+  for (const fact of usable) {
     const span = spanByOrdinal.get(fact.spanOrdinal);
     if (!span) continue;
     const check = verifyDraft(
@@ -245,9 +256,12 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
 
   /* 3. Gap check, before drafting. */
 
+  // From the facts that parsed, not the ones that were returned. A fact that
+  // was dropped supports nothing, and counting it here would close a gap the
+  // letter cannot actually fill.
   const gaps = findGaps(
     criteria,
-    facts.value.facts.map((f) => ({ supportsCriterion: f.supportsCriterion })),
+    usable.map((f) => ({ supportsCriterion: f.supportsCriterion })),
   );
 
   /* 4. Retrieve authority. */

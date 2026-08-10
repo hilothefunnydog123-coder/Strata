@@ -37,9 +37,64 @@ export const clinicalFactSchema = z.object({
 
 export type ExtractedFact = z.infer<typeof clinicalFactSchema>;
 
-export const factExtractionSchema = z.object({
-  facts: z.array(clinicalFactSchema),
-});
+/**
+ * The envelope taken loosely, each fact inside it strictly.
+ *
+ * The third time this codebase has met the same failure and the second time it
+ * has been fixed by copying lib/corpus/extract.ts. Asking Zod for an array of
+ * facts means one malformed entry discards the batch, and on the first real run
+ * two facts arrived without spanOrdinal or factType, which threw away the four
+ * good ones beside them and ended the appeal.
+ *
+ * A fact that does not parse is dropped exactly like a fact whose quote is not
+ * in the span it cites, and for the same reason. Dropping its neighbours as
+ * well buys nothing. What stays strict is each fact, because each one becomes a
+ * clinical assertion in a letter that a reviewer checks against the chart.
+ */
+export const factExtractionSchema = z.preprocess((raw) => {
+  if (Array.isArray(raw)) return { facts: raw };
+
+  if (raw && typeof raw === 'object') {
+    const object = raw as Record<string, unknown>;
+    if (Array.isArray(object.facts)) return { facts: object.facts };
+
+    const arrays = Object.values(object).filter(Array.isArray);
+    if (arrays.length === 1) return { facts: arrays[0] };
+
+    if ('verbatimQuote' in object) return { facts: [object] };
+  }
+
+  return { facts: [] };
+}, z.object({ facts: z.array(z.unknown()) }));
+
+export interface ExtractedFacts {
+  facts: ExtractedFact[];
+  /** Why entries were dropped, so a run reports rather than silently thins. */
+  discarded: string[];
+}
+
+/** Keep the facts that parse; say what was wrong with the rest. */
+export function parseFacts(entries: readonly unknown[]): ExtractedFacts {
+  const facts: ExtractedFact[] = [];
+  const discarded: string[] = [];
+
+  for (const entry of entries) {
+    const parsed = clinicalFactSchema.safeParse(entry);
+    if (parsed.success) {
+      facts.push(parsed.data);
+      continue;
+    }
+
+    discarded.push(
+      parsed.error.issues
+        .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
+        .slice(0, 3)
+        .join('; '),
+    );
+  }
+
+  return { facts, discarded };
+}
 
 export const FACT_EXTRACTION_SYSTEM_PROMPT = `You read clinical documentation and pull out the facts that bear on specific Medicare coverage criteria.
 
@@ -90,12 +145,12 @@ export async function extractClinicalFacts(
   criteria: readonly string[],
   spans: readonly SpanForFactExtraction[],
   options: { containsPhi: boolean; denialId: string },
-): Promise<LlmResponse<z.infer<typeof factExtractionSchema>>> {
+): Promise<LlmResponse<{ facts: unknown[] }>> {
   return complete({
     stage: 'fact_extract',
     system: FACT_EXTRACTION_SYSTEM_PROMPT,
     user: buildFactExtractionPrompt(criteria, spans),
-    schema: factExtractionSchema,
+    schema: factExtractionSchema as z.ZodType<{ facts: unknown[] }>,
     containsPhi: options.containsPhi,
     denialId: options.denialId,
     maxTokens: 8192,
