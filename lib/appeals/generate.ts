@@ -25,7 +25,11 @@ import {
   sourceSpan,
 } from '@/lib/db/schema';
 import { log } from '@/lib/log';
-import { modelName, withRateLimitPatience } from '@/lib/llm/client';
+import {
+  ModelRequestTooLargeError,
+  modelName,
+  withRateLimitPatience,
+} from '@/lib/llm/client';
 import { retrieveAuthority, retrieveControllingAuthority } from '@/lib/corpus/retrieve';
 import { formatCents } from '@/components/ui/primitives';
 import { assertion, sourceKindMatches, type Section } from './assertion';
@@ -338,7 +342,7 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
 
   for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt += 1) {
     const drafted = await withRateLimitPatience('writing the appeal', () =>
-      draftAppeal(context, { containsPhi, denialId }),
+      draftWithinTheLimit(context, { containsPhi, denialId }),
     );
 
     const candidates: AssertionCandidate[] = [];
@@ -460,6 +464,67 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
+
+/**
+ * The fewest authorities a letter is still worth writing from.
+ *
+ * Below this the argument is too thin to be worth the paper, and failing with
+ * the provider's own message is more use than a letter citing one regulation
+ * because that was all that fitted.
+ */
+const MIN_AUTHORITIES = 3;
+
+/**
+ * Draft, and if the request is refused for size, cite less and draft again.
+ *
+ * The drafting call is the largest request the product makes: the denial
+ * quote, every clinical fact, up to twelve holdings and ten regulation
+ * passages, each carrying the full text of the passage so the model can quote
+ * it exactly. On a free tier that exceeds the per request limit, and the first
+ * real run was refused here after everything before it had succeeded.
+ *
+ * The corpus extractor answers this by halving its batch, and this is the same
+ * remedy shaped for a different job. A batch of passages can be split because
+ * each half is still a whole unit of work. A letter cannot: half a letter is
+ * not a letter. What can be reduced is how much authority is offered, and
+ * retrieval already returns it in descending order of relevance, so dropping
+ * from the end sheds the weakest support first.
+ *
+ * This narrows the argument, which is a real cost and is why it stops at
+ * MIN_AUTHORITIES rather than shrinking until something fits. A letter that
+ * cites the three strongest holdings is a good letter. A letter that cites one
+ * because the other eleven did not fit is a worse argument wearing the same
+ * invariant, and nobody reading it would know.
+ */
+async function draftWithinTheLimit(
+  context: DraftContext,
+  options: { containsPhi: boolean; denialId: string },
+): Promise<Awaited<ReturnType<typeof draftAppeal>>> {
+  let holdings = context.holdings;
+  let regulations = context.regulations;
+
+  for (;;) {
+    try {
+      return await draftAppeal({ ...context, holdings, regulations }, options);
+    } catch (error) {
+      if (!(error instanceof ModelRequestTooLargeError)) throw error;
+
+      const total = holdings.length + regulations.length;
+      if (total <= MIN_AUTHORITIES) throw error;
+
+      // Halved together rather than one at a time, so the mix of decisions and
+      // regulations the retrieval chose is roughly preserved on the way down.
+      holdings = holdings.slice(0, Math.max(1, Math.ceil(holdings.length / 2)));
+      regulations = regulations.slice(0, Math.max(1, Math.ceil(regulations.length / 2)));
+
+      log.info('the drafting request was refused as too large, citing less', {
+        denialId: options.denialId,
+        from: total,
+        to: holdings.length + regulations.length,
+      });
+    }
+  }
+}
 
 async function spansForKind(denialId: string, kind: 'denial_letter' | 'clinical_record') {
   return db
