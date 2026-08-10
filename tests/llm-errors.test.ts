@@ -15,6 +15,7 @@ import {
   ModelMalformedOutputError,
   ModelRateLimitedError,
   ModelRequestTooLargeError,
+  withRateLimitPatience,
 } from '@/lib/llm/client';
 import { z } from 'zod';
 
@@ -251,6 +252,80 @@ describe('provider errors name the remedy', () => {
     const original = new Error('something nobody has seen before');
 
     expect(asReadableError(original)).toBe(original);
+  });
+
+  it('waits out a short rate limit rather than losing the appeal', async () => {
+    // The generation chain's first run against a real provider reached fact
+    // extraction, was told to wait nine seconds, and ended the appeal. Every
+    // call already paid for went with it, because an appeal saves nothing until
+    // the end.
+    const slept: number[] = [];
+    let calls = 0;
+
+    const value = await withRateLimitPatience(
+      'writing the appeal',
+      async () => {
+        calls += 1;
+        if (calls < 3) {
+          throw new ModelRateLimitedError('429', 9);
+        }
+        return 'a letter';
+      },
+      { sleep: async (ms) => void slept.push(ms) },
+    );
+
+    expect(value).toBe('a letter');
+    expect(calls).toBe(3);
+    expect(slept).toEqual([9000, 9000]);
+  });
+
+  it('does not sit on a daily allowance pretending it is a minute', async () => {
+    // A provider asking for twenty minutes is not rate limiting this request,
+    // it is out of allowance. Waiting would hold a specialist with the case
+    // open in front of them for no reason.
+    const slept: number[] = [];
+
+    await expect(
+      withRateLimitPatience(
+        'writing the appeal',
+        async () => {
+          throw new ModelRateLimitedError('429', 1_200);
+        },
+        { sleep: async (ms) => void slept.push(ms) },
+      ),
+    ).rejects.toBeInstanceOf(ModelRateLimitedError);
+
+    expect(slept).toEqual([]);
+  });
+
+  it('gives up after a bounded number of waits', async () => {
+    const slept: number[] = [];
+    let calls = 0;
+
+    await expect(
+      withRateLimitPatience(
+        'writing the appeal',
+        async () => {
+          calls += 1;
+          throw new ModelRateLimitedError('429', 5);
+        },
+        { waits: 2, sleep: async (ms) => void slept.push(ms) },
+      ),
+    ).rejects.toBeInstanceOf(ModelRateLimitedError);
+
+    // Two waits, and a third attempt that is allowed to fail for good.
+    expect(slept).toHaveLength(2);
+    expect(calls).toBe(3);
+  });
+
+  it('passes anything that is not a rate limit straight through', async () => {
+    // Waiting cannot fix a rejected key, and retrying one four times turns a
+    // clear failure into a slow one.
+    await expect(
+      withRateLimitPatience('writing the appeal', async () => {
+        throw new LlmBoundaryError('the key is wrong');
+      }),
+    ).rejects.toThrow('the key is wrong');
   });
 
   it('still refuses to transmit when no key is configured at all', async () => {

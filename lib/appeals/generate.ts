@@ -25,7 +25,7 @@ import {
   sourceSpan,
 } from '@/lib/db/schema';
 import { log } from '@/lib/log';
-import { modelName } from '@/lib/llm/client';
+import { modelName, withRateLimitPatience } from '@/lib/llm/client';
 import { retrieveAuthority, retrieveControllingAuthority } from '@/lib/corpus/retrieve';
 import { formatCents } from '@/components/ui/primitives';
 import { assertion, sourceKindMatches, type Section } from './assertion';
@@ -138,10 +138,12 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
     );
   }
 
-  const classification = await classifyDenial(
-    record.payerName,
-    letterSpans.map((s) => ({ ordinal: s.ordinal, text: s.text })),
-    { containsPhi, denialId },
+  const classification = await withRateLimitPatience('reading the denial letter', () =>
+    classifyDenial(
+      record.payerName,
+      letterSpans.map((s) => ({ ordinal: s.ordinal, text: s.text })),
+      { containsPhi, denialId },
+    ),
   );
 
   // Both fall back to what a person typed at intake when the letter does not
@@ -176,10 +178,12 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
   const facts =
     recordSpans.length === 0
       ? { value: { facts: [] } }
-      : await extractClinicalFacts(
-          criteria,
-          recordSpans.map((s) => ({ ordinal: s.ordinal, text: s.text })),
-          { containsPhi, denialId },
+      : await withRateLimitPatience('reading the clinical record', () =>
+          extractClinicalFacts(
+            criteria,
+            recordSpans.map((s) => ({ ordinal: s.ordinal, text: s.text })),
+            { containsPhi, denialId },
+          ),
         );
 
   const spanByOrdinal = new Map(recordSpans.map((s) => [s.ordinal, s]));
@@ -319,7 +323,9 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
   const failures: string[] = [];
 
   for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt += 1) {
-    const drafted = await draftAppeal(context, { containsPhi, denialId });
+    const drafted = await withRateLimitPatience('writing the appeal', () =>
+      draftAppeal(context, { containsPhi, denialId }),
+    );
 
     const candidates: AssertionCandidate[] = [];
     let ordinal = 0;

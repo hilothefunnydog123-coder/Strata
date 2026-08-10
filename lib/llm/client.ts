@@ -165,6 +165,71 @@ export class ModelRateLimitedError extends LlmBoundaryError {
   }
 }
 
+/**
+ * How many times one generation call waits out a rate limit before giving up.
+ *
+ * Generation is not the corpus. A corpus stage checkpoints every passage, so
+ * stopping on a quota costs nothing but time and the elaborate patience in
+ * lib/corpus/pipeline.ts is worth its complexity there. An appeal is one chain
+ * of calls with nothing saved until the end, so stopping halfway throws away
+ * every call already paid for, and the person waiting is a specialist with the
+ * case open in front of them rather than a nightly job.
+ *
+ * So: a few short waits, and no model rotation. If the provider is asking for
+ * longer than the cap it is a daily allowance rather than a per minute one, and
+ * no amount of waiting inside one request will clear it.
+ */
+export const RATE_LIMIT_WAITS_PER_CALL = 4;
+export const RATE_LIMIT_MAX_WAIT_SECONDS = 60;
+
+const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Run one model call, waiting out a per minute rate limit rather than failing.
+ *
+ * The client sets maxRetries to 0 on purpose and says why: retrying belongs to
+ * the caller, because the caller is the only layer that knows whether the work
+ * is resumable and the only one that can say what it is doing while it waits.
+ * This is that layer for generation, and it exists because the generation chain
+ * had no equivalent at all. Its first run against a real provider reached the
+ * fact extraction call, was told to wait nine seconds, and ended the appeal.
+ *
+ * A 429 with a short interval is not a failure. It is the free tier working as
+ * documented, and the difference between a product that works on one and a
+ * product that does not is whether waiting is something the program does or
+ * something a person does.
+ */
+export async function withRateLimitPatience<T>(
+  what: string,
+  call: () => Promise<T>,
+  options: { waits?: number; sleep?: (ms: number) => Promise<void> } = {},
+): Promise<T> {
+  const limit = options.waits ?? RATE_LIMIT_WAITS_PER_CALL;
+  const sleep = options.sleep ?? wait;
+
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await call();
+    } catch (error) {
+      if (!(error instanceof ModelRateLimitedError)) throw error;
+
+      const seconds = error.retryAfterSeconds ?? 20;
+
+      // Longer than the cap means a daily allowance, which will not clear
+      // inside this request however patient it is. Failing now with the
+      // provider's own message beats holding a specialist for an hour.
+      if (seconds > RATE_LIMIT_MAX_WAIT_SECONDS || attempt > limit) throw error;
+
+      log.info('rate limited, waiting before trying the same call again', {
+        what,
+        seconds: Math.ceil(seconds),
+        attempt,
+      });
+      await sleep(seconds * 1000);
+    }
+  }
+}
+
 export interface LlmRequest<T> {
   stage: LlmStage;
   system: string;
