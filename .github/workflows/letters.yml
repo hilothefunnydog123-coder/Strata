@@ -1,0 +1,140 @@
+name: Sample letters
+
+# Generate appeal letters and print them, so a person can read what the product
+# writes.
+#
+# This answers the one line in SHIPCHECK.md that no test result can: nobody has
+# read a letter the model produced. The generation chain has been exercised end
+# to end with a stand-in at the model boundary, which proves the wiring and
+# proves that a quote missing from its source is rejected. It says nothing about
+# whether the writing is any good, and that is what a hospital is being asked to
+# put its name on.
+#
+# It runs here rather than on a laptop for the same reason the corpus stage
+# does: this is where the model key and the ingested corpus are. Retrieval needs
+# the real corpus, so a letter generated against anything else would be a
+# demonstration of the plumbing rather than a sample of the product.
+#
+# Synthetic cases only, and not as a formality. The letters are printed to a run
+# log on a public repository. PHI_MODE is synthetic here, so the model boundary
+# refuses any call carrying protected information before it is transmitted, and
+# the generator can only select rows tagged synthetic. Both have to hold.
+
+on:
+  # Once this file reaches the default branch, it can be started from the
+  # Actions tab like the corpus one.
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: How many letters to generate
+        required: false
+        default: '3'
+        type: string
+      ref:
+        description: Which branch's code to run
+        required: false
+        default: work
+        type: string
+
+  # Until then, it runs when the code it depends on changes, which is the only
+  # time there is anything new to read. A push event takes the workflow file
+  # from the branch pushed, so this works without touching the default branch.
+  push:
+    branches: [work]
+    paths:
+      - '.github/workflows/letters.yml'
+      - 'scripts/generate-samples.ts'
+      - 'lib/demo/seed.ts'
+      - 'lib/appeals/**'
+
+# One at a time. Two runs would reseed the demonstration data underneath each
+# other, and the second would be generating from rows the first had deleted.
+concurrency:
+  group: letters
+  cancel-in-progress: false
+
+jobs:
+  letters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
+      MODEL_BASE_URL: ${{ vars.MODEL_BASE_URL || 'https://api.groq.com/openai/v1' }}
+      MODEL_NAME: ${{ vars.MODEL_NAME || 'llama-3.3-70b-versatile' }}
+
+      # Deliberately not set to MODEL_NAME_CORPUS. That variable points at the
+      # small model extraction runs on, which is the right economy for reading a
+      # manual chapter and the wrong one for writing to a payer. Generation uses
+      # MODEL_NAME, and this is the first time anyone will see what that writes.
+
+      # The corpus holds published government documents and the cases here are
+      # fabricated, so synthetic is correct and is also the only mode this
+      # codebase supports.
+      PHI_MODE: synthetic
+      BETTER_AUTH_SECRET: letters_runner_no_sessions_are_issued_by_this_job_1
+      PHI_ENCRYPTION_KEY: bGV0dGVyc19ydW5uZXJfbmV2ZXJfd3JpdGVzX3BoaV9yb3dz
+      BETTER_AUTH_URL: https://medeal.netlify.app
+      APP_URL: https://medeal.netlify.app
+      DEMO_REQUEST_TO: corpus@example.com
+      CRAWLER_CONTACT: ${{ vars.CRAWLER_CONTACT || 'corpus@medeal.app' }}
+
+      # The seeder writes the two case documents here before parsing reads them
+      # back. Ephemeral, which is fine because seeding and generating happen in
+      # this one job.
+      LOCAL_STORAGE_DIR: .storage-letters
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref_name }}
+
+      - name: Say what is being run
+        run: |
+          echo "Branch:  ${{ inputs.ref || github.ref_name }}"
+          echo "Commit:  $(git rev-parse --short HEAD)"
+          echo "Subject: $(git log -1 --pretty=%s)"
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check the secrets are actually set
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL is not set."
+            exit 1
+          fi
+          if [ -z "$MODEL_API_KEY" ]; then
+            echo "MODEL_API_KEY is not set, and generation is nothing without it."
+            exit 1
+          fi
+
+      - name: Apply migrations
+        run: pnpm db:migrate
+
+      # Recreated rather than reused, because the demonstration cases already in
+      # the database were written before the seeder parsed the denial letter
+      # into passages, and generation refuses a case whose denial letter has
+      # none. This deletes and rewrites the demonstration organisation and the
+      # four documents the seeder owns. It does not touch the ingested corpus,
+      # which lives under different citations.
+      - name: Recreate the demonstration cases
+        run: pnpm seed:demo --reset
+
+      - name: Write the letters
+        run: pnpm tsx scripts/generate-samples.ts --limit=${{ inputs.limit || '3' }} 2>&1 | tee letters.log
+
+      - name: Keep them
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: sample-letters
+          path: letters.log
+          retention-days: 30
+          if-no-files-found: ignore
