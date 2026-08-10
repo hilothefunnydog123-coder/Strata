@@ -16,6 +16,8 @@ import {
   ModelRateLimitedError,
   ModelRequestTooLargeError,
   withRateLimitPatience,
+  correctionFor,
+  SCHEMA_RETRIES,
 } from '@/lib/llm/client';
 import { z } from 'zod';
 
@@ -326,6 +328,41 @@ describe('provider errors name the remedy', () => {
         throw new LlmBoundaryError('the key is wrong');
       }),
     ).rejects.toThrow('the key is wrong');
+  });
+
+  it('tells the model which fields it missed, not to try harder', () => {
+    // Four stages failed on their first contact with a real model and three
+    // were fixed separately before it was obvious they were one bug. What the
+    // retry sends back is the whole reason it is worth sending: a model
+    // corrects a named omission far more reliably than a general scolding.
+    const failed = z
+      .object({ spanOrdinal: z.number(), verbatimQuote: z.string() })
+      .safeParse({});
+
+    const correction = correctionFor((failed as { error: z.ZodError }).error);
+
+    expect(correction).toContain('spanOrdinal');
+    expect(correction).toContain('verbatimQuote');
+    expect(correction).toMatch(/previous answer could not be used/i);
+  });
+
+  it('does not invite the model to invent a quote to satisfy the schema', () => {
+    // The one way this retry could do harm. A model told only that
+    // verbatimQuote is required could fill it with something plausible, and a
+    // fabricated quote is the failure the whole product exists to prevent.
+    const failed = z.object({ verbatimQuote: z.string() }).safeParse({});
+    const correction = correctionFor((failed as { error: z.ZodError }).error);
+
+    expect(correction).toMatch(/do not invent a quote/i);
+    expect(correction).toMatch(/copied exactly/i);
+  });
+
+  it('asks again a bounded number of times', () => {
+    // Each attempt is a real call against a real allowance, and a model that
+    // has returned an unusable object three times with the fields named back
+    // to it is not going to manage on the fourth.
+    expect(SCHEMA_RETRIES).toBeGreaterThan(0);
+    expect(SCHEMA_RETRIES).toBeLessThanOrEqual(3);
   });
 
   it('still refuses to transmit when no key is configured at all', async () => {

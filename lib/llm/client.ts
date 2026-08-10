@@ -208,26 +208,62 @@ export async function withRateLimitPatience<T>(
   const sleep = options.sleep ?? wait;
 
   for (let attempt = 1; ; attempt += 1) {
-    try {
-      return await call();
-    } catch (error) {
-      if (!(error instanceof ModelRateLimitedError)) throw error;
+      try {
+        return await call();
+      } catch (error) {
+        if (!(error instanceof ModelRateLimitedError)) throw error;
 
-      const seconds = error.retryAfterSeconds ?? 20;
+        const seconds = error.retryAfterSeconds ?? 20;
 
-      // Longer than the cap means a daily allowance, which will not clear
-      // inside this request however patient it is. Failing now with the
-      // provider's own message beats holding a specialist for an hour.
-      if (seconds > RATE_LIMIT_MAX_WAIT_SECONDS || attempt > limit) throw error;
+        // Longer than the cap means a daily allowance, which will not clear
+        // inside this request however patient it is. Failing now with the
+        // provider's own message beats holding a specialist for an hour.
+        if (seconds > RATE_LIMIT_MAX_WAIT_SECONDS || attempt > limit) throw error;
 
-      log.info('rate limited, waiting before trying the same call again', {
-        what,
-        seconds: Math.ceil(seconds),
-        attempt,
-      });
-      await sleep(seconds * 1000);
-    }
+        log.info('rate limited, waiting before trying the same call again', {
+          what,
+          seconds: Math.ceil(seconds),
+          attempt,
+        });
+        await sleep(seconds * 1000);
+      }
   }
+}
+
+/**
+ * How many times one call is asked again after returning the wrong shape.
+ *
+ * Two, so three attempts in all. A model that returns an unusable object three
+ * times running with the fields named back to it each time is not going to get
+ * there on the fourth, and each attempt is a real call against a real
+ * allowance.
+ */
+export const SCHEMA_RETRIES = 2;
+
+/** Enough sampling to get a different answer, not enough to get a wilder one. */
+export const SCHEMA_RETRY_TEMPERATURE = 0.3;
+
+/**
+ * Tell the model what was wrong with its last answer, in its own terms.
+ *
+ * Naming the fields rather than repeating the whole schema, because the schema
+ * was already in the prompt and repeating it says nothing new. What is new is
+ * which parts of it the model missed, and models correct a specific omission
+ * far more reliably than a general instruction to try harder.
+ */
+export function correctionFor(error: z.ZodError): string {
+  const fields = error.issues
+    .slice(0, 5)
+    .map((issue) => `  ${issue.path.join('.') || '(the whole object)'}: ${issue.message}`)
+    .join('\n');
+
+  return (
+    'Your previous answer could not be used. These fields were missing or the wrong type:\n' +
+    `${fields}\n` +
+    'Return the same content again as JSON, with every one of those fields present and ' +
+    'correctly typed. Do not drop any content to make it fit, and do not invent a quote: ' +
+    'every quote must still be copied exactly from the text you were given.'
+  );
 }
 
 export interface LlmRequest<T> {
@@ -608,6 +644,11 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
     .update(`${request.system}\n\n${request.user}`)
     .digest('hex');
 
+  // Appended to the prompt on a retry, naming what was wrong with the last
+  // answer. Empty on the first attempt.
+  let correction = '';
+
+  for (let attempt = 1; ; attempt += 1) {
   const started = Date.now();
   let inputTokens = 0;
   let outputTokens = 0;
@@ -618,10 +659,23 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
       model: modelName(request.stage, request.model),
       messages: [
         { role: 'system', content: request.system },
-        { role: 'user', content: request.user },
+        {
+          role: 'user',
+          content: correction ? `${request.user}\n\n${correction}` : request.user,
+        },
       ],
       max_tokens: request.maxTokens ?? 4096,
-      temperature: request.temperature ?? 0,
+      // Nudged off zero when asking again, and only then.
+      //
+      // This matters more than it looks. Every stage runs at temperature 0 so a
+      // given prompt gives a given answer, which is the right default and makes
+      // a retry of the identical prompt completely pointless: the model returns
+      // the same malformed object, and the retry is three wasted calls. The
+      // correction changes the prompt and the temperature changes the sampling,
+      // so the second attempt is genuinely a second attempt.
+      temperature: correction
+        ? Math.max(request.temperature ?? 0, SCHEMA_RETRY_TEMPERATURE)
+        : (request.temperature ?? 0),
       // Ask for JSON at the API level rather than only in the prompt. Not every
       // provider or model honours this, which is why the fence stripping below
       // stays: it costs nothing, and a model that ignores the response format
@@ -665,6 +719,33 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
         false,
       );
     }
+    // A model that returned the wrong shape is asked again, here, once for
+    // every stage rather than separately in each of them.
+    //
+    // This is the fix that should have been made first. Four stages call this
+    // function, every one of them was written expecting a model that returns
+    // exactly the schema, and every one of them failed on its first contact
+    // with a real one: the classifier without a quote or a span, the fact
+    // extractor without spanOrdinal or factType, the drafter without section
+    // and later without sourceId. Three of those were fixed one at a time in
+    // their own files before it became obvious they were one bug in one place.
+    //
+    // A wrong shape is worth retrying and a rate limit is not, because they
+    // fail differently. Waiting cannot change what a model returns, and asking
+    // again cannot clear a quota. So this catches only the schema and leaves
+    // every provider level failure to the callers that already handle them:
+    // the corpus extractor splits a batch it was refused, and generation waits
+    // out a throttle and says so.
+    if (error instanceof z.ZodError && attempt <= SCHEMA_RETRIES) {
+      correction = correctionFor(error);
+      log.info('the model returned the wrong shape, asking again', {
+        stage: request.stage,
+        attempt,
+        fields: error.issues.slice(0, 5).map((i) => i.path.join('.') || '(root)'),
+      });
+      continue;
+    }
+
     // The error is logged through the redacting logger, which strips anything
     // the SDK attached from the request body.
     const readable = asReadableError(error);
@@ -701,6 +782,7 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
     }
 
     throw readable;
+  }
   }
 }
 
