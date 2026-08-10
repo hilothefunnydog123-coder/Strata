@@ -153,7 +153,20 @@ export async function extractClinicalFacts(
     schema: factExtractionSchema as z.ZodType<{ facts: unknown[] }>,
     containsPhi: options.containsPhi,
     denialId: options.denialId,
-    maxTokens: 8192,
+    // Not 8192, which is what this reserved and what got it refused outright.
+    //
+    // A provider bills a request against its per request limit counting the
+    // completion cap as though it will be used in full, so an 8192 reservation
+    // is most of a free tier's allowance before a word of the record is added
+    // to it. lib/corpus/extract.ts found this first and its comment says so at
+    // length; extraction came down to 2048 and has been fine there ever since.
+    //
+    // 2048 is generous for what comes back here too. Facts are short: a quote,
+    // a type, and a normalised sentence each. A record yielding more than about
+    // twenty of them is unusual, and the envelope drops what does not parse
+    // rather than failing, so a cut off answer costs the tail of a list instead
+    // of the appeal.
+    maxTokens: 2048,
   });
 }
 
