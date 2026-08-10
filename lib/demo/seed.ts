@@ -48,6 +48,7 @@ import { verifyQuote } from '@/lib/appeals/verify';
 import type { Section } from '@/lib/appeals/assertion';
 import { calculateInvoice, invoiceNumber } from '@/lib/billing/invoice';
 import { storage, sha256 } from '@/lib/storage';
+import { parseText } from '@/lib/documents/parse';
 
 const ORG_ID = 'demo-northgate';
 const ORG_SLUG = 'northgate';
@@ -407,6 +408,42 @@ async function seedDocuments(denialId: string, uploadedBy: string) {
         uploadedBy,
       })
       .returning({ id: denialDocument.id });
+
+    // The denial letter gets its passages here, from the same splitter an
+    // uploaded document goes through.
+    //
+    // It did not, and the omission was invisible in exactly the way that
+    // matters. The row was written with parsedAt set, so every surface that
+    // asks whether the document is parsed said yes, and the demonstration
+    // looked complete. Generation asks a different question: it reads the
+    // denial letter's passages to classify what was denied and on what
+    // grounds, finds none, and refuses the case before reaching the model.
+    //
+    // So the one thing the demonstration data could not do was generate an
+    // appeal, which is the product. Nobody noticed because reading a generated
+    // letter needs a model key, and until there was one there was nothing to
+    // notice.
+    //
+    // The clinical record is left alone deliberately. Its passages are written
+    // out by hand below with exact offsets, because the seeded assertions quote
+    // them and every one of those quotes is verified against them.
+    if (f.kind === 'denial_letter') {
+      const parsed = parseText(f.text);
+      await db.insert(denialSpan).values(
+        parsed.spans.map((span) => ({
+          denialDocumentId: row!.id,
+          ordinal: span.ordinal,
+          page: span.page,
+          charStart: span.charStart,
+          charEnd: span.charEnd,
+          text: span.text,
+        })),
+      );
+      await db
+        .update(denialDocument)
+        .set({ textSource: 'text_layer' })
+        .where(eq(denialDocument.id, row!.id));
+    }
 
     written[f.kind] = { docId: row!.id, text: f.text };
   }
