@@ -13,6 +13,7 @@
  * is worse than one that gets thrown away.
  */
 import { and, eq, sql } from 'drizzle-orm';
+import { ZodError } from 'zod';
 import { db } from '@/lib/db';
 import {
   appealDraft,
@@ -341,9 +342,43 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
   const failures: string[] = [];
 
   for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt += 1) {
-    const drafted = await withRateLimitPatience('writing the appeal', () =>
-      draftWithinTheLimit(context, { containsPhi, denialId }),
-    );
+    // A draft that does not parse is a failed attempt, not a failed generation.
+    //
+    // The model is asked for assertions that each carry their own source, and
+    // on the first real run three of eight came back with a null sourceId and
+    // no quote: sentences with nothing behind them, in the introduction and the
+    // ask, which is exactly where a writer reaches for unsupported connective
+    // prose. The design already refuses those. What it did not do was survive
+    // them, because the schema error left this loop through the model boundary
+    // and ended the case before the second attempt existed.
+    //
+    // Dropping the three and keeping the five is the tempting repair and it is
+    // the wrong one. This function discards a draft whole rather than mending
+    // it, deliberately, and five assertions with the introduction and the ask
+    // missing is a mended draft that nobody downstream can tell was mended.
+    // Regenerating is the response this loop was built for.
+    let drafted;
+    try {
+      drafted = await withRateLimitPatience('writing the appeal', () =>
+        draftWithinTheLimit(context, { containsPhi, denialId }),
+      );
+    } catch (error) {
+      if (!(error instanceof ZodError)) throw error;
+
+      // Named by position and field, because "assertions.0.sourceId" is the
+      // difference between a prompt that needs fixing and a model having a bad
+      // day, and the specialist sees these if all three attempts fail.
+      for (const issue of error.issues.slice(0, 6)) {
+        failures.push(`draft attempt ${attempt}: ${issue.path.join('.')}: ${issue.message}`);
+      }
+
+      log.warn('the drafted assertions did not parse and will be regenerated', {
+        denialId,
+        attempt,
+        issues: error.issues.length,
+      });
+      continue;
+    }
 
     const candidates: AssertionCandidate[] = [];
     let ordinal = 0;
@@ -455,9 +490,10 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
     .where(eq(denial.id, denialId));
 
   throw new GenerationError(
-    `Three drafts in a row contained an assertion whose quote was not in the source it ` +
-      `cited. Nothing was saved. This needs a look at the generation prompt rather than a ` +
-      `retry.`,
+    `Three drafts in a row could not be used: either an assertion quoted something that ` +
+      `was not in the source it cited, or the draft came back without the source and quote ` +
+      `every assertion has to carry. Nothing was saved. The failures below say which, and ` +
+      `both point at the generation prompt rather than at a retry.`,
     MAX_GENERATION_ATTEMPTS,
     failures,
   );

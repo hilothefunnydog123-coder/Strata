@@ -107,6 +107,13 @@ function sourcesFromDraftPrompt(user: string, heading: string): { id: string; te
  */
 let fabricateQuotes = false;
 
+/**
+ * Return assertions with no source and no quote, as the real model did on the
+ * first run against a live provider: three of eight arrived with a null
+ * sourceId and no verbatimQuote, on the introduction and the ask.
+ */
+let dropSourcesFromDraft = false;
+
 vi.mock('@/lib/llm/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/llm/client')>();
 
@@ -240,6 +247,15 @@ vi.mock('@/lib/llm/client', async (importOriginal) => {
             sourceId: fact.id,
             verbatimQuote: clause(fact.text, 90),
           });
+        }
+
+        if (dropSourcesFromDraft && assertions.length > 0) {
+          // Unsourced sentences among sound ones, which is the shape the real
+          // failure had. The schema refuses them, and refusing them must cost
+          // an attempt rather than the case.
+          (assertions[0] as { sourceId: unknown; verbatimQuote: unknown }).sourceId = null;
+          (assertions[0] as { sourceId: unknown; verbatimQuote: unknown }).verbatimQuote =
+            undefined;
         }
 
         if (fabricateQuotes && assertions.length > 0) {
@@ -459,6 +475,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   fabricateQuotes = false;
+  dropSourcesFromDraft = false;
 });
 
 afterAll(async () => {
@@ -662,6 +679,43 @@ describe('when the model invents a quote', () => {
       const failures = (error as InstanceType<typeof GenerationError>).lastFailures;
       expect(failures.length).toBeGreaterThan(0);
       expect(failures.join(' ')).toMatch(/quote|source/i);
+    }
+  }, 60_000);
+});
+
+describe('when the drafted assertions arrive without their sources', () => {
+  it('regenerates rather than ending the case', async () => {
+    // The failure that stopped the first six real runs from ever producing a
+    // letter: the schema error left the attempt loop through the model
+    // boundary and ended generation, so the second attempt never existed.
+    dropSourcesFromDraft = true;
+
+    const before = await db
+      .select()
+      .from(appealDraft)
+      .where(eq(appealDraft.denialId, denialId));
+
+    await expect(generateAppeal(denialId)).rejects.toBeInstanceOf(GenerationError);
+
+    // Three attempts spent, nothing half written left behind. A mended draft
+    // missing its introduction and its ask is what this refuses to produce.
+    const after = await db
+      .select()
+      .from(appealDraft)
+      .where(eq(appealDraft.denialId, denialId));
+    expect(after.length).toBe(before.length);
+  }, 60_000);
+
+  it('says which field of which assertion was missing', async () => {
+    dropSourcesFromDraft = true;
+    try {
+      await generateAppeal(denialId);
+      expect.unreachable('an unsourced assertion must not produce a draft');
+    } catch (error) {
+      expect(error).toBeInstanceOf(GenerationError);
+      const failures = (error as InstanceType<typeof GenerationError>).lastFailures;
+      expect(failures.join(' ')).toMatch(/sourceId|verbatimQuote/);
+      expect(failures.join(' ')).toMatch(/draft attempt/);
     }
   }, 60_000);
 });
