@@ -51,6 +51,9 @@ on:
       - 'scripts/generate-samples.ts'
       - 'lib/demo/seed.ts'
       - 'lib/appeals/**'
+      # The model boundary, which every stage of a letter goes through. Left
+      # out at first, so the boundary fix landed and nothing ran.
+      - 'lib/llm/**'
 
 # One at a time. Two runs would reseed the demonstration data underneath each
 # other, and the second would be generating from rows the first had deleted.
