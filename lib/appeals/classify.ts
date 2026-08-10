@@ -102,6 +102,23 @@ export const CLASSIFICATION_SYSTEM_PROMPT = `You read insurance denial letters f
 
 You are reading a real denial of a real claim. Everything you report must come from the letter in front of you.
 
+WHAT TO RETURN
+
+One JSON object with exactly these fields:
+
+- denialBasis: one of the values listed in rule 2.
+- spanOrdinal: the number of the span your quote came from, exactly as labelled in the input. Each passage is introduced by a line reading "--- span N ---", and N is what goes here.
+- verbatimQuote: the payer's own words establishing the basis, copied exactly from that span.
+- statedReason: one sentence, in the letter's own terms.
+- serviceType: the service denied, or null if the letter does not say.
+- criteriaCited: an array, empty if the letter names none.
+- proprietaryCriteria: the object described in rule 3.
+
+spanOrdinal and verbatimQuote are the evidence for everything else here, and a
+classification without them cannot be used at all. Rule 3 below tells you to
+null two fields with those same names: that instruction is about the fields
+inside proprietaryCriteria and never about these two.
+
 Rules:
 
 1. Quote exactly. Every verbatimQuote must be a character for character copy of a contiguous passage from the span text given to you, at least 24 characters long. The quote is checked against the source afterwards and a mismatch discards the finding. Do not paraphrase, do not tidy, do not join separate sentences.
@@ -120,7 +137,7 @@ Rules:
 
    Set detected false when the letter applies Medicare's own standards, even if it applies them wrongly. A plan that misapplies the Medicare skilled care standard is making an error, not substituting its own criteria, and calling it proprietary would be an argument the record does not support.
 
-   When detected is false, set criteriaName, spanOrdinal, and verbatimQuote to null, and use reasoning to say what standard the letter did apply.
+   When detected is false, set proprietaryCriteria.criteriaName, proprietaryCriteria.spanOrdinal, and proprietaryCriteria.verbatimQuote to null, and use reasoning to say what standard the letter did apply. This applies only to the fields inside proprietaryCriteria. The spanOrdinal and verbatimQuote at the top level are always required, whatever this object contains.
 
 4. criteriaCited lists the specific requirements the payer says were not met, quoted or closely paraphrased from the letter. An empty array is correct if the letter names none.
 
