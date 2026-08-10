@@ -11,9 +11,30 @@
  */
 import { z } from 'zod';
 import { complete, type LlmResponse } from '@/lib/llm/client';
+import { statedOrNull } from '@/lib/llm/lenient';
 
+/**
+ * Strict about the evidence, lenient about the description.
+ *
+ * This schema was strict about both, and it cost the first real generation run
+ * before a single word of a letter was written. The model returned
+ * `serviceType: "skilled nursing facility care"`, omitted `statedReason`, and
+ * omitted the `proprietaryCriteria` object, and Zod threw on all three at once.
+ * The quote it returned was fine. The classification it made was correct. The
+ * letter was never written, because three labels were shaped wrongly.
+ *
+ * The corpus extractor met this a long time ago and its schema already reads
+ * this way; this one had not been taught. What must stay strict is the quote
+ * and the span it came from, because that is the evidence a specialist checks.
+ * Everything else here is a label, every one of them has something to fall back
+ * on, and none of them is worth losing a letter over.
+ */
 export const classificationSchema = z.object({
-  denialBasis: z.enum([
+  /**
+   * Null when the model does not answer in the vocabulary. The caller falls
+   * back to the basis recorded on the denial at intake, which a person typed.
+   */
+  denialBasis: statedOrNull([
     'medical_necessity',
     'level_of_care',
     'not_covered_benefit',
@@ -26,38 +47,53 @@ export const classificationSchema = z.object({
   spanOrdinal: z.number().int().positive(),
   /** The payer's own words establishing the basis. Verified afterwards. */
   verbatimQuote: z.string().min(24),
-  /** One sentence, in the letter's own terms. */
-  statedReason: z.string().min(10),
+  /**
+   * One sentence, in the letter's own terms. Empty when the model does not
+   * write one: the quote above says the same thing in the payer's words, and
+   * every place this is used has the quote beside it.
+   */
+  statedReason: z.string().catch('').default(''),
 
   /**
    * Whether the denial rests on criteria the plan brought rather than criteria
    * Medicare sets. This is the 42 CFR 422.101(b) trigger.
+   *
+   * Absent means not detected, which is the safe direction rather than merely
+   * the convenient one. This flag decides whether the letter argues that the
+   * plan substituted its own standard, and that argument is worth making only
+   * where the letter supports it. A missing object becoming "detected" would
+   * put an accusation in a letter on the strength of a model forgetting a
+   * field.
    */
-  proprietaryCriteria: z.object({
-    detected: z.boolean(),
-    /** The named product or standard, if the letter names one. */
-    criteriaName: z.string().nullable(),
-    /** The passage showing internal criteria were applied. Null if not detected. */
-    spanOrdinal: z.number().int().positive().nullable(),
-    verbatimQuote: z.string().nullable(),
-    reasoning: z.string(),
-  }),
+  proprietaryCriteria: z
+    .object({
+      detected: z.boolean().catch(false).default(false),
+      /** The named product or standard, if the letter names one. */
+      criteriaName: z.string().nullable().catch(null).default(null),
+      /** The passage showing internal criteria were applied. Null if not detected. */
+      spanOrdinal: z.number().int().positive().nullable().catch(null).default(null),
+      verbatimQuote: z.string().nullable().catch(null).default(null),
+      reasoning: z.string().catch('').default(''),
+    })
+    .default({}),
 
-  serviceType: z
-    .enum([
-      'skilled_nursing',
-      'inpatient_rehab',
-      'home_health',
-      'long_term_care_hospital',
-      'inpatient_acute',
-      'outpatient',
-      'dme',
-      'other',
-    ])
-    .nullable(),
+  /**
+   * Null when the letter does not say, and also when the model says it in
+   * prose. The caller falls back to the service type on the denial record.
+   */
+  serviceType: statedOrNull([
+    'skilled_nursing',
+    'inpatient_rehab',
+    'home_health',
+    'long_term_care_hospital',
+    'inpatient_acute',
+    'outpatient',
+    'dme',
+    'other',
+  ]),
 
   /** The criteria the payer says were not met, in the payer's own words. */
-  criteriaCited: z.array(z.string()),
+  criteriaCited: z.array(z.string()).catch([]).default([]),
 });
 
 export type Classification = z.infer<typeof classificationSchema>;
@@ -116,7 +152,10 @@ export async function classifyDenial(
     stage: 'denial_classify',
     system: CLASSIFICATION_SYSTEM_PROMPT,
     user: buildClassificationPrompt(payerName, spans),
-    schema: classificationSchema,
+    // Cast for the same reason the extraction schema needs one: a schema
+    // carrying defaults accepts less than it returns, so its input and output
+    // types differ and the boundary's signature asks for one type.
+    schema: classificationSchema as z.ZodType<Classification>,
     containsPhi: options.containsPhi,
     denialId: options.denialId,
     maxTokens: 4096,

@@ -13,39 +13,10 @@
  */
 import { z } from 'zod';
 import { complete, type LlmResponse } from '@/lib/llm/client';
+// Shared with the denial classifier, which learned the same lesson later and
+// the hard way. The reasoning lives with the helper.
+import { statedOrNull } from '@/lib/llm/lenient';
 
-/**
- * A facet the document may simply not state, taken from a model that has
- * several ways of saying so.
- *
- * Measured on a real run: 74 holdings were discarded across seven chapters, and
- * the dominant reason was `outcome: Invalid enum value, received 'null'`. Not
- * JSON null, the four character string. A model asked for a nullable field
- * writes "null", or "none", or "N/A", or an empty string, or the value with
- * different capitalisation, and every one of those is the model correctly
- * saying the document is silent.
- *
- * An unrecognised value becomes null rather than discarding the holding. These
- * three fields are retrieval hints: they decide which cases a holding surfaces
- * for, not whether it is true. A verified quote from a CMS manual with an
- * unknown payer type is still authority, and throwing it away because the model
- * wrote "Medicare" instead of "traditional_medicare" trades something valuable
- * for nothing. The quote is what must be exact, and it is checked separately
- * against its source.
- */
-function statedOrNull<const T extends readonly [string, ...string[]]>(values: T) {
-  return z.preprocess((raw) => {
-    if (raw === null || raw === undefined) return null;
-    if (typeof raw !== 'string') return null;
-
-    const normalised = raw.trim().toLowerCase().replace(/[\s-]+/g, '_');
-    if (['', 'null', 'none', 'n/a', 'na', 'unknown', 'unspecified'].includes(normalised)) {
-      return null;
-    }
-
-    return (values as readonly string[]).includes(normalised) ? normalised : null;
-  }, z.enum(values).nullable());
-}
 
 export const holdingSchema = z.object({
   /** The ordinal of the span the quote comes from, as given in the prompt. */

@@ -154,7 +154,18 @@ async function main(): Promise<void> {
         continue;
       }
 
-      throw error;
+      // Anything else is a fault rather than a decision, and it stops this case
+      // rather than the run. Sampling three letters and losing all of them to
+      // whichever one failed first is how the first attempt at this went, and
+      // the failure it hid was in a different case entirely.
+      refused += 1;
+      out('');
+      out('  FAILED: this case could not be generated. The error follows.');
+      out('');
+      out(`  ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`);
+      out('');
+      log.error('a sample case failed to generate', { internalRef: record.internalRef, error });
+      continue;
     }
 
     const detail = await loadDenialDetail(record.id);

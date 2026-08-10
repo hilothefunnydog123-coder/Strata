@@ -144,7 +144,19 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
     { containsPhi, denialId },
   );
 
+  // Both fall back to what a person typed at intake when the letter does not
+  // say, or when the model answers in prose rather than in the vocabulary. The
+  // classification improves on the intake metadata where it can and never
+  // replaces it with nothing.
   const serviceType = classification.value.serviceType ?? record.serviceType;
+  const denialBasis = classification.value.denialBasis ?? record.denialBasis;
+
+  // The column is nullable and the rest of the chain is not, so this is where
+  // the two meet. Null is written back as null rather than as "other", because
+  // recording a basis nobody established would be inventing case metadata; but
+  // retrieval and the prompt need a word, and "other" is the one that claims
+  // nothing.
+  const basis = denialBasis ?? 'other';
   const criteria = criteriaFor(serviceType, classification.value.criteriaCited);
 
   // Record what the classification found on the denial itself, so the case
@@ -152,7 +164,7 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
   await db
     .update(denial)
     .set({
-      denialBasis: classification.value.denialBasis,
+      denialBasis,
       denialBasisText: classification.value.statedReason,
       updatedAt: new Date(),
     })
@@ -239,7 +251,7 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
   const retrieved = await retrieveAuthority({
     serviceType,
     payerType: record.planType,
-    denialBasis: classification.value.denialBasis,
+    denialBasis: basis,
     text: `${classification.value.statedReason} ${classification.value.verbatimQuote}`,
   });
 
@@ -257,7 +269,7 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
   // says the letter is sound, and the letter is merely a summary of the chart
   // sent to the payer who already read the chart. Refuse instead.
   if (retrieved.length === 0 && regulations.length === 0) {
-    throw new NoAuthorityError(serviceType, classification.value.denialBasis);
+    throw new NoAuthorityError(serviceType, basis);
   }
 
   /* 5, 6, 7. Draft and verify, regenerating on failure. */
@@ -268,7 +280,7 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
     serviceType,
     serviceDates: formatDateRange(record.serviceDateFrom, record.serviceDateTo),
     claimAmount: formatCents(record.claimAmountCents),
-    denialBasis: classification.value.denialBasis,
+    denialBasis: basis,
     denialQuote: classification.value.verbatimQuote,
     proprietaryCriteria: {
       detected: classification.value.proprietaryCriteria.detected,
