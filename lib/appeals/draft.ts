@@ -12,17 +12,42 @@
  */
 import { z } from 'zod';
 import { complete, type LlmResponse } from '@/lib/llm/client';
+import { statedOrNull } from '@/lib/llm/lenient';
 import { SECTIONS } from './assertion';
 
-export const draftAssertionSchema = z.object({
-  section: z.enum(SECTIONS),
-  kind: z.enum(['legal', 'clinical']),
-  text: z.string().min(10),
-  sourceKind: z.enum(['holding', 'source_span', 'clinical_fact']),
-  /** An id from the numbered source list given in the prompt. */
-  sourceId: z.string().min(1),
-  verbatimQuote: z.string().min(24),
-});
+/**
+ * One assertion, strict about its evidence and forgiving about its heading.
+ *
+ * The prompt above did not ask for `section` as a field. It explained what each
+ * section of the letter is for, under its own heading, and listed the fields
+ * separately without mentioning it. The model did exactly what it was asked:
+ * the first real draft came back with eight assertions carrying every named
+ * field and no section, and the strict enum discarded all eight. Every quote in
+ * them was fine. The prompt is fixed, and this is the belt.
+ *
+ * Which section a sentence appears under is presentation, not evidence. It
+ * decides which heading it is printed beneath, and a reader who disagrees can
+ * see the whole letter. Losing a verified argument over a heading is a bad
+ * trade, so an unrecognised section falls back by kind: a clinical assertion
+ * measures the record against the criteria, and a legal one argues the law.
+ *
+ * Nothing else here is lenient. The quote, its source, and the source's id stay
+ * exactly as strict as they were, because those are what the letter rests on.
+ */
+export const draftAssertionSchema = z
+  .object({
+    section: statedOrNull(SECTIONS),
+    kind: z.enum(['legal', 'clinical']),
+    text: z.string().min(10),
+    sourceKind: z.enum(['holding', 'source_span', 'clinical_fact']),
+    /** An id from the numbered source list given in the prompt. */
+    sourceId: z.string().min(1),
+    verbatimQuote: z.string().min(24),
+  })
+  .transform((a) => ({
+    ...a,
+    section: a.section ?? (a.kind === 'clinical' ? 'application' : ('argument' as const)),
+  }));
 
 export const draftSchema = z.object({
   assertions: z.array(draftAssertionSchema).min(1),
@@ -44,6 +69,7 @@ Do not paraphrase inside a quote. Do not correct a spelling. Do not join two sen
 
 WHAT EACH ASSERTION NEEDS
 
+- section is which part of the letter this assertion belongs in, and must be exactly one of: identification, standard, application, argument, relief. Every assertion carries one. What each section is for is described below.
 - sourceKind and sourceId identify the source, taken exactly from the numbered lists you are given.
   - holding: a proposition from a published decision. For legal assertions.
   - source_span: a passage of a regulation or a CMS manual. For legal assertions.
@@ -202,7 +228,10 @@ export async function draftAppeal(
     stage: 'appeal_draft',
     system: DRAFT_SYSTEM_PROMPT,
     user: buildDraftPrompt(context),
-    schema: draftSchema,
+    // Cast for the reason the other two schemas need one: a schema that fills
+    // in a missing section accepts less than it returns, so its input and
+    // output types differ and the boundary asks for a single type.
+    schema: draftSchema as z.ZodType<z.infer<typeof draftSchema>>,
     containsPhi: options.containsPhi,
     denialId: options.denialId,
     maxTokens: 8192,
