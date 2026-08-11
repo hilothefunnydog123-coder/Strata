@@ -220,9 +220,45 @@ ${f.text}`,
   return parts.join('\n\n');
 }
 
+/**
+ * What a finished draft actually needs to come back in.
+ *
+ * Not 8192, which is what this reserved for months and what made the drafting
+ * call impossible on a free tier without anyone being able to see why.
+ *
+ * A provider counts the completion reservation against the request's budget as
+ * though it will be used in full, so the reservation is spent before a word of
+ * the prompt is added to it. Groq's free allowance for the model this was being
+ * run on is 8000 tokens a minute. The reservation on its own was over that, so
+ * the request was refused whatever it carried, and the caller's answer to being
+ * refused was to cite fewer authorities, which could not help and did not: one
+ * real run shed twenty two authorities down to two and was refused every time.
+ *
+ * This codebase has met this twice before and written it down both times.
+ * lib/corpus/extract.ts came down to 2048 and its comment explains the billing
+ * at length; lib/appeals/facts.ts came down from this exact number for this
+ * exact reason and says so. Drafting is the third and was the one that
+ * mattered, because it is the call a letter cannot be produced without.
+ *
+ * 4096 is sized to the answer rather than to a round number. A draft is a list
+ * of assertions, each one a sentence, a quote, an id and two labels, which runs
+ * about two hundred tokens. A long letter of fourteen assertions fits inside
+ * three thousand.
+ */
+export const DRAFT_OUTPUT_TOKENS = 4096;
+
+/**
+ * The smallest reservation a whole letter still fits in.
+ *
+ * Below this a draft stops being refused and starts being truncated, which is
+ * worse: a cut off completion is invalid JSON, and the remedy for that looks
+ * nothing like the remedy for a reservation that is too small.
+ */
+export const MIN_DRAFT_OUTPUT_TOKENS = 2048;
+
 export async function draftAppeal(
   context: DraftContext,
-  options: { containsPhi: boolean; denialId: string },
+  options: { containsPhi: boolean; denialId: string; maxTokens?: number },
 ): Promise<LlmResponse<z.infer<typeof draftSchema>>> {
   return complete({
     stage: 'appeal_draft',
@@ -234,6 +270,6 @@ export async function draftAppeal(
     schema: draftSchema as z.ZodType<z.infer<typeof draftSchema>>,
     containsPhi: options.containsPhi,
     denialId: options.denialId,
-    maxTokens: 8192,
+    maxTokens: options.maxTokens ?? DRAFT_OUTPUT_TOKENS,
   });
 }

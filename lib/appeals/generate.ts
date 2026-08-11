@@ -36,7 +36,13 @@ import { formatCents } from '@/components/ui/primitives';
 import { assertion, sourceKindMatches, type Section } from './assertion';
 import { classifyDenial } from './classify';
 import { extractClinicalFacts, findGaps, parseFacts, type DocumentationGap } from './facts';
-import { buildDraftPrompt, draftAppeal, type DraftContext } from './draft';
+import {
+  buildDraftPrompt,
+  draftAppeal,
+  DRAFT_OUTPUT_TOKENS,
+  MIN_DRAFT_OUTPUT_TOKENS,
+  type DraftContext,
+} from './draft';
 import { verifyDraft, type AssertionCandidate } from './verify';
 
 /** How many times a failing draft is regenerated before a human is told. */
@@ -531,27 +537,68 @@ const MIN_AUTHORITIES = 3;
  * cites the three strongest holdings is a good letter. A letter that cites one
  * because the other eleven did not fit is a worse argument wearing the same
  * invariant, and nobody reading it would know.
+ *
+ * The reservation goes first, and for a long time it did not go at all.
+ *
+ * A request is its prompt plus the room it reserves for an answer, and a
+ * provider charges the reservation against the limit in full whether it is used
+ * or not. This shed authorities and left the reservation alone, which meant the
+ * one part of the request that was over the limit on its own was the one part
+ * that never came down. A real run walked twenty two authorities down to two
+ * and was refused at every step, because the floor was never the authorities.
+ *
+ * So the reservation is reduced first. It is the right order on the merits and
+ * not merely because it was the bug: room for an answer nobody needs costs
+ * nothing to give up, and every authority given up costs the argument.
  */
-async function draftWithinTheLimit(
+export async function draftWithinTheLimit(
   context: DraftContext,
   options: { containsPhi: boolean; denialId: string },
 ): Promise<Awaited<ReturnType<typeof draftAppeal>>> {
   let holdings = context.holdings;
   let regulations = context.regulations;
+  let maxTokens = DRAFT_OUTPUT_TOKENS;
 
   for (;;) {
     try {
-      return await draftAppeal({ ...context, holdings, regulations }, options);
+      return await draftAppeal({ ...context, holdings, regulations }, { ...options, maxTokens });
     } catch (error) {
       if (!(error instanceof ModelRequestTooLargeError)) throw error;
+
+      // Cheapest concession first: room for an answer larger than a letter.
+      if (maxTokens > MIN_DRAFT_OUTPUT_TOKENS) {
+        const was = maxTokens;
+        maxTokens = Math.max(MIN_DRAFT_OUTPUT_TOKENS, Math.floor(maxTokens / 2));
+        log.info('the drafting request was refused as too large, reserving less output', {
+          denialId: options.denialId,
+          from: was,
+          to: maxTokens,
+        });
+        continue;
+      }
 
       const total = holdings.length + regulations.length;
       if (total <= MIN_AUTHORITIES) throw error;
 
-      // Halved together rather than one at a time, so the mix of decisions and
-      // regulations the retrieval chose is roughly preserved on the way down.
-      holdings = holdings.slice(0, Math.max(1, Math.ceil(holdings.length / 2)));
-      regulations = regulations.slice(0, Math.max(1, Math.ceil(regulations.length / 2)));
+      // Halved, but never past the floor.
+      //
+      // Halving each list separately overshoots: four authorities became two,
+      // below the floor this function says in its own comment that it stops at.
+      // The floor is a judgment about when an argument is too thin to send, and
+      // a rounding rule is not entitled to overrule it.
+      const target = Math.max(MIN_AUTHORITIES, Math.ceil(total / 2));
+      // The mix retrieval chose, kept roughly, so shedding does not quietly
+      // turn a letter arguing from decisions into one arguing from regulations.
+      const keepHoldings = Math.min(
+        holdings.length,
+        Math.max(1, Math.round((holdings.length / total) * target)),
+      );
+      const keepRegulations = Math.min(regulations.length, Math.max(0, target - keepHoldings));
+
+      if (keepHoldings + keepRegulations >= total) throw error;
+
+      holdings = holdings.slice(0, keepHoldings);
+      regulations = regulations.slice(0, keepRegulations);
 
       log.info('the drafting request was refused as too large, citing less', {
         denialId: options.denialId,
