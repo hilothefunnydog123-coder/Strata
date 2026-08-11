@@ -124,7 +124,24 @@ export interface DraftContext {
     supportsCriterion: string | null;
     text: string;
   }[];
+  /**
+   * The criteria the appeal must show were met. Medicare's, always.
+   *
+   * Never the payer's. See criteriaFor in lib/appeals/generate.ts for why that
+   * distinction is the difference between a letter and an empty one.
+   */
   criteria: string[];
+  /**
+   * What the payer said was not met, in the payer's words.
+   *
+   * Here to be answered, not to be satisfied. These arrive as findings against
+   * the hospital ("no measurable functional improvement has been recorded"),
+   * and a finding is not a criterion: there is nothing in a patient record that
+   * establishes an absence, so treating one as something to prove produces a
+   * documentation gap for every item and an application section with nothing
+   * left in it. That is what it produced.
+   */
+  payerCriteria: string[];
   gaps: { criterion: string; why: string }[];
 }
 
@@ -158,7 +175,17 @@ The passage showing it:
 
   parts.push(`COVERAGE CRITERIA AT ISSUE
 
+These are the Medicare criteria this claim has to meet. Show in the application section that the record meets each one you have a clinical fact for.
+
 ${context.criteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}`);
+
+  if (context.payerCriteria.length > 0) {
+    parts.push(`WHAT THE PAYER SAYS WAS NOT MET
+
+${context.payerCriteria.map((c) => `- ${c}`).join('\n')}
+
+These are the payer's findings, not the standard. Do not try to establish them and do not treat them as criteria: they are what this appeal answers. Where a clinical fact contradicts one, say so in the argument section and cite the fact. Where the finding applies a requirement Medicare does not impose, say that instead and cite the regulation or decision that governs. Where the record neither contradicts nor supports a finding, leave it alone rather than writing around it.`);
+  }
 
   if (context.gaps.length > 0) {
     parts.push(`CRITERIA WITH NO SUPPORT IN THE RECORD

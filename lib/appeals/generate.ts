@@ -97,11 +97,12 @@ export interface GenerationResult {
 }
 
 /**
- * The criteria a denial is measured against.
+ * What Medicare requires, by service type.
  *
- * Taken from the payer's own letter where it names them, because arguing
- * against criteria the payer did not apply is arguing with yourself. Where the
- * letter names none, the statutory criteria for the service type are used.
+ * The standard an appeal argues from, whatever the denial letter says. See
+ * criteriaFor below for why the letter's own list is not used here, which is
+ * the opposite of what this comment said until a real letter came out with one
+ * sentence in it.
  */
 const STATUTORY_CRITERIA: Record<string, string[]> = {
   skilled_nursing: [
@@ -120,9 +121,47 @@ const STATUTORY_CRITERIA: Record<string, string[]> = {
   ],
 };
 
-function criteriaFor(serviceType: string, citedByPayer: readonly string[]): string[] {
-  if (citedByPayer.length > 0) return [...citedByPayer];
-  return STATUTORY_CRITERIA[serviceType] ?? STATUTORY_CRITERIA.skilled_nursing!;
+/**
+ * The criteria this appeal has to show were met. Medicare's, always.
+ *
+ * This used to prefer whatever the denial letter cited, on the reasoning that
+ * arguing against criteria the payer did not apply is arguing with yourself.
+ * The reasoning was right and the implementation inverted it, because what a
+ * denial letter cites is not a list of criteria. It is a list of findings
+ * against the hospital, written in the negative: "no measurable functional
+ * improvement has been recorded", "gait distance did not increase".
+ *
+ * Feeding those in here made them the things the record had to establish. No
+ * record establishes an absence, so fact extraction found nothing for any of
+ * them, findGaps reported every one as a documentation gap, and the drafting
+ * prompt was then told to assert none of them. The application section is
+ * exactly the set of criteria the record meets, so it came out empty, and a
+ * real run produced a letter with one sentence in it.
+ *
+ * It also quietly conceded the strongest argument available here. The
+ * proprietary criteria argument says the plan applied a standard Medicare does
+ * not impose. A letter cannot make that argument while also labouring to
+ * satisfy the standard.
+ *
+ * So the statutory criteria govern and the payer's language goes to the
+ * drafting prompt separately, as material to answer.
+ */
+export function criteriaFor(serviceType: string, denialId: string): string[] {
+  const statutory = STATUTORY_CRITERIA[serviceType];
+  if (statutory) return [...statutory];
+
+  // Only two service types have their criteria written down here, and this is
+  // now the only source of them rather than a fallback behind the payer's list,
+  // so a service type that is missing gets the skilled nursing set and that is
+  // wrong rather than merely approximate. Loud, because the remedy is domain
+  // knowledge somebody has to write down, and silence would leave a home health
+  // appeal quietly arguing the wrong standard.
+  log.warn('no statutory criteria are recorded for this service type', {
+    denialId,
+    serviceType,
+    using: 'skilled_nursing',
+  });
+  return [...STATUTORY_CRITERIA.skilled_nursing!];
 }
 
 /**
@@ -171,7 +210,10 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
   // retrieval and the prompt need a word, and "other" is the one that claims
   // nothing.
   const basis = denialBasis ?? 'other';
-  const criteria = criteriaFor(serviceType, classification.value.criteriaCited);
+  const criteria = criteriaFor(serviceType, denialId);
+  // Kept apart from the criteria above and given to the drafter as material to
+  // answer. See criteriaFor for what happened when the two were the same list.
+  const payerCriteria = classification.value.criteriaCited;
 
   // Record what the classification found on the denial itself, so the case
   // metadata reflects what the letter says rather than what was typed at intake.
@@ -333,6 +375,7 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
     })),
     facts: storedFacts,
     criteria,
+    payerCriteria: [...payerCriteria],
     gaps,
   };
 
