@@ -21,7 +21,14 @@
  */
 import 'dotenv/config';
 import { z } from 'zod';
-import { complete, llmConfigured, modelName, outputBudget, acceptsTemperature } from '../lib/llm/client';
+import {
+  availableModels,
+  complete,
+  llmConfigured,
+  modelName,
+  outputBudget,
+  acceptsTemperature,
+} from '../lib/llm/client';
 import { env, envStatus } from '../lib/env';
 
 const out = (line: string): void => {
@@ -67,6 +74,21 @@ async function main(): Promise<number> {
   out(`  temperature ${acceptsTemperature(drafting) ? '0' : 'omitted, this model refuses it'}`);
   out(`  max_tokens  ${outputBudget(drafting, 8192)} (8192 reserved for the answer)`);
   out('');
+
+  // Asked before the live call because it is free and because it separates two
+  // failures that look identical from a stack trace: a key the provider will
+  // not take, and a key it takes for a model it does not have. The second is
+  // the common one when moving providers, since the same open weights are
+  // published under a different id by every host that serves them.
+  const offered = await availableModels();
+  if (offered.length > 0 && !offered.includes(drafting)) {
+    out(`The provider took the key but does not offer ${drafting}.`);
+    out('Nothing else will work until MODEL_NAME names something below.');
+    out('');
+    for (const id of offered) out(`  ${id}`);
+    out('');
+    return 1;
+  }
 
   out('Sending one small request through the real boundary.');
 

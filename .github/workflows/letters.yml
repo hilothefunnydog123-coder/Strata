@@ -101,7 +101,18 @@ jobs:
       # a throttle. Groq meters each model separately, so a model this account
       # has not used today has a full bucket, and this one is larger than the
       # default anyway. Override it from the Actions tab with the model input.
-      MODEL_NAME: ${{ inputs.model || 'openai/gpt-oss-120b' }}
+      #
+      # The repository variable is what actually sets this today. A
+      # workflow_dispatch input only exists once this file is on the default
+      # branch, and this one is not, so a run started by pushing gets the
+      # variable or the default and never the input.
+      #
+      # Model ids do not survive a change of provider even when the weights are
+      # the same open release. Groq serves this one as openai/gpt-oss-120b and
+      # another host serves the identical model as gpt-oss-120b, so setting
+      # MODEL_BASE_URL without setting this produces a 404 for a model that is
+      # right there. check:provider lists what the provider actually offers.
+      MODEL_NAME: ${{ inputs.model || vars.MODEL_NAME || 'openai/gpt-oss-120b' }}
 
       # Deliberately not set to MODEL_NAME_CORPUS. That variable points at the
       # small model extraction runs on, which is the right economy for reading a

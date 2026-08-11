@@ -501,6 +501,32 @@ export async function probeProvider(): Promise<ProviderProbe> {
   }
 }
 
+/**
+ * The model ids this provider says it offers.
+ *
+ * Free, in the sense that listing costs nothing against any allowance, and
+ * worth asking for by itself rather than only as part of probeProvider above.
+ * Model ids are not portable between providers even when the underlying weights
+ * are the same open release: the model Groq calls openai/gpt-oss-120b another
+ * host calls gpt-oss-120b, and llama-3.1-8b-instant is a Groq name for a
+ * llama-3.1-8b that everyone else names differently. Moving providers therefore
+ * means renaming models, and guessing the new name produces a 404 in the middle
+ * of a run rather than an answer at the start of one.
+ *
+ * Returns an empty array rather than throwing when the provider will not say,
+ * because a provider that does not implement the listing endpoint is not
+ * thereby broken, and the caller has a live call to fall back on.
+ */
+export async function availableModels(): Promise<string[]> {
+  try {
+    const provider = assertTransmissionPermitted(false);
+    const listing = await provider.models.list();
+    return listing.data.map((m) => m.id).sort();
+  } catch {
+    return [];
+  }
+}
+
 function costCents(inputTokens: number, outputTokens: number): number {
   const price = pricePerMtokCents();
   const cents =
