@@ -18,7 +18,7 @@
  * about one number.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ModelRequestTooLargeError } from '@/lib/llm/client';
+import { ModelMalformedOutputError, ModelRequestTooLargeError } from '@/lib/llm/client';
 import { DRAFT_OUTPUT_TOKENS, MIN_DRAFT_OUTPUT_TOKENS, type DraftContext } from '@/lib/appeals/draft';
 
 /** Every reservation and authority count the ladder tried, in order. */
@@ -36,6 +36,16 @@ let budget = 8000;
 const TOKENS_PER_AUTHORITY = 500;
 const PROMPT_FLOOR = 1500;
 
+/**
+ * The reservation below which a whole letter does not fit in the answer.
+ *
+ * Zero disables it, which is how most of the cases here run: they are about a
+ * request that is too large, and a provider only complains about one at a time.
+ * Set above zero to reproduce the squeeze a real run met, where the request was
+ * refused at one reservation and the answer was cut off at the next one down.
+ */
+let truncatesBelow = 0;
+
 vi.mock('@/lib/appeals/draft', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/appeals/draft')>();
   return {
@@ -52,6 +62,10 @@ vi.mock('@/lib/appeals/draft', async (importOriginal) => {
         const size = maxTokens + PROMPT_FLOOR + authorities * TOKENS_PER_AUTHORITY;
         if (size > budget) {
           throw new ModelRequestTooLargeError(`refused: ${size} tokens against ${budget}`);
+        }
+
+        if (truncatesBelow > 0 && maxTokens < truncatesBelow) {
+          throw new ModelMalformedOutputError(`cut off at ${maxTokens} tokens`);
         }
 
         return Promise.resolve({
@@ -102,6 +116,7 @@ function contextWith(authorities: number): DraftContext {
 beforeEach(() => {
   attempts.length = 0;
   budget = 8000;
+  truncatesBelow = 0;
 });
 
 describe('a drafting request that is refused for size', () => {
@@ -189,6 +204,36 @@ describe('a drafting request that is refused for size', () => {
     expect(learned).toBeGreaterThan(1);
     expect(attempts).toHaveLength(1);
     expect(attempts[0]?.maxTokens).toBe(allowance.maxTokens);
+  });
+
+  it('takes room for the answer back from the prompt when the answer is cut off', async () => {
+    // The squeeze that ended a real run with no letter at all. The request was
+    // refused at a 4096 reservation and the answer was cut off at 2048, and the
+    // ladder only knew how to make the reservation smaller, so it walked
+    // straight from one failure into the other and threw.
+    //
+    // A request is a prompt plus a reservation against one budget. When the
+    // answer will not fit, the room has to come from the prompt.
+    budget = 8000;
+    truncatesBelow = 3000;
+
+    await draftWithinTheLimit(contextWith(8), { containsPhi: false, denialId: 'd7' });
+
+    const last = attempts.at(-1);
+    expect(last?.maxTokens).toBeGreaterThanOrEqual(3000);
+    expect(last?.authorities).toBeLessThan(8);
+  });
+
+  it('gives up when no split of the budget fits a letter', async () => {
+    // Not every budget has an answer. A provider whose whole allowance is
+    // smaller than a floor reservation plus a floor argument cannot be made to
+    // write a letter by rearranging the request, and saying so beats looping.
+    budget = 4000;
+    truncatesBelow = 3000;
+
+    await expect(
+      draftWithinTheLimit(contextWith(8), { containsPhi: false, denialId: 'd8' }),
+    ).rejects.toThrow();
   });
 
   it('does not touch anything when the first attempt is accepted', async () => {

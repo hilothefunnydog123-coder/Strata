@@ -27,6 +27,7 @@ import {
 } from '@/lib/db/schema';
 import { log } from '@/lib/log';
 import {
+  ModelMalformedOutputError,
   ModelRequestTooLargeError,
   modelName,
   withRateLimitPatience,
@@ -587,6 +588,40 @@ export function initialAllowance(context: DraftContext): DraftAllowance {
   };
 }
 
+/**
+ * Fewer authorities, keeping the mix retrieval chose. False when already at the
+ * floor, which is the caller's signal to stop and report.
+ */
+function citeLess(allowance: DraftAllowance, denialId: string): boolean {
+  const total = allowance.holdings + allowance.regulations;
+  if (total <= MIN_AUTHORITIES) return false;
+
+  // Halved, but never past the floor.
+  //
+  // Halving each list separately overshoots: four authorities became two, below
+  // the floor this function's caller says in its own comment that it stops at.
+  // The floor is a judgment about when an argument is too thin to send, and a
+  // rounding rule is not entitled to overrule it.
+  const target = Math.max(MIN_AUTHORITIES, Math.ceil(total / 2));
+  const keepHoldings = Math.min(
+    allowance.holdings,
+    Math.max(1, Math.round((allowance.holdings / total) * target)),
+  );
+  const keepRegulations = Math.min(allowance.regulations, Math.max(0, target - keepHoldings));
+
+  if (keepHoldings + keepRegulations >= total) return false;
+
+  allowance.holdings = keepHoldings;
+  allowance.regulations = keepRegulations;
+
+  log.info('the drafting request was refused as too large, citing less', {
+    denialId,
+    from: total,
+    to: keepHoldings + keepRegulations,
+  });
+  return true;
+}
+
 export async function draftWithinTheLimit(
   context: DraftContext,
   options: { containsPhi: boolean; denialId: string },
@@ -602,6 +637,32 @@ export async function draftWithinTheLimit(
         { ...options, maxTokens: allowance.maxTokens },
       );
     } catch (error) {
+      // The answer did not fit in the room reserved for it.
+      //
+      // The opposite complaint to the one below, and it has to be, because a
+      // request is a prompt plus a reservation and this is the only place that
+      // decides how a fixed budget is divided between them. Shrinking the
+      // reservation is the answer to a request that is too large and it is the
+      // cause of a completion that is cut off, so a ladder with one move has
+      // the wrong move half the time. A real run met exactly that: refused at a
+      // 4096 reservation, truncated at 2048, and ended the case with no letter
+      // because the only lever it had was already at the bottom.
+      //
+      // Room for the answer has to come from the prompt instead. Authorities go
+      // and the reservation is restored, which is the same trade the ladder
+      // below makes, made in the other direction.
+      if (error instanceof ModelMalformedOutputError) {
+        if (!citeLess(allowance, options.denialId)) throw error;
+
+        allowance.maxTokens = DRAFT_OUTPUT_TOKENS;
+        log.info('the drafted answer was cut off, taking the room back from the prompt', {
+          denialId: options.denialId,
+          maxTokens: allowance.maxTokens,
+          authorities: allowance.holdings + allowance.regulations,
+        });
+        continue;
+      }
+
       if (!(error instanceof ModelRequestTooLargeError)) throw error;
 
       // Cheapest concession first: room for an answer larger than a letter.
@@ -619,34 +680,7 @@ export async function draftWithinTheLimit(
         continue;
       }
 
-      const total = holdings.length + regulations.length;
-      if (total <= MIN_AUTHORITIES) throw error;
-
-      // Halved, but never past the floor.
-      //
-      // Halving each list separately overshoots: four authorities became two,
-      // below the floor this function says in its own comment that it stops at.
-      // The floor is a judgment about when an argument is too thin to send, and
-      // a rounding rule is not entitled to overrule it.
-      const target = Math.max(MIN_AUTHORITIES, Math.ceil(total / 2));
-      // The mix retrieval chose, kept roughly, so shedding does not quietly
-      // turn a letter arguing from decisions into one arguing from regulations.
-      const keepHoldings = Math.min(
-        holdings.length,
-        Math.max(1, Math.round((holdings.length / total) * target)),
-      );
-      const keepRegulations = Math.min(regulations.length, Math.max(0, target - keepHoldings));
-
-      if (keepHoldings + keepRegulations >= total) throw error;
-
-      allowance.holdings = keepHoldings;
-      allowance.regulations = keepRegulations;
-
-      log.info('the drafting request was refused as too large, citing less', {
-        denialId: options.denialId,
-        from: total,
-        to: keepHoldings + keepRegulations,
-      });
+      if (!citeLess(allowance, options.denialId)) throw error;
     }
   }
 }
