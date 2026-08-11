@@ -68,6 +68,90 @@ export function modelName(stage?: LlmStage, override?: string): string {
   return env.MODEL_NAME;
 }
 
+/* ─── What the model on the other end will accept ─────────────────────────── */
+
+/**
+ * Models that reject a non-default temperature outright.
+ *
+ * Anthropic's newest models do not take sampling parameters at all: a
+ * temperature, top_p or top_k other than the default returns HTTP 400 on every
+ * request, whether or not thinking is in use. Every stage of this product sends
+ * temperature 0, deliberately, so pointing MODEL_BASE_URL at Anthropic and
+ * naming one of these would have failed on the first call of the first stage
+ * and every call after it.
+ *
+ * That is worth a table rather than a note in a runbook. The whole argument for
+ * a provider agnostic boundary is that moving providers is two environment
+ * variables, and a boundary that quietly requires a third change nobody
+ * documents is not agnostic, it is untested. This is the one file allowed to
+ * know which provider is in use, so this is where the knowledge belongs.
+ *
+ * Matched by prefix so a dated model id resolves the same as its alias.
+ */
+const REJECTS_NON_DEFAULT_SAMPLING = [
+  'claude-fable-5',
+  'claude-mythos-5',
+  'claude-mythos-preview',
+  'claude-opus-5',
+  'claude-opus-4-8',
+  'claude-opus-4-7',
+  'claude-sonnet-5',
+];
+
+/**
+ * Models that think before answering unless told not to, and whose thinking
+ * comes out of the same budget as the answer.
+ *
+ * Thinking tokens count toward max_tokens and are billed as output. A request
+ * reserving 2048 for a list of clinical facts is generous for the facts and can
+ * be spent entirely on reasoning before the first fact is written, and the
+ * documented symptom is a response that stops with stop_reason max_tokens
+ * carrying a truncated or missing text block. That arrives here as "the model
+ * returned no text", which names the output limit but would have sent someone
+ * looking at the wrong limit.
+ *
+ * The remedy is headroom rather than turning thinking off. Turning it off is
+ * not uniformly available (some models reject the parameter, one accepts it
+ * only below a certain effort), it is the wrong trade for the work this product
+ * does, and it costs nothing to leave on: max_tokens is a ceiling, not a
+ * charge, so headroom is billed only if it is used.
+ */
+const THINKS_BY_DEFAULT = [
+  'claude-fable-5',
+  'claude-mythos-5',
+  'claude-mythos-preview',
+  'claude-opus-5',
+  'claude-sonnet-5',
+];
+
+/**
+ * Room for a thinking pass on top of what the caller asked to reserve.
+ *
+ * Sized so that the largest reservation in the product, the 8192 the drafting
+ * call makes, totals well under the point where a single unstreamed request
+ * starts risking an HTTP timeout. Every other stage reserves less and so has
+ * proportionally more room.
+ */
+export const THINKING_HEADROOM_TOKENS = 8192;
+
+const matches = (model: string, prefixes: readonly string[]): boolean =>
+  prefixes.some((prefix) => model.startsWith(prefix));
+
+/** Whether a temperature may be sent to this model at all. */
+export function acceptsTemperature(model: string): boolean {
+  return !matches(model, REJECTS_NON_DEFAULT_SAMPLING);
+}
+
+/** Whether this model's reasoning is drawn from the same budget as its answer. */
+export function thinksWithinMaxTokens(model: string): boolean {
+  return matches(model, THINKS_BY_DEFAULT);
+}
+
+/** The reservation to send, once thinking has been allowed for. */
+export function outputBudget(model: string, requested: number): number {
+  return thinksWithinMaxTokens(model) ? requested + THINKING_HEADROOM_TOKENS : requested;
+}
+
 /**
  * Published price per million tokens, in cents, for the model above. Used to
  * compute the cost recorded against each call and shown on the operator
@@ -644,6 +728,10 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
     .update(`${request.system}\n\n${request.user}`)
     .digest('hex');
 
+  // Resolved once. Which model this is decides two fields of the request, so
+  // reading it per attempt would let them disagree with each other.
+  const model = modelName(request.stage, request.model);
+
   // Appended to the prompt on a retry, naming what was wrong with the last
   // answer. Empty on the first attempt.
   let correction = '';
@@ -656,7 +744,7 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
 
   try {
     const response = await provider.chat.completions.create({
-      model: modelName(request.stage, request.model),
+      model: model,
       messages: [
         { role: 'system', content: request.system },
         {
@@ -664,8 +752,11 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
           content: correction ? `${request.user}\n\n${correction}` : request.user,
         },
       ],
-      max_tokens: request.maxTokens ?? 4096,
-      // Nudged off zero when asking again, and only then.
+      // The caller's reservation, plus room to think on a model that thinks out
+      // of the same budget. See THINKS_BY_DEFAULT above.
+      max_tokens: outputBudget(model, request.maxTokens ?? 4096),
+      // Nudged off zero when asking again, and only then, and only where a
+      // temperature may be sent at all.
       //
       // This matters more than it looks. Every stage runs at temperature 0 so a
       // given prompt gives a given answer, which is the right default and makes
@@ -673,9 +764,20 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
       // the same malformed object, and the retry is three wasted calls. The
       // correction changes the prompt and the temperature changes the sampling,
       // so the second attempt is genuinely a second attempt.
-      temperature: correction
-        ? Math.max(request.temperature ?? 0, SCHEMA_RETRY_TEMPERATURE)
-        : (request.temperature ?? 0),
+      //
+      // On a model that rejects the parameter the field is omitted entirely and
+      // the retry still differs, because the correction is appended to the
+      // prompt and because a model left at its own default is not sampling
+      // deterministically in the first place. So the retry keeps working there;
+      // it is only the determinism of the first attempt that is given up, and
+      // that was never on offer from those models.
+      ...(acceptsTemperature(model)
+        ? {
+            temperature: correction
+              ? Math.max(request.temperature ?? 0, SCHEMA_RETRY_TEMPERATURE)
+              : (request.temperature ?? 0),
+          }
+        : {}),
       // Ask for JSON at the API level rather than only in the prompt. Not every
       // provider or model honours this, which is why the fence stripping below
       // stays: it costs nothing, and a model that ignores the response format

@@ -35,6 +35,14 @@ on:
         required: false
         default: openai/gpt-oss-120b
         type: string
+      base_url:
+        description: >-
+          Which provider, if not the configured one. Anthropic's OpenAI
+          compatible endpoint is https://api.anthropic.com/v1/ and needs an
+          Anthropic key in MODEL_API_KEY.
+        required: false
+        default: ''
+        type: string
       ref:
         description: Which branch's code to run
         required: false
@@ -69,7 +77,24 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
-      MODEL_BASE_URL: ${{ vars.MODEL_BASE_URL || 'https://api.groq.com/openai/v1' }}
+      MODEL_BASE_URL: ${{ inputs.base_url || vars.MODEL_BASE_URL || 'https://api.groq.com/openai/v1' }}
+
+      # Off for Anthropic, which ignores response_format rather than honouring
+      # it, and on for Groq, which enforces it. Ignored is harmless either way;
+      # this is set so the request that goes out is the request that was meant,
+      # rather than one carrying a field somebody would later have to check.
+      #
+      # Nothing depends on it being on. Every stage asks for JSON in the prompt
+      # as well, the boundary strips a markdown fence, and a shape that still
+      # comes back wrong is corrected and asked again.
+      MODEL_JSON_MODE: ${{ vars.MODEL_JSON_MODE || 'true' }}
+
+      # Reporting only, and worth setting, because a run that prints what it
+      # spent is the only way the cost of a letter stops being a guess. Cents
+      # per million tokens. Anthropic publishes dollars per million, so a
+      # three dollar input price is 300 here.
+      MODEL_PRICE_INPUT_CENTS: ${{ vars.MODEL_PRICE_INPUT_CENTS || '0' }}
+      MODEL_PRICE_OUTPUT_CENTS: ${{ vars.MODEL_PRICE_OUTPUT_CENTS || '0' }}
       # Not llama-3.3-70b-versatile, which is the account default and whose
       # free daily allowance is spent: it answered the second drafting attempt
       # with a Retry-After of 600 seconds, which is the daily signal rather than
@@ -131,6 +156,19 @@ jobs:
 
       - name: Apply migrations
         run: pnpm db:migrate
+
+      # Before the demonstration data is rewritten and before a single letter is
+      # attempted, but after migrations, because this records its own spend like
+      # every other call and the table has to exist for that to be anything but
+      # a caught error in the log.
+      #
+      # One small request through the same boundary every stage goes through,
+      # costing a fraction of a cent. A key from the wrong provider, a retired
+      # model id and a model that refuses a parameter this codebase sends on
+      # every request all fail here in seconds, instead of halfway through the
+      # first case as an HTTP status.
+      - name: Check the provider will take what we send
+        run: pnpm check:provider
 
       # Recreated rather than reused, because the demonstration cases already in
       # the database were written before the seeder parsed the denial letter

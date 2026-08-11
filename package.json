@@ -30,6 +30,7 @@
     "db:bootstrap": "tsx scripts/bootstrap.ts",
     "deploy:prepare": "pnpm check:env && (pnpm db:migrate && pnpm db:bootstrap || echo \"Skipping migrations: not configured.\")",
     "check:env": "tsx scripts/check-env.ts",
+    "check:provider": "tsx scripts/check-provider.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "letters:sample": "tsx scripts/generate-samples.ts"
   },
