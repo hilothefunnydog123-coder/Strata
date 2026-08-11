@@ -347,6 +347,21 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
 
   const failures: string[] = [];
 
+  // What the provider has already refused, remembered across attempts.
+  //
+  // This used to live inside the loop, so every regeneration started again at
+  // the full reservation and the full set of authorities and rediscovered the
+  // same two refusals. A real run shows the pair "reserving less output 4096 to
+  // 2048" and "citing less 22 to 11" five times over, each one a request sent
+  // in the certain knowledge that it would be rejected.
+  //
+  // On a metered provider that is worse than untidy. Every rediscovery is
+  // charged against the same per minute allowance the letter needs, so the
+  // attempts spent the minute learning and then waited 53 seconds, then 31,
+  // then 8, for the room to try again. The size a request has to be is a fact
+  // about the provider, not about the attempt that happened to find it.
+  const allowance = initialAllowance(context);
+
   for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt += 1) {
     // A draft that does not parse is a failed attempt, not a failed generation.
     //
@@ -366,7 +381,7 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
     let drafted;
     try {
       drafted = await withRateLimitPatience('writing the appeal', () =>
-        draftWithinTheLimit(context, { containsPhi, denialId }),
+        draftWithinTheLimit(context, { containsPhi, denialId }, allowance),
       );
     } catch (error) {
       if (!(error instanceof ZodError)) throw error;
@@ -551,28 +566,55 @@ const MIN_AUTHORITIES = 3;
  * not merely because it was the bug: room for an answer nobody needs costs
  * nothing to give up, and every authority given up costs the argument.
  */
+/**
+ * How much a drafting request is currently allowed to be.
+ *
+ * Carried across regeneration attempts rather than rebuilt for each one, so a
+ * size the provider has already refused is refused once.
+ */
+export interface DraftAllowance {
+  maxTokens: number;
+  holdings: number;
+  regulations: number;
+}
+
+/** Everything retrieval found, and room for the answer a letter needs. */
+export function initialAllowance(context: DraftContext): DraftAllowance {
+  return {
+    maxTokens: DRAFT_OUTPUT_TOKENS,
+    holdings: context.holdings.length,
+    regulations: context.regulations.length,
+  };
+}
+
 export async function draftWithinTheLimit(
   context: DraftContext,
   options: { containsPhi: boolean; denialId: string },
+  allowance: DraftAllowance = initialAllowance(context),
 ): Promise<Awaited<ReturnType<typeof draftAppeal>>> {
-  let holdings = context.holdings;
-  let regulations = context.regulations;
-  let maxTokens = DRAFT_OUTPUT_TOKENS;
-
   for (;;) {
+    const holdings = context.holdings.slice(0, allowance.holdings);
+    const regulations = context.regulations.slice(0, allowance.regulations);
+
     try {
-      return await draftAppeal({ ...context, holdings, regulations }, { ...options, maxTokens });
+      return await draftAppeal(
+        { ...context, holdings, regulations },
+        { ...options, maxTokens: allowance.maxTokens },
+      );
     } catch (error) {
       if (!(error instanceof ModelRequestTooLargeError)) throw error;
 
       // Cheapest concession first: room for an answer larger than a letter.
-      if (maxTokens > MIN_DRAFT_OUTPUT_TOKENS) {
-        const was = maxTokens;
-        maxTokens = Math.max(MIN_DRAFT_OUTPUT_TOKENS, Math.floor(maxTokens / 2));
+      if (allowance.maxTokens > MIN_DRAFT_OUTPUT_TOKENS) {
+        const was = allowance.maxTokens;
+        allowance.maxTokens = Math.max(
+          MIN_DRAFT_OUTPUT_TOKENS,
+          Math.floor(allowance.maxTokens / 2),
+        );
         log.info('the drafting request was refused as too large, reserving less output', {
           denialId: options.denialId,
           from: was,
-          to: maxTokens,
+          to: allowance.maxTokens,
         });
         continue;
       }
@@ -597,13 +639,13 @@ export async function draftWithinTheLimit(
 
       if (keepHoldings + keepRegulations >= total) throw error;
 
-      holdings = holdings.slice(0, keepHoldings);
-      regulations = regulations.slice(0, keepRegulations);
+      allowance.holdings = keepHoldings;
+      allowance.regulations = keepRegulations;
 
       log.info('the drafting request was refused as too large, citing less', {
         denialId: options.denialId,
         from: total,
-        to: holdings.length + regulations.length,
+        to: keepHoldings + keepRegulations,
       });
     }
   }

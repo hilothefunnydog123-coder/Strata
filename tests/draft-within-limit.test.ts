@@ -169,6 +169,28 @@ describe('a drafting request that is refused for size', () => {
     expect(Math.min(...attempts.map((a) => a.authorities))).toBeGreaterThanOrEqual(3);
   });
 
+  it('remembers what was refused, so a second attempt does not learn it again', async () => {
+    // The generation loop regenerates a draft that fails verification, and it
+    // used to hand each attempt a fresh allowance. A real run shows the pair
+    // "4096 to 2048" and "22 to 11" five times over, every one of them a
+    // request sent in the certain knowledge it would be rejected, and every one
+    // charged against the same per minute allowance the letter itself needed.
+    const { initialAllowance } = await import('@/lib/appeals/generate');
+    const context = contextWith(8);
+    const allowance = initialAllowance(context);
+
+    await draftWithinTheLimit(context, { containsPhi: false, denialId: 'd6' }, allowance);
+    const learned = attempts.length;
+    attempts.length = 0;
+
+    // The second attempt, carrying what the first one paid to find out.
+    await draftWithinTheLimit(context, { containsPhi: false, denialId: 'd6' }, allowance);
+
+    expect(learned).toBeGreaterThan(1);
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0]?.maxTokens).toBe(allowance.maxTokens);
+  });
+
   it('does not touch anything when the first attempt is accepted', async () => {
     budget = 100_000;
 
