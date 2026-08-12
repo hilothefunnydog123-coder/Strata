@@ -129,19 +129,20 @@ jobs:
       # another host serves the identical model as gpt-oss-120b, so setting
       # MODEL_BASE_URL without setting this produces a 404 for a model that is
       # right there. check:provider lists what the provider actually offers.
-      # gpt-oss-120b, of the three this account is offered: gemma-4-31b,
-      # gpt-oss-120b and zai-glm-4.7.
+      # A default rather than a recommendation. Set the MODEL_NAME variable and
+      # this is never read.
       #
-      # zai-glm-4.7 was the first choice, being the largest and newest, and it
-      # answered with HTTP 402. A provider lists the models it has rather than
-      # the models an account may use, so a paid model passes every check up to
-      # the one that costs money. gemma-4-31b is a third the size and this job
-      # exists to show a person what the product sounds like.
+      # The name is provider specific and has changed three times today, once
+      # per provider, which is the point check:provider makes by listing what
+      # the endpoint actually offers: Groq serves one model as
+      # openai/gpt-oss-120b, Cerebras serves the same weights as gpt-oss-120b,
+      # and neither answers to the other's id.
       #
-      # Note the missing openai/ prefix. Groq serves this model as
-      # openai/gpt-oss-120b and Cerebras as gpt-oss-120b, which is the whole
-      # reason check:provider prints the offered ids on a mismatch.
-      MODEL_NAME: ${{ inputs.model || vars.MODEL_NAME || secrets.MODEL_NAME || 'gpt-oss-120b' }}
+      # gemini-2.5-flash because the constraint that shaped every failure here
+      # was tokens per minute, and its free allowance is a large multiple of the
+      # one that produced a letter with a single sentence in it. Nothing about
+      # the drafting request changed to suit it.
+      MODEL_NAME: ${{ inputs.model || vars.MODEL_NAME || secrets.MODEL_NAME || 'gemini-2.5-flash' }}
 
       # Deliberately not set to MODEL_NAME_CORPUS. That variable points at the
       # small model extraction runs on, which is the right economy for reading a
