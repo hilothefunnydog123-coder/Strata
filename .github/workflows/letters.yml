@@ -129,7 +129,19 @@ jobs:
       # another host serves the identical model as gpt-oss-120b, so setting
       # MODEL_BASE_URL without setting this produces a 404 for a model that is
       # right there. check:provider lists what the provider actually offers.
-      MODEL_NAME: ${{ inputs.model || vars.MODEL_NAME || secrets.MODEL_NAME || 'openai/gpt-oss-120b' }}
+      # zai-glm-4.7, of the three this account is offered: gemma-4-31b,
+      # gpt-oss-120b and zai-glm-4.7. The largest and newest of them, and the
+      # choice here is about writing rather than throughput, because this job
+      # exists to show a person what the product sounds like.
+      #
+      # gpt-oss-120b is the same model the Groq attempts ran on, so setting
+      # MODEL_NAME to it compares two hosts of one model rather than two models,
+      # which is the experiment to run if this one writes badly.
+      #
+      # Note the missing openai/ prefix. Groq serves this model under
+      # openai/gpt-oss-120b and Cerebras under gpt-oss-120b, which is the whole
+      # reason check:provider prints the offered ids on a mismatch.
+      MODEL_NAME: ${{ inputs.model || vars.MODEL_NAME || secrets.MODEL_NAME || 'zai-glm-4.7' }}
 
       # Deliberately not set to MODEL_NAME_CORPUS. That variable points at the
       # small model extraction runs on, which is the right economy for reading a
