@@ -144,6 +144,16 @@ jobs:
       # the drafting request changed to suit it.
       MODEL_NAME: ${{ inputs.model || vars.MODEL_NAME || secrets.MODEL_NAME || 'gemini-2.5-flash' }}
 
+      # Where generation goes when the model above is refused for allowance. A
+      # quota belongs to a model on a project, not to the key, so a busy or
+      # spent bucket on one model says nothing about the next. A real run
+      # proved it: every request to one model refused for six minutes straight
+      # at sixty second spacing, on an account whose listing offered fifty
+      # others. Both names below are from this account's own listing, and both
+      # are aliases the provider keeps pointed at a current model, so they stay
+      # valid as releases move.
+      MODEL_NAME_FALLBACKS: ${{ vars.MODEL_NAME_FALLBACKS || 'gemini-flash-latest,gemini-flash-lite-latest' }}
+
       # Deliberately not set to MODEL_NAME_CORPUS. That variable points at the
       # small model extraction runs on, which is the right economy for reading a
       # manual chapter and the wrong one for writing to a payer. Generation uses

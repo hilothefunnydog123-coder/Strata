@@ -25,9 +25,11 @@ import {
   holding,
   sourceSpan,
 } from '@/lib/db/schema';
+import { env } from '@/lib/env';
 import { log } from '@/lib/log';
 import {
   ModelMalformedOutputError,
+  ModelRateLimitedError,
   ModelRequestTooLargeError,
   modelName,
   withRateLimitPatience,
@@ -164,6 +166,90 @@ export function criteriaFor(serviceType: string, denialId: string): string[] {
   return [...STATUTORY_CRITERIA.skilled_nursing!];
 }
 
+
+/* ─── Which model answers, when the first choice's allowance is spent ─────── */
+
+/**
+ * Models whose allowance this process has already found empty.
+ *
+ * Sticky across stages and across letters on purpose. Exhausting a bucket is a
+ * fact about the provider for the rest of the window, not about the call that
+ * discovered it, and re-learning it costs the full rate limit patience per
+ * stage: three minutes of spaced refusals to find out what the last stage
+ * already knew.
+ */
+const spentModels = new Set<string>();
+
+/** For tests. A process that generates all day clears naturally by restarting. */
+export function forgetSpentModels(): void {
+  spentModels.clear();
+}
+
+/**
+ * Run one stage, moving to a fallback model when the current one's allowance
+ * is spent.
+ *
+ * The same per model metering the corpus rotation exploits, arrived at the
+ * same way. A quota belongs to a model on a project rather than to the key, so
+ * an account refused on one model has an untouched budget on the next, and a
+ * real run proved it the hard way: every request to one model refused for six
+ * straight minutes, at sixty second spacing, on an account that could list
+ * fifty others it was welcome to use.
+ *
+ * Rotation triggers only when patience is exhausted or the provider names an
+ * interval too long to wait, both of which surface here as
+ * ModelRateLimitedError escaping withRateLimitPatience. A throttle that clears
+ * inside the patience never rotates, so the preferred model is used whenever
+ * using it is possible.
+ *
+ * undefined asks the stage to use its configured model, so an empty fallback
+ * list is exactly the old behaviour.
+ */
+export async function withModelFallback<T>(
+  what: string,
+  run: (model?: string) => Promise<T>,
+): Promise<T> {
+  const fallbacks = env.MODEL_NAME_FALLBACKS.split(',')
+    .map((m: string) => m.trim())
+    .filter((m: string) => m.length > 0);
+
+  // undefined first: the configured model, whatever modelName resolves it to.
+  // Its resolved name is what lands in spentModels if it runs dry, so the
+  // skip check below has to resolve it the same way.
+  const candidates: (string | undefined)[] = [
+    undefined,
+    ...fallbacks.filter((m, i, all) => all.indexOf(m) === i),
+  ];
+
+  let lastRefusal: unknown;
+
+  for (const candidate of candidates) {
+    const resolved = candidate ?? modelName();
+    if (spentModels.has(resolved)) continue;
+
+    try {
+      return await withRateLimitPatience(what, () => run(candidate));
+    } catch (error) {
+      if (!(error instanceof ModelRateLimitedError)) throw error;
+
+      lastRefusal = error;
+      spentModels.add(resolved);
+      log.info('model allowance spent, moving to a fallback model', {
+        what,
+        spent: resolved,
+        remaining: candidates.filter(
+          (c) => !spentModels.has(c ?? modelName()),
+        ).length,
+      });
+    }
+  }
+
+  // Nothing left to rotate to. The last refusal is the truthful error, and if
+  // every model on the list refused, the problem is the account rather than a
+  // bucket, which the log above now shows model by model.
+  throw lastRefusal ?? new Error(`No model was available for ${what}.`);
+}
+
 /**
  * Generate a draft for a denial.
  *
@@ -189,11 +275,11 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
     );
   }
 
-  const classification = await withRateLimitPatience('reading the denial letter', () =>
+  const classification = await withModelFallback('reading the denial letter', (model) =>
     classifyDenial(
       record.payerName,
       letterSpans.map((s) => ({ ordinal: s.ordinal, text: s.text })),
-      { containsPhi, denialId },
+      { containsPhi, denialId, model },
     ),
   );
 
@@ -232,11 +318,11 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
   const facts =
     recordSpans.length === 0
       ? { value: { facts: [] } }
-      : await withRateLimitPatience('reading the clinical record', () =>
+      : await withModelFallback('reading the clinical record', (model) =>
           extractClinicalFacts(
             criteria,
             recordSpans.map((s) => ({ ordinal: s.ordinal, text: s.text })),
-            { containsPhi, denialId },
+            { containsPhi, denialId, model },
           ),
         );
 
@@ -424,8 +510,8 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
     // Regenerating is the response this loop was built for.
     let drafted;
     try {
-      drafted = await withRateLimitPatience('writing the appeal', () =>
-        draftWithinTheLimit(context, { containsPhi, denialId }, allowance),
+      drafted = await withModelFallback('writing the appeal', (model) =>
+        draftWithinTheLimit(context, { containsPhi, denialId, model }, allowance),
       );
     } catch (error) {
       if (!(error instanceof ZodError)) throw error;
@@ -667,7 +753,7 @@ function citeLess(allowance: DraftAllowance, denialId: string): boolean {
 
 export async function draftWithinTheLimit(
   context: DraftContext,
-  options: { containsPhi: boolean; denialId: string },
+  options: { containsPhi: boolean; denialId: string; model?: string },
   allowance: DraftAllowance = initialAllowance(context),
 ): Promise<Awaited<ReturnType<typeof draftAppeal>>> {
   for (;;) {

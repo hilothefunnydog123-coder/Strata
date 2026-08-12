@@ -163,12 +163,13 @@ export function buildClassificationPrompt(
 export async function classifyDenial(
   payerName: string,
   spans: readonly SpanForClassification[],
-  options: { containsPhi: boolean; denialId: string },
+  options: { containsPhi: boolean; denialId: string; model?: string },
 ): Promise<LlmResponse<Classification>> {
   return complete({
     stage: 'denial_classify',
     system: CLASSIFICATION_SYSTEM_PROMPT,
     user: buildClassificationPrompt(payerName, spans),
+    model: options.model,
     // Cast for the same reason the extraction schema needs one: a schema
     // carrying defaults accepts less than it returns, so its input and output
     // types differ and the boundary's signature asks for one type.

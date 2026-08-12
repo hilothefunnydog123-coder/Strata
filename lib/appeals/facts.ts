@@ -144,12 +144,13 @@ ${body}`;
 export async function extractClinicalFacts(
   criteria: readonly string[],
   spans: readonly SpanForFactExtraction[],
-  options: { containsPhi: boolean; denialId: string },
+  options: { containsPhi: boolean; denialId: string; model?: string },
 ): Promise<LlmResponse<{ facts: unknown[] }>> {
   return complete({
     stage: 'fact_extract',
     system: FACT_EXTRACTION_SYSTEM_PROMPT,
     user: buildFactExtractionPrompt(criteria, spans),
+    model: options.model,
     schema: factExtractionSchema as z.ZodType<{ facts: unknown[] }>,
     containsPhi: options.containsPhi,
     denialId: options.denialId,

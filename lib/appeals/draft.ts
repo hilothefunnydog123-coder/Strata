@@ -285,12 +285,13 @@ export const MIN_DRAFT_OUTPUT_TOKENS = 2048;
 
 export async function draftAppeal(
   context: DraftContext,
-  options: { containsPhi: boolean; denialId: string; maxTokens?: number },
+  options: { containsPhi: boolean; denialId: string; maxTokens?: number; model?: string },
 ): Promise<LlmResponse<z.infer<typeof draftSchema>>> {
   return complete({
     stage: 'appeal_draft',
     system: DRAFT_SYSTEM_PROMPT,
     user: buildDraftPrompt(context),
+    model: options.model,
     // Cast for the reason the other two schemas need one: a schema that fills
     // in a missing section accepts less than it returns, so its input and
     // output types differ and the boundary asks for a single type.

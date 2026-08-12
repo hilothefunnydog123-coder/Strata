@@ -75,6 +75,21 @@ const schema = z.object({
   ),
   MODEL_NAME: withDefault('llama-3.3-70b-versatile'),
   /**
+   * Models generation may move to when MODEL_NAME's allowance is spent.
+   *
+   * The same per model metering the corpus rotation exploits: a quota belongs
+   * to a model on a project, not to the key, so an account refused on one model
+   * has an untouched budget on the next. Generation used to end the appeal at
+   * the first empty bucket, which on a metered provider turns one busy model
+   * into a product that does not work.
+   *
+   * Safe for generation for the same reason a different corpus model is safe:
+   * every quote in a draft is verified verbatim against its source afterwards,
+   * so the model chosen changes how good the writing is, never whether the
+   * citations are real. Comma separated. Empty disables rotation.
+   */
+  MODEL_NAME_FALLBACKS: withDefault(''),
+  /**
    * The model corpus extraction uses, when it should differ from the one that
    * drafts appeals. Falls back to MODEL_NAME.
    *
@@ -342,6 +357,7 @@ function unconfigured(): Env {
     MODEL_BAA_CONFIRMED: false,
     MODEL_BASE_URL: 'https://api.groq.com/openai/v1',
     MODEL_NAME: 'llama-3.3-70b-versatile',
+    MODEL_NAME_FALLBACKS: '',
     MODEL_NAME_CORPUS: 'llama-3.1-8b-instant',
     MODEL_NAME_CORPUS_FALLBACKS: 'llama-3.3-70b-versatile,gemma2-9b-it',
     MODEL_JSON_MODE: true,
