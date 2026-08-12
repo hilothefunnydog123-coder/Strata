@@ -81,7 +81,20 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
-      MODEL_BASE_URL: ${{ inputs.base_url || vars.MODEL_BASE_URL || 'https://api.groq.com/openai/v1' }}
+      # Read from a variable or a secret, whichever exists.
+      #
+      # None of these three is sensitive and all of them belong in Variables.
+      # But GitHub puts Secrets and Variables on two tabs of one page under one
+      # heading, a value in the wrong tab is invisible to the other, and the
+      # symptom is not an error: the expression falls through to the default
+      # below and the job runs happily against the wrong provider. That cost two
+      # runs and a 401 that read like a bad key.
+      #
+      # So both are accepted. The cost is that a value supplied as a secret gets
+      # masked as *** in the log, including in the configuration block
+      # check:provider prints, which makes the next problem harder to see. Put
+      # them in Variables if you have the choice.
+      MODEL_BASE_URL: ${{ inputs.base_url || vars.MODEL_BASE_URL || secrets.MODEL_BASE_URL || 'https://api.groq.com/openai/v1' }}
 
       # Off for Anthropic, which ignores response_format rather than honouring
       # it, and on for Groq, which enforces it. Ignored is harmless either way;
@@ -91,7 +104,7 @@ jobs:
       # Nothing depends on it being on. Every stage asks for JSON in the prompt
       # as well, the boundary strips a markdown fence, and a shape that still
       # comes back wrong is corrected and asked again.
-      MODEL_JSON_MODE: ${{ vars.MODEL_JSON_MODE || 'true' }}
+      MODEL_JSON_MODE: ${{ vars.MODEL_JSON_MODE || secrets.MODEL_JSON_MODE || 'true' }}
 
       # Reporting only, and worth setting, because a run that prints what it
       # spent is the only way the cost of a letter stops being a guess. Cents
@@ -116,7 +129,7 @@ jobs:
       # another host serves the identical model as gpt-oss-120b, so setting
       # MODEL_BASE_URL without setting this produces a 404 for a model that is
       # right there. check:provider lists what the provider actually offers.
-      MODEL_NAME: ${{ inputs.model || vars.MODEL_NAME || 'openai/gpt-oss-120b' }}
+      MODEL_NAME: ${{ inputs.model || vars.MODEL_NAME || secrets.MODEL_NAME || 'openai/gpt-oss-120b' }}
 
       # Deliberately not set to MODEL_NAME_CORPUS. That variable points at the
       # small model extraction runs on, which is the right economy for reading a
