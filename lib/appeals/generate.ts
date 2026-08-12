@@ -230,17 +230,42 @@ export async function withModelFallback<T>(
     try {
       return await withRateLimitPatience(what, () => run(candidate));
     } catch (error) {
-      if (!(error instanceof ModelRateLimitedError)) throw error;
+      // Two failures rotate, for different reasons, and they are remembered
+      // differently.
+      //
+      // An exhausted allowance is a fact about the model for the rest of its
+      // window, so it is marked spent and skipped by every later stage.
+      //
+      // Unparseable JSON that survived the boundary's corrected retries is a
+      // fact about this model and this prompt right now: the model was asked,
+      // corrected, warmed off temperature zero, and still could not close its
+      // brackets. The next model on the list writes different JSON, and a real
+      // run died exactly here with two working fallbacks it never tried. Not
+      // marked spent, because the same model may write clean JSON for the next
+      // stage's very different prompt.
+      if (error instanceof ModelRateLimitedError) {
+        lastRefusal = error;
+        spentModels.add(resolved);
+        log.info('model allowance spent, moving to a fallback model', {
+          what,
+          spent: resolved,
+          remaining: candidates.filter(
+            (c) => !spentModels.has(c ?? modelName()),
+          ).length,
+        });
+        continue;
+      }
 
-      lastRefusal = error;
-      spentModels.add(resolved);
-      log.info('model allowance spent, moving to a fallback model', {
-        what,
-        spent: resolved,
-        remaining: candidates.filter(
-          (c) => !spentModels.has(c ?? modelName()),
-        ).length,
-      });
+      if (error instanceof ModelMalformedOutputError) {
+        lastRefusal = error;
+        log.info('model could not produce parseable JSON here, trying the next model', {
+          what,
+          model: resolved,
+        });
+        continue;
+      }
+
+      throw error;
     }
   }
 

@@ -336,18 +336,24 @@ export const SCHEMA_RETRIES = 2;
 export const SCHEMA_RETRY_TEMPERATURE = 0.3;
 
 /**
- * How many times an unparseable answer is asked again.
+ * How many times an answer that is bad JSON, and provably not a truncation, is
+ * asked again.
  *
- * One, and fewer than SCHEMA_RETRIES on purpose. A wrong shape is a model
- * misreading an instruction, and naming the missing fields back to it fixes
- * that often enough to be worth two attempts. Unparseable JSON is either a
- * one off slip, which one retry fixes, or a completion cut off at the
- * reservation, which no number of identical retries fixes and which the corpus
- * extractor answers by splitting the batch. Retrying a truncation twice would
- * spend a metered allowance on the same wrong answer before the caller ever
- * gets to apply the remedy that works.
+ * The two causes of unparseable JSON separate cleanly on a signal the response
+ * already carries: how much output came back against how much was reserved. A
+ * completion cut off at the reservation arrives at the cap, and no number of
+ * identical retries fixes it, so it gets none and the caller splits or sheds.
+ * An answer of eighty tokens against a reservation of two thousand was not cut
+ * off by anything; the model just wrote bad JSON, a correction plus sampling
+ * fixes that, and one attempt was demonstrably not enough: a real run parsed
+ * on the second ask, the next real run failed on the second ask and died. A
+ * provider that refused its own completion sends no usage at all, and with
+ * nothing to inspect it keeps the old single retry.
  */
-export const MALFORMED_RETRIES = 1;
+export const MALFORMED_RETRIES = 3;
+
+/** Above this fraction of the reservation, bad JSON is read as a truncation. */
+export const TRUNCATION_FRACTION = 0.9;
 
 /** What to say to a model whose last answer would not parse. */
 export const JSON_CORRECTION =
@@ -908,6 +914,12 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
   // reading it per attempt would let them disagree with each other.
   const model = modelName(request.stage, request.model);
 
+  // What the provider was actually told it may write, thinking headroom
+  // included. The truncation test below has to measure against this rather
+  // than against what the caller asked for, or a thinking model's answer would
+  // read as truncated at a cap it was never given.
+  const reservation = outputBudget(model, request.maxTokens ?? 4096);
+
   // Appended to the prompt on a retry, naming what was wrong with the last
   // answer. Empty on the first attempt.
   let correction = '';
@@ -934,7 +946,7 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
       ],
       // The caller's reservation, plus room to think on a model that thinks out
       // of the same budget. See THINKS_BY_DEFAULT above.
-      max_tokens: outputBudget(model, request.maxTokens ?? 4096),
+      max_tokens: reservation,
       // Nudged off zero when asking again, and only then, and only where a
       // temperature may be sent at all.
       //
@@ -1040,14 +1052,27 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
     // to this condition: our own parser refusing the text, and a provider
     // refusing its own completion with json_validate_failed. Identical remedy,
     // and the caller should not have to know which provider it is talking to.
-    if (readable instanceof ModelMalformedOutputError && malformed < MALFORMED_RETRIES) {
-      malformed += 1;
-      correction = JSON_CORRECTION;
-      log.info('the model returned unparseable JSON, asking again', {
-        stage: request.stage,
-        outputTokens,
-      });
-      continue;
+    if (readable instanceof ModelMalformedOutputError) {
+      // Which remedy applies is written in the usage numbers. At the cap it
+      // was a truncation and retrying the identical request is spending an
+      // allowance on the same wrong answer, so the caller gets it immediately
+      // and sheds or splits. Well under the cap it is just bad JSON, which a
+      // correction and sampling fix given enough attempts. Zero output means
+      // the provider refused its own completion and sent no usage, so there
+      // is nothing to inspect and one cautious retry stands.
+      const budget =
+        outputTokens === 0 ? 1 : outputTokens >= reservation * TRUNCATION_FRACTION ? 0 : MALFORMED_RETRIES;
+
+      if (malformed < budget) {
+        malformed += 1;
+        correction = JSON_CORRECTION;
+        log.info('the model returned unparseable JSON, asking again', {
+          stage: request.stage,
+          outputTokens,
+          attempt: malformed,
+        });
+        continue;
+      }
     }
 
     if (readable instanceof ModelRequestTooLargeError) {

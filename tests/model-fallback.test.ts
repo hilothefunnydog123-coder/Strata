@@ -33,6 +33,7 @@ async function load(fallbacks: string) {
     /** A refusal patience will not wait out: the daily allowance signal. */
     exhausted: () => new client.ModelRateLimitedError('429', 1_200),
     ModelRateLimitedError: client.ModelRateLimitedError,
+    ModelMalformedOutputError: client.ModelMalformedOutputError,
   };
 }
 
@@ -107,6 +108,53 @@ describe('a stage whose model has no allowance left', () => {
     ).rejects.toThrow('the key is wrong');
 
     expect(asked).toEqual([undefined]);
+  });
+
+  it('moves past a model that cannot write JSON for this prompt', async () => {
+    // A real run died at fact extraction after the boundary's corrected
+    // retries, with two working fallback models it never tried. A model that
+    // was asked, corrected, and still could not close its brackets is not
+    // going to on the sixth ask, and the next model writes different JSON.
+    const { withModelFallback, ModelMalformedOutputError } = await load(
+      'second-model,third-model',
+    );
+    const asked: (string | undefined)[] = [];
+
+    const result = await withModelFallback('reading the clinical record', async (model) => {
+      asked.push(model);
+      if (model === undefined) throw new ModelMalformedOutputError('not JSON');
+      return 'facts';
+    });
+
+    expect(result).toBe('facts');
+    expect(asked).toEqual([undefined, 'second-model']);
+  });
+
+  it('does not remember bad JSON against the model the way it remembers a quota', async () => {
+    // The same model may write clean JSON for the next stage's very different
+    // prompt, so it is tried fresh there rather than skipped.
+    const { withModelFallback, ModelMalformedOutputError } = await load(
+      'second-model',
+    );
+    const primaryAsked: string[] = [];
+
+    await withModelFallback('reading the denial letter', async (model) => {
+      if (model === undefined) {
+        primaryAsked.push('classify');
+        throw new ModelMalformedOutputError('not JSON');
+      }
+      return 'ok';
+    });
+
+    await withModelFallback('reading the clinical record', async (model) => {
+      if (model === undefined) {
+        primaryAsked.push('facts');
+        return 'ok on the model that failed last stage';
+      }
+      return 'ok';
+    });
+
+    expect(primaryAsked).toEqual(['classify', 'facts']);
   });
 
   it('is the old behaviour exactly when no fallbacks are configured', async () => {
