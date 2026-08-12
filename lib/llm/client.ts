@@ -328,6 +328,28 @@ export const SCHEMA_RETRIES = 2;
 export const SCHEMA_RETRY_TEMPERATURE = 0.3;
 
 /**
+ * How many times an unparseable answer is asked again.
+ *
+ * One, and fewer than SCHEMA_RETRIES on purpose. A wrong shape is a model
+ * misreading an instruction, and naming the missing fields back to it fixes
+ * that often enough to be worth two attempts. Unparseable JSON is either a
+ * one off slip, which one retry fixes, or a completion cut off at the
+ * reservation, which no number of identical retries fixes and which the corpus
+ * extractor answers by splitting the batch. Retrying a truncation twice would
+ * spend a metered allowance on the same wrong answer before the caller ever
+ * gets to apply the remedy that works.
+ */
+export const MALFORMED_RETRIES = 1;
+
+/** What to say to a model whose last answer would not parse. */
+export const JSON_CORRECTION =
+  'Your previous answer could not be parsed as JSON. Return the same content again as ' +
+  'a single valid JSON object: every string quoted and escaped, every array and object ' +
+  'closed, no preamble, no commentary, no markdown fence, nothing after the closing ' +
+  'brace. Do not drop any content to make it fit, and do not invent a quote: every ' +
+  'quote must still be copied exactly from the text you were given.';
+
+/**
  * Tell the model what was wrong with its last answer, in its own terms.
  *
  * Naming the fields rather than repeating the whole schema, because the schema
@@ -562,7 +584,7 @@ function costCents(inputTokens: number, outputTokens: number): number {
  * understood response is worse than none in a product where every output
  * becomes a citation.
  */
-function extractJson(text: string): unknown {
+export function extractJson(text: string): unknown {
   const trimmed = text.trim();
 
   const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(trimmed);
@@ -571,15 +593,31 @@ function extractJson(text: string): unknown {
   try {
     return JSON.parse(candidate);
   } catch {
+    // The salvage attempt, for a model that wrapped its answer in prose.
+    //
+    // Wrapped, which it was not. A failure here threw a raw SyntaxError from
+    // the middle of this function, so a model writing slightly malformed JSON
+    // surfaced as "Expected ',' or ']' after array element at position 330"
+    // rather than as the condition this class exists to name, and every caller
+    // that knows what to do about a malformed answer saw an error it did not
+    // recognise and gave up. That ended a real run one call short of a letter.
     const start = candidate.search(/[[{]/);
     const end = Math.max(candidate.lastIndexOf('}'), candidate.lastIndexOf(']'));
     if (start !== -1 && end > start) {
-      return JSON.parse(candidate.slice(start, end + 1));
+      try {
+        return JSON.parse(candidate.slice(start, end + 1));
+      } catch {
+        // Fall through. Both parses failed, which is the same answer as neither
+        // being attempted: this is not JSON.
+      }
     }
+
     throw new ModelMalformedOutputError(
-      'The model did not return parseable JSON. The usual cause is a completion cut ' +
-        'off at the output reservation partway through an object, so the remedy is to ' +
-        'ask for less in one call. The corpus extractor splits and retries on its own.',
+      'The model did not return parseable JSON. Two causes are common and they have ' +
+        'different remedies. A completion cut off at the output reservation is fixed by ' +
+        'asking for less in one call, which the corpus extractor does on its own. A ' +
+        'model that simply wrote malformed JSON is fixed by asking again, which the ' +
+        'boundary now does before giving up.',
     );
   }
 }
@@ -866,6 +904,10 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
   // answer. Empty on the first attempt.
   let correction = '';
 
+  // Counted apart from the attempt number, because the two retries answer
+  // different failures and one of them must not consume the other's budget.
+  let malformed = 0;
+
   for (let attempt = 1; ; attempt += 1) {
   const started = Date.now();
   let inputTokens = 0;
@@ -981,6 +1023,24 @@ export async function complete<T>(request: LlmRequest<T>): Promise<LlmResponse<T
     // The error is logged through the redacting logger, which strips anything
     // the SDK attached from the request body.
     const readable = asReadableError(error);
+
+    // An answer that would not parse is asked again, once, for the same reason
+    // a wrong shape is: the model can produce a good answer and did not, and
+    // the request that would produce it is the one already assembled here.
+    //
+    // Checked after translation rather than before, so it catches both routes
+    // to this condition: our own parser refusing the text, and a provider
+    // refusing its own completion with json_validate_failed. Identical remedy,
+    // and the caller should not have to know which provider it is talking to.
+    if (readable instanceof ModelMalformedOutputError && malformed < MALFORMED_RETRIES) {
+      malformed += 1;
+      correction = JSON_CORRECTION;
+      log.info('the model returned unparseable JSON, asking again', {
+        stage: request.stage,
+        outputTokens,
+      });
+      continue;
+    }
 
     if (readable instanceof ModelRequestTooLargeError) {
       // Routine, and usually handled by the caller sending less. Logging it at

@@ -17,6 +17,7 @@ import {
   ModelRequestTooLargeError,
   withRateLimitPatience,
   correctionFor,
+  extractJson,
   SCHEMA_RETRIES,
 } from '@/lib/llm/client';
 import { z } from 'zod';
@@ -558,5 +559,54 @@ describe('a rate limit that carries the provider reason', () => {
 
     // Long enough to diagnose, short enough to read.
     expect(message.length).toBeLessThan(1200);
+  });
+});
+
+/* ─── An answer that will not parse ───────────────────────────────────────── */
+
+/**
+ * The failure that ended a run one call short of a letter.
+ *
+ * extractJson tries a salvage parse when the first one fails, for a model that
+ * wrapped its answer in prose. The salvage parse was not wrapped, so a model
+ * writing slightly malformed JSON threw a raw SyntaxError out of the middle of
+ * the boundary: "Expected \',\' or \']\' after array element in JSON at position
+ * 330". Every caller that knows what to do about a malformed answer saw an
+ * error it did not recognise, and the appeal ended there.
+ */
+describe('an answer that is not JSON', () => {
+  it('reports a malformed answer rather than a parser error', () => {
+    // Reaches the salvage parse (it starts with a brace and ends with one) and
+    // still fails it, which is the exact path that used to throw raw.
+    expect(() => extractJson('{"facts": [{"a": 1} {"b": 2}]}')).toThrow(
+      ModelMalformedOutputError,
+    );
+  });
+
+  it('reports the same thing for an answer with no JSON in it at all', () => {
+    expect(() => extractJson('I cannot help with that request.')).toThrow(
+      ModelMalformedOutputError,
+    );
+  });
+
+  it('names both causes, because they have different remedies', () => {
+    // A truncated completion is fixed by asking for less; a model that simply
+    // wrote bad JSON is fixed by asking again. Someone reading this has to be
+    // able to tell which one to do.
+    try {
+      extractJson('not json');
+      throw new Error('should have thrown');
+    } catch (error) {
+      const message = (error as Error).message;
+      expect(message).toMatch(/cut off|asking for less/i);
+      expect(message).toMatch(/asking again/i);
+    }
+  });
+
+  it('still reads the answers it was always able to read', () => {
+    // The salvage path exists for real behaviour and must keep working.
+    expect(extractJson('{"ok":true}')).toEqual({ ok: true });
+    expect(extractJson('```json\n{"ok":true}\n```')).toEqual({ ok: true });
+    expect(extractJson('Here you go:\n{"ok":true}\nhope that helps')).toEqual({ ok: true });
   });
 });
