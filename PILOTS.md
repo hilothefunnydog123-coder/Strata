@@ -33,6 +33,30 @@ Free in the evaluation phase. The eventual model is contingency on recovered
 dollars (the operator console is already built around 15 percent), which means
 the facility risks nothing and the incentive conversation is one sentence long.
 
+## Pricing
+
+Set now so every conversation can end with a number. Value based, because a
+letter costs pennies to produce and thousands when it wins, and priced against
+the real alternative: an appeals consultant at 150 to 300 dollars an hour, or
+a full service denials firm taking 20 to 30 percent contingency.
+
+- Facilities, direct (SNF, IRF, hospital): evaluation free, up to five
+  letters. Then 15 percent of recovered dollars per successful appeal,
+  invoiced only when the payer actually pays, nothing on a loss. This is the
+  exact structure the invoicing flow already implements.
+- Facilities whose compliance office will not do contingency: 149 dollars per
+  letter, flat.
+- Channel partners (RCM and denials firms, letters generated under their
+  name): first ten letters free during evaluation, then per letter: 99
+  dollars at list, 79 at one hundred or more letters a month, 59 at five
+  hundred or more. Against the 3,000 to 4,000 dollars they collect on one
+  recovered 13,000 dollar claim at their own contingency rates, the letter
+  cost is a rounding error, and that is the sentence to say out loud.
+
+Every number above is an opening position, not scripture. The one rule: never
+price below free-plus-contingency for a direct facility, because contingency
+is also the trust story.
+
 ## Who to contact
 
 ### Tier 1: channel partners, one deal covers many facilities
@@ -56,6 +80,28 @@ side of the same channel.
 
 Titles: VP of Operations, Director of Appeals, Chief Growth Officer, or the
 named founder at regional shops.
+
+Contact sheet, verified from public sources on 2026-08-12. Main lines and
+published inboxes reach a screener; the named person comes from the contact
+form, LinkedIn, calling the main line and asking, or an email finder
+(Hunter.io and Apollo.io are the standard ones; verify before sending).
+Never guess an address: a bounce or a wrong name spends the first impression.
+
+- Aspirion (complex claims and denials), Columbus GA.
+  866-621-3601, info@aspirion.com, aspirion.com
+- Revecore (underpayments and denials), Franklin TN.
+  615-905-2678, revecore.com/contact-us
+- EnableComp (complex claims, 1000+ provider clients), Franklin TN.
+  615-791-4300, marketing@enablecomp.com, enablecomp.com/contact
+- Knowtion Health (denied and complex claim resolution), Boca Raton FL.
+  561-995-1252, Services@KnowtionHealth.com, knowtionhealth.com/contact
+- Zimmet Healthcare Services Group (SNF reimbursement consulting),
+  Manalapan NJ. 732-887-7356, zhealthcare.com/contact
+- Richter LTPAC Performance Advisors (outsourced post acute revenue cycle),
+  Twinsburg OH. 866-806-0799, richterhc.com/contact-us
+
+Cold email compliance, one line of law worth obeying: include a real mailing
+address in the footer, honor any opt out, and keep subject lines literal.
 
 ### Tier 2: skilled nursing facilities directly
 
