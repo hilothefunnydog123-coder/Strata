@@ -27,8 +27,10 @@ import {
   complete,
   llmConfigured,
   modelName,
+  ModelRateLimitedError,
   outputBudget,
   acceptsTemperature,
+  withRateLimitPatience,
 } from '../lib/llm/client';
 import { env, envStatus } from '../lib/env';
 
@@ -125,7 +127,11 @@ async function main(): Promise<number> {
   out('Sending one small request through the real boundary.');
 
   try {
-    const response = await complete({
+    // With the same patience the workload has, because the gate meeting a
+    // throttle is not the gate failing. It ran without any, so one 429 at this
+    // step ended a whole job whose letter writing code would have waited that
+    // same 429 out, and the gate killed the run it existed to protect.
+    const response = await withRateLimitPatience('checking the provider', () => complete({
       // Drafting rather than a cheaper stage, because drafting is the stage
       // with the largest reservation and the one whose model MODEL_NAME names.
       // Checking the stage that is not going to be the problem proves nothing.
@@ -141,7 +147,7 @@ async function main(): Promise<number> {
       // Small on purpose. With thinking headroom added on a model that thinks,
       // this is still a fraction of a cent.
       maxTokens: 256,
-    });
+    }));
 
     out('');
     out('It works.');
@@ -166,6 +172,26 @@ async function main(): Promise<number> {
     out('');
     return 0;
   } catch (error) {
+    // A throttle is the one failure that does not fail the gate.
+    //
+    // Everything this script exists to catch is a configuration problem: a key
+    // from the wrong provider, a model the endpoint does not serve, a parameter
+    // the model refuses, an account with nothing to spend. A 429 is none of
+    // those. It is the provider accepting the request as well formed and asking
+    // for time, which is evidence of a working configuration, and the letter
+    // writing this gate protects has its own patience. Failing the job here
+    // stopped a run that would have succeeded, on the strength of the provider
+    // being busy for the two seconds the gate happened to look.
+    if (error instanceof ModelRateLimitedError) {
+      out('');
+      out('The provider is throttling this account right now, which is not a');
+      out('configuration problem: the key, endpoint and model were all accepted,');
+      out('or the refusal would have named them. Proceeding. Generation waits');
+      out('out throttles on its own.');
+      out('');
+      return 0;
+    }
+
     out('');
     out('It does not work. Nothing else will either, so fix this first.');
     out('');

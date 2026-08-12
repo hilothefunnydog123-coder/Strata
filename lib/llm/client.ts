@@ -297,7 +297,15 @@ export async function withRateLimitPatience<T>(
       } catch (error) {
         if (!(error instanceof ModelRateLimitedError)) throw error;
 
-        const seconds = error.retryAfterSeconds ?? 20;
+        // Escalating when the provider does not say how long. Gemini's OpenAI
+        // compatible endpoint sends a bare 429 with no Retry-After and no body,
+        // and a constant twenty seconds can sit inside a rolling per minute
+        // window forever: wait twenty, refused, wait twenty, refused, for every
+        // attempt this is allowed. Twenty, forty, then sixty gives the window
+        // time to actually roll over. A provider that names its interval is
+        // still taken at its word.
+        const seconds =
+          error.retryAfterSeconds ?? Math.min(20 * attempt, RATE_LIMIT_MAX_WAIT_SECONDS);
 
         // Longer than the cap means a daily allowance, which will not clear
         // inside this request however patient it is. Failing now with the
