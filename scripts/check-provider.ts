@@ -35,6 +35,37 @@ const out = (line: string): void => {
   process.stdout.write(`${line}\n`);
 };
 
+/**
+ * One tiny real request on a named model. Null when it worked.
+ *
+ * Small enough to cost a rounding error, and real enough to catch what listing
+ * cannot: a model an account can see and may not spend on.
+ */
+async function tryModel(model: string): Promise<string | null> {
+  try {
+    await complete({
+      stage: 'appeal_draft',
+      system: 'You return JSON and nothing else. No preamble, no commentary, no markdown fence.',
+      user: 'Return exactly {"ok": true}',
+      schema: z.object({ ok: z.boolean() }),
+      containsPhi: false,
+      maxTokens: 64,
+      model,
+    });
+    return null;
+  } catch (error) {
+    // Short, because this prints once per model and the long explanation has
+    // already been printed once above. A list of ten identical paragraphs
+    // hides the one column that matters, which is which name worked.
+    const message = (error as Error).message;
+    if (/without payment/.test(message)) return 'not entitled, HTTP 402';
+    if (/rate or quota limit/.test(message)) return 'rate limited';
+    if (/rejected the API key/.test(message)) return 'key rejected';
+    if (/too large/.test(message)) return 'request too large';
+    return message.split('\n')[0]?.slice(0, 60) ?? 'failed';
+  }
+}
+
 async function main(): Promise<number> {
   out('');
 
@@ -139,6 +170,24 @@ async function main(): Promise<number> {
     out('');
     out(`  ${(error as Error).message.split('\n').join('\n  ')}`);
     out('');
+
+    // When the provider refused on entitlement rather than on the request, the
+    // useful question is not "why this model" but "which models at all". One
+    // model answering 402 looks like a paid model; every model answering 402 is
+    // an account with nothing to spend, and those have completely different
+    // remedies. Guessing between them one push at a time is what this avoids.
+    const entitlement = /without payment/.test((error as Error).message);
+    if (entitlement && offered.length > 1) {
+      out('Trying every model this account is offered, to tell a paid model apart');
+      out('from an account with no balance.');
+      out('');
+      for (const id of offered) {
+        const failure = await tryModel(id);
+        out(`  ${failure === null ? 'usable  ' : 'refused '} ${id}${failure ? `  (${failure})` : ''}`);
+      }
+      out('');
+    }
+
     return 1;
   }
 }
