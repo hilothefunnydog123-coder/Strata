@@ -481,7 +481,7 @@ export async function probeProvider(): Promise<ProviderProbe> {
     const wanted = [modelName(), modelName('corpus_extract')].filter(
       (name, index, all) => all.indexOf(name) === index,
     );
-    const missing = wanted.filter((name) => !available.includes(name));
+    const missing = wanted.filter((name) => !available.some((id) => sameModelId(id, name)));
 
     if (missing.length > 0) {
       return {
@@ -499,6 +499,24 @@ export async function probeProvider(): Promise<ProviderProbe> {
     const readable = asReadableError(error);
     return { ok: false, detail: (readable as Error).message };
   }
+}
+
+/**
+ * Whether a listing entry names the model a request would name.
+ *
+ * Not string equality, because a provider does not have to answer with the id
+ * it accepts. Google's OpenAI compatible endpoint lists models/gemini-2.5-flash
+ * and takes gemini-2.5-flash, so a check comparing the two exactly reports a
+ * model as missing while it sits in the list two lines above, which is what it
+ * did: a correctly configured account was told to pick something from a list
+ * containing the thing it had picked.
+ *
+ * Case is folded for the same reason. Neither normalisation can mask a real
+ * mismatch, because no two distinct models differ only by that prefix.
+ */
+export function sameModelId(offered: string, wanted: string): boolean {
+  const strip = (id: string) => id.trim().replace(/^models\//i, '').toLowerCase();
+  return strip(offered) === strip(wanted);
 }
 
 /**

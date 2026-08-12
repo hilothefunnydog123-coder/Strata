@@ -471,3 +471,34 @@ describe('a model the account is not entitled to', () => {
     expect(asReadableError(providerError(402))).not.toBeInstanceOf(ModelRateLimitedError);
   });
 });
+
+/* ─── Model ids as a provider lists them ──────────────────────────────────── */
+
+/**
+ * A correctly configured account told to pick from a list containing its pick.
+ *
+ * Google's OpenAI compatible endpoint lists models/gemini-2.5-flash and accepts
+ * gemini-2.5-flash. Comparing the two exactly reported the model as missing
+ * while it sat in the printed list two lines above the message saying it was
+ * not there. The settings were right and the check was wrong.
+ */
+describe('a model id as the provider lists it', () => {
+  it('matches the id a request would use, prefix or not', async () => {
+    const { sameModelId } = await import('@/lib/llm/client');
+
+    expect(sameModelId('models/gemini-2.5-flash', 'gemini-2.5-flash')).toBe(true);
+    expect(sameModelId('gemini-2.5-flash', 'models/gemini-2.5-flash')).toBe(true);
+    expect(sameModelId('models/gemini-2.5-flash', 'models/gemini-2.5-flash')).toBe(true);
+  });
+
+  it('still tells two different models apart', async () => {
+    const { sameModelId } = await import('@/lib/llm/client');
+
+    // The prefix is the only thing folded. Everything that distinguishes one
+    // model from another has to keep distinguishing them, or this turns a
+    // missing model into a silent substitution.
+    expect(sameModelId('models/gemini-2.5-flash', 'gemini-2.5-flash-lite')).toBe(false);
+    expect(sameModelId('models/gemini-2.5-pro', 'gemini-2.5-flash')).toBe(false);
+    expect(sameModelId('openai/gpt-oss-120b', 'gpt-oss-120b')).toBe(false);
+  });
+});

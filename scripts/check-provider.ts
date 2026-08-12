@@ -23,6 +23,7 @@ import 'dotenv/config';
 import { z } from 'zod';
 import {
   availableModels,
+  sameModelId,
   complete,
   llmConfigured,
   modelName,
@@ -112,7 +113,7 @@ async function main(): Promise<number> {
   // the common one when moving providers, since the same open weights are
   // published under a different id by every host that serves them.
   const offered = await availableModels();
-  if (offered.length > 0 && !offered.includes(drafting)) {
+  if (offered.length > 0 && !offered.some((id) => sameModelId(id, drafting))) {
     out(`The provider took the key but does not offer ${drafting}.`);
     out('Nothing else will work until MODEL_NAME names something below.');
     out('');
