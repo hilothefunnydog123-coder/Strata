@@ -186,6 +186,165 @@ statutory criteria wired in. A home health denial would be argued under the
 wrong standard today, so it is excluded in writing until the criteria are
 written down.
 
+## Specialised drafts, Bay Area
+
+One per target, problem first: the opening paragraph is entirely about the
+fight on their desk, and nothing about us appears until they are nodding.
+Every claim about them is public knowledge, phrased carefully; nothing is
+invented. All end with the same block: name, medeal.app address, phone,
+mailing address, and the line "The attached sample was generated end to end
+on a synthetic case."
+
+The SNF drafts lean on one public fact worth knowing cold before any call:
+Medicare Advantage plans now use algorithmic length of stay predictions to
+cut skilled stays mid course, which has been the subject of national
+reporting and federal litigation. The counter to an internal criteria cutoff
+is 42 CFR 422.101(b), and that argument is what the letters are built to
+make.
+
+### St. Rose Hospital, Hayward
+
+Subject: Recovering the MA denials St. Rose does not have staff to fight
+
+> Hi [name],
+>
+> St. Rose has fought harder than any hospital in the East Bay to stay
+> open and independent, and every denied MA claim that goes unappealed is a
+> write off a safety net budget cannot spare. The big systems staff entire
+> denials departments; you get the same denial letters they do without one.
+>
+> I built software that writes the appeal: every sentence carries a word for
+> word quote from the chart or the Medicare regulation it rests on, laid out
+> in a citation appendix your team verifies by hand in minutes. It costs
+> nothing unless money is recovered: 15 percent of what comes back, only
+> after the plan pays.
+>
+> Send one denial with identifiers removed by your staff, and the finished
+> appeal is back in two business days, free. If it is not better than what
+> deadline pressure usually allows, delete my address.
+
+### Washington Health, Fremont
+
+Subject: MA write offs land on a district budget
+
+> Hi [name],
+>
+> Washington is a district hospital, which means every Medicare Advantage
+> denial that gets written off instead of appealed is ultimately absorbed by
+> a public budget, and the Tri-City Medicare population keeps shifting into
+> MA plans that deny more and pay slower. Without a system office behind
+> you, appeal volume is capped by the hours your team has, not by the merits.
+>
+> [Then the same second and third paragraphs as St. Rose.]
+
+### El Camino Health
+
+Subject: Appealing every MA denial, not only the large ones
+
+> Hi [name],
+>
+> Every revenue cycle team triages appeals: balances above a threshold get
+> the full letter, everything below gets written off, because a proper
+> appeal costs hours of a nurse's or an analyst's time. The merits do not
+> stop at the threshold; the staffing does.
+>
+> I built software that makes the marginal appeal nearly free to write.
+> Every assertion carries a verbatim quote from the record or the
+> regulation, checkable by hand, so your reviewers approve rather than
+> draft. The write off threshold can drop to wherever the merits stop.
+>
+> [Offer paragraph.]
+
+### MarinHealth
+
+Subject: The MA denial letters nobody in Marin has time to answer
+
+> Hi [name],
+>
+> Marin's population skews older than almost anywhere in California, its
+> seniors are moving into Medicare Advantage, and MarinHealth meets those
+> denials as an independent district hospital without a corporate appeals
+> department. The letters that do not get written are the plan's cheapest
+> wins.
+>
+> [Tool and offer paragraphs.]
+
+### Sonoma Valley Hospital
+
+Subject: Appeals without adding headcount at Sonoma Valley
+
+> Hi [name],
+>
+> At a hospital Sonoma Valley's size, denials land on one or two desks that
+> already have other jobs, and a single properly cited appeal letter costs
+> an afternoon. So most denials age out unappealed, and the plans know it:
+> small district hospitals are where deny and wait works best.
+>
+> [Tool and offer paragraphs.]
+
+### John Muir Health
+
+Subject: The level of care appeals your UM team triages away
+
+> Hi [name],
+>
+> Your utilisation management team wins the peer to peers it has time to
+> fight. The MA level of care denials that slip past, the ones where the
+> plan's letter says skilled care is no longer required while the chart says
+> otherwise, mostly die in the backlog, because a written appeal with the
+> regulation cited and the record quoted takes hours per case.
+>
+> [Tool and offer paragraphs.]
+
+### Generations Healthcare
+
+Subject: The "no longer skilled" cutoff letters across 29 buildings
+
+> Hi [name],
+>
+> Every one of your buildings gets the same letter: therapy has plateaued,
+> the member no longer requires a skilled level of care, coverage ends
+> Friday. Those cutoffs increasingly come from plan internal criteria and
+> algorithmic length of stay tools, which has been the subject of national
+> reporting and federal litigation, and the business office in each building
+> fights them alone, from scratch, under deadline.
+>
+> I built software that writes the appeal the same way every time: the
+> Medicare standard at 42 CFR 409.31 cited, the chart quoted word for word,
+> and where the plan applied its own criteria instead of Medicare's, the 42
+> CFR 422.101(b) argument made explicitly. A citation appendix lets your
+> regional team verify every line without trusting the software.
+>
+> One pilot building, one redacted denial, finished appeal back in two
+> business days, free. Portfolio pricing after that is 15 percent of
+> recovered dollars, nothing on losses.
+
+### Windsor
+
+Subject: One appeal standard across every Windsor building
+
+> Hi [name],
+>
+> The quality of an appeal at your buildings depends today on which business
+> office manager writes it and how much time the deadline leaves them. The
+> plans counting on that variance send the same "no longer requires skilled
+> level of care" letter to every facility in California.
+>
+> [Then Generations paragraphs two and three.]
+
+### Ensign affiliate facility, administrator
+
+Subject: Denials do not pause during a transition
+
+> Hi [name],
+>
+> Buildings changing operators is exactly when appeal deadlines get missed:
+> the business office is converting systems, staff are new, and the MA
+> plans' letters keep coming on their own clock. A missed deadline is an
+> automatic loss on a claim that may have been fully meritorious.
+>
+> [Tool and offer paragraphs, single facility framing.]
+
 ## The messages
 
 Send from a medeal.app address, never gmail. Attach the sample letter as a
