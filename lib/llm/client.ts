@@ -763,6 +763,19 @@ export function asReadableError(error: unknown): unknown {
     );
   }
 
+  if (status === 402) {
+    return new LlmBoundaryError(
+      'The model provider will not serve this model to this account without payment ' +
+        '(HTTP 402). Nothing here is broken: the key is good and the model exists, or ' +
+        'the request would have been refused earlier and differently. The account is ' +
+        'simply not entitled to this model, because it is on a paid tier or a credit ' +
+        'balance is spent.\n' +
+        'Listing models does not show this. A provider lists what it has, not what your ' +
+        'account may use, so a model can pass every check before this one and still ' +
+        'cost money. Pick another model or add credit.',
+    );
+  }
+
   if (status === 429) {
     return new ModelRateLimitedError(
       'The model provider refused the call for exceeding a rate or quota limit (HTTP ' +

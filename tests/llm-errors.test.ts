@@ -441,3 +441,33 @@ describe('a key that belongs to a different provider', () => {
     expect(message).not.toContain('looks like a');
   });
 });
+
+/**
+ * A model the account can see and cannot use.
+ *
+ * The first model chosen on a new provider was listed by that provider, passed
+ * the model name check, and answered the first real request with a bare "402
+ * status code (no body)". Nothing translated it, so the run ended on a number.
+ *
+ * Listing is not entitlement. A provider lists what it hosts rather than what a
+ * given account may spend, so a paid model clears every check that costs
+ * nothing and fails the first one that does.
+ */
+describe('a model the account is not entitled to', () => {
+  it('says the account cannot use it rather than leaking a status code', () => {
+    const translated = asReadableError(providerError(402));
+
+    expect(translated).toBeInstanceOf(LlmBoundaryError);
+    const message = (translated as Error).message;
+    expect(message).toContain('without payment');
+    // The two things someone would otherwise go and check first, ruled out.
+    expect(message).toMatch(/key is good/i);
+    expect(message).toMatch(/pick another model|add credit/i);
+  });
+
+  it('is not mistaken for a rate limit, which it reads like', () => {
+    // Both are the provider declining to serve a request it could serve, and
+    // one of them clears by waiting while the other never does.
+    expect(asReadableError(providerError(402))).not.toBeInstanceOf(ModelRateLimitedError);
+  });
+});
