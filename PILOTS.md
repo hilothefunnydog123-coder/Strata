@@ -186,42 +186,110 @@ statutory criteria wired in. A home health denial would be argued under the
 wrong standard today, so it is excluded in writing until the criteria are
 written down.
 
-## Specialised drafts, Bay Area
+## Specialised drafts, Bay Area, full length
 
-One per target, problem first: the opening paragraph is entirely about the
-fight on their desk, and nothing about us appears until they are nodding.
-Every claim about them is public knowledge, phrased carefully; nothing is
-invented. All end with the same block: name, medeal.app address, phone,
-mailing address, and the line "The attached sample was generated end to end
-on a synthetic case."
+Complete and ready to send. Two blanks per email: [name] and the sender
+block. Every one ends with the same signature:
 
-The SNF drafts lean on one public fact worth knowing cold before any call:
-Medicare Advantage plans now use algorithmic length of stay predictions to
-cut skilled stays mid course, which has been the subject of national
-reporting and federal litigation. The counter to an internal criteria cutoff
-is 42 CFR 422.101(b), and that argument is what the letters are built to
-make.
+> [Your name]
+> Founder, Medeal
+> [you]@medeal.app | [phone] | [mailing address]
+> Attached: a complete sample appeal, generated end to end on a synthetic
+> demonstration case.
+
+Product claims used below, all true today: a library of 1,154 verified
+Medicare regulation and manual passages; every sentence anchored to a
+verbatim quote checked character by character before the letter renders; a
+citation appendix checkable by hand; documentation gaps reported plainly
+instead of written around; the facility's staff reviews and signs everything
+filed. No win rate is claimed anywhere because none exists.
 
 ### St. Rose Hospital, Hayward
 
-Subject: Recovering the MA denials St. Rose does not have staff to fight
+Subject: Recovering the MA denials St. Rose does not have the staff to fight
 
 > Hi [name],
 >
-> St. Rose has fought harder than any hospital in the East Bay to stay
-> open and independent, and every denied MA claim that goes unappealed is a
-> write off a safety net budget cannot spare. The big systems staff entire
-> denials departments; you get the same denial letters they do without one.
+> St. Rose has spent years fighting to stay open and independent while
+> carrying one of the East Bay's heaviest safety net loads. Meanwhile the
+> Medicare Advantage plans send you the same denial letters they send
+> Stanford and Sutter: not medically necessary, level of care no longer
+> required, coverage ended mid stay. The systems answer with entire denials
+> departments. At St. Rose those letters land on a handful of people who
+> already have three other jobs, so the appeals that do not get written
+> become write offs, and every one of those dollars is a dollar a safety net
+> hospital needed.
 >
-> I built software that writes the appeal: every sentence carries a word for
-> word quote from the chart or the Medicare regulation it rests on, laid out
-> in a citation appendix your team verifies by hand in minutes. It costs
-> nothing unless money is recovered: 15 percent of what comes back, only
-> after the plan pays.
+> The record on this is public and lopsided. Federal reviews have found that
+> most MA denials are never appealed, and that when providers do appeal, the
+> large majority of denials are overturned. The plans are not winning on the
+> merits. They are winning on your staffing.
 >
-> Send one denial with identifiers removed by your staff, and the finished
-> appeal is back in two business days, free. If it is not better than what
-> deadline pressure usually allows, delete my address.
+> I built Medeal to close that gap. It reads the denial letter and the
+> de-identified clinical record, pulls the governing authority from a library
+> of 1,154 verified Medicare regulation and manual passages, and writes the
+> complete appeal: the standard, the record measured against each criterion,
+> the argument, the demand. Two things separate it from the denials
+> analytics tools you have been pitched. First, every sentence in the letter
+> is anchored to a word for word quote from your record or the regulation,
+> checked character by character by the software before the letter is ever
+> shown, and reproduced in a citation appendix so your team verifies any
+> line by hand without trusting us. Second, when the record does not support
+> a criterion, the letter does not pretend it does: you get told exactly
+> what documentation is missing, which is worth as much as the letter.
+>
+> Your staff reviews and signs everything that gets filed. Nothing goes to a
+> plan without your approval and your name.
+>
+> The pilot ask is small. Pick one to three denied MA claims, have your team
+> strip the patient identifiers, and email them to me. You will have
+> finished appeals back within two business days, free, up to five letters,
+> under a two page evaluation agreement that moves no PHI and needs nothing
+> from your IT department. If the letters are not obviously better than what
+> deadline pressure allows anyone to write today, that is the end of it.
+>
+> If they are: 15 percent of what is actually recovered, invoiced only after
+> the plan pays. Nothing on losses, no subscription, no setup.
+>
+> Can I send over the two page agreement and the sample letter?
+
+### Sonoma Valley Hospital
+
+Subject: Appeals without adding headcount at Sonoma Valley
+
+> Hi [name],
+>
+> At a district hospital Sonoma Valley's size, Medicare Advantage denials
+> land on one or two desks that already run admitting, billing, and follow
+> up. A properly cited appeal letter, with the regulation quoted, the chart
+> quoted, and the argument built, costs an afternoon nobody has. So most
+> denials quietly age out unappealed, and the plans price that in: deny and
+> wait works best at exactly the hospitals with the least appeal capacity,
+> while a public district budget absorbs the write offs.
+>
+> Federal reviews have found most MA denials are never appealed and the
+> large majority of appealed denials get overturned. The bottleneck at
+> Sonoma Valley is not the merits. It is hours.
+>
+> Medeal writes the letter. It reads the denial and the de-identified
+> record, retrieves the governing authority from a library of 1,154
+> verified Medicare regulation and manual passages, and produces the
+> finished appeal: standard, record against each criterion, argument,
+> relief. Every sentence is anchored to a verbatim quote from your chart or
+> the regulation, verified character by character before the letter renders,
+> and reproduced in a citation appendix so whoever reviews it can check any
+> line in seconds. Where the record does not support a criterion, it says so
+> plainly instead of writing around it. Your staff reviews, signs, and
+> files. Nothing leaves under any name but the hospital's.
+>
+> The pilot: email me one denied MA claim with identifiers removed by your
+> team, and the finished appeal is back in two business days. Free for up to
+> five letters, under a two page evaluation agreement. No PHI moves, nothing
+> to install, no IT project. After that, if you want it: 15 percent of
+> recovered dollars, invoiced only when the plan actually pays, nothing on
+> a loss.
+>
+> One denial is the whole test. Worth trying on this week's?
 
 ### Washington Health, Fremont
 
@@ -229,13 +297,37 @@ Subject: MA write offs land on a district budget
 
 > Hi [name],
 >
-> Washington is a district hospital, which means every Medicare Advantage
-> denial that gets written off instead of appealed is ultimately absorbed by
-> a public budget, and the Tri-City Medicare population keeps shifting into
-> MA plans that deny more and pay slower. Without a system office behind
-> you, appeal volume is capped by the hours your team has, not by the merits.
+> Washington answers to the taxpayers of a healthcare district, and every
+> Medicare Advantage denial that gets written off instead of appealed is
+> absorbed by that public budget. The Tri-City Medicare population keeps
+> moving into MA plans, the denial letters arrive on the plans' clock, and
+> without a corporate system office behind you, the number of appeals filed
+> is set by the hours your revenue cycle team has rather than by how many
+> denials deserve to be fought. Federal reviews have found most MA denials
+> are never appealed, and that the large majority of appealed denials get
+> overturned: the gap between those two numbers is money the district earned
+> and did not collect.
 >
-> [Then the same second and third paragraphs as St. Rose.]
+> Medeal closes the hours problem. It reads the denial letter and the
+> de-identified clinical record, retrieves the governing authority from a
+> library of 1,154 verified Medicare regulation and manual passages, and
+> writes the complete appeal, with every sentence anchored to a word for
+> word quote from the chart or the regulation. The quotes are checked
+> character by character by the software before you ever see the letter, and
+> reproduced in a citation appendix, so review means reading and approving
+> rather than drafting. When the record does not support a criterion, the
+> letter says so instead of overreaching, and your team learns exactly what
+> documentation to fix.
+>
+> Your staff signs everything. We are a drafting tool, not a signatory.
+>
+> The pilot costs you one email: a denied MA claim, identifiers removed by
+> your team, and the finished appeal comes back within two business days.
+> Free for up to five letters under a two page evaluation agreement, no PHI,
+> no integration. After the pilot: 15 percent of recovered dollars, invoiced
+> only after the plan pays, nothing on losses.
+>
+> Should I send the agreement?
 
 ### El Camino Health
 
@@ -243,17 +335,36 @@ Subject: Appealing every MA denial, not only the large ones
 
 > Hi [name],
 >
-> Every revenue cycle team triages appeals: balances above a threshold get
-> the full letter, everything below gets written off, because a proper
-> appeal costs hours of a nurse's or an analyst's time. The merits do not
-> stop at the threshold; the staffing does.
+> Every revenue cycle team triages appeals. Balances above a threshold get
+> the full letter; everything below gets adjusted off, because a properly
+> cited appeal costs hours of an analyst's or a nurse's time and those hours
+> are finite. The merits do not stop at the threshold. The staffing does,
+> and the plans know precisely where that line sits.
 >
-> I built software that makes the marginal appeal nearly free to write.
-> Every assertion carries a verbatim quote from the record or the
-> regulation, checkable by hand, so your reviewers approve rather than
-> draft. The write off threshold can drop to wherever the merits stop.
+> Medeal moves the line. It reads the denial letter and the de-identified
+> record, retrieves the governing authority from a library of 1,154 verified
+> Medicare regulation and manual passages, and writes the complete appeal in
+> minutes instead of hours: the standard, the record measured against each
+> coverage criterion, the argument, the relief. Every sentence is anchored
+> to a verbatim quote from the chart or the regulation, verified character
+> by character before the letter renders, with a citation appendix that lets
+> your reviewers check any line by hand. Your team's role becomes approval
+> rather than drafting, which is what makes the marginal appeal nearly free
+> and lets the write off threshold drop to wherever the merits actually
+> stop. Where the record is thin, the letter does not stretch it: gaps are
+> reported plainly, which your HIM and CDI people will appreciate more than
+> the letters.
 >
-> [Offer paragraph.]
+> Everything filed is reviewed and signed by your staff.
+>
+> The pilot: three denied MA claims, identifiers removed by your team,
+> finished appeals back within two business days each. Free for up to five
+> letters under a two page evaluation agreement, no PHI, nothing installed.
+> Continuing after that is 15 percent of recovered dollars, invoiced only on
+> payment, or a flat per letter rate if the contingency structure does not
+> fit your policies.
+>
+> Twenty minutes with your denials manager to set it up?
 
 ### MarinHealth
 
@@ -262,25 +373,29 @@ Subject: The MA denial letters nobody in Marin has time to answer
 > Hi [name],
 >
 > Marin's population skews older than almost anywhere in California, its
-> seniors are moving into Medicare Advantage, and MarinHealth meets those
-> denials as an independent district hospital without a corporate appeals
-> department. The letters that do not get written are the plan's cheapest
-> wins.
+> seniors keep moving into Medicare Advantage, and MarinHealth meets the
+> resulting denials as an independent district hospital without a corporate
+> appeals department behind it. Each unanswered denial letter is the plan's
+> cheapest possible win: federal reviews have found most MA denials are
+> never appealed, while the large majority of appealed denials get
+> overturned.
 >
-> [Tool and offer paragraphs.]
-
-### Sonoma Valley Hospital
-
-Subject: Appeals without adding headcount at Sonoma Valley
-
-> Hi [name],
+> Medeal writes the appeal. It reads the denial and the de-identified
+> record, retrieves governing authority from a library of 1,154 verified
+> Medicare regulation and manual passages, and produces the finished letter
+> with every sentence anchored to a word for word quote from the chart or
+> the regulation. The software verifies every quote character by character
+> before the letter renders, and the citation appendix reproduces each one
+> so your reviewer checks any line by hand in seconds. Where the record does
+> not support a criterion, the letter says so instead of writing around it.
+> Your staff reviews and signs everything filed.
 >
-> At a hospital Sonoma Valley's size, denials land on one or two desks that
-> already have other jobs, and a single properly cited appeal letter costs
-> an afternoon. So most denials age out unappealed, and the plans know it:
-> small district hospitals are where deny and wait works best.
+> The pilot: one denied MA claim, identifiers removed by your team, finished
+> appeal back in two business days. Free for up to five letters, two page
+> evaluation agreement, no PHI, no integration. Afterwards, 15 percent of
+> recovered dollars, invoiced only when the plan pays.
 >
-> [Tool and offer paragraphs.]
+> Worth testing on one denial from this month?
 
 ### John Muir Health
 
@@ -289,12 +404,34 @@ Subject: The level of care appeals your UM team triages away
 > Hi [name],
 >
 > Your utilisation management team wins the peer to peers it has time to
-> fight. The MA level of care denials that slip past, the ones where the
-> plan's letter says skilled care is no longer required while the chart says
-> otherwise, mostly die in the backlog, because a written appeal with the
-> regulation cited and the record quoted takes hours per case.
+> fight. The MA level of care denials that slip past, where the plan's
+> letter says skilled care is no longer required while the chart says
+> otherwise, mostly die in the written appeal backlog, because a letter with
+> the regulation cited and the record quoted costs hours per case and the
+> backlog does not schedule itself.
 >
-> [Tool and offer paragraphs.]
+> Medeal turns that backlog into letters. It reads the denial and the
+> de-identified record, retrieves governing authority from a library of
+> 1,154 verified Medicare regulation and manual passages, and writes the
+> complete appeal: the coverage standard, the record measured against each
+> criterion, the argument, including the 42 CFR 422.101(b) argument where
+> the plan applied internal criteria rather than Medicare's, and the relief.
+> Every sentence carries a verbatim quote from the chart or the regulation,
+> verified character by character before the letter renders, reproduced in a
+> citation appendix your nurses check by hand. They approve instead of
+> draft. Where the record is thin the letter says so rather than
+> overreaching.
+>
+> Everything filed is reviewed and signed by your team.
+>
+> The pilot: three denied MA claims, identifiers removed by your staff,
+> finished appeals back within two business days each, free for up to five
+> letters under a two page evaluation agreement that moves no PHI and
+> requires nothing from IT. Continuing costs 15 percent of recovered
+> dollars, invoiced only on payment, or a flat per letter rate if
+> contingency does not fit your vendor policies.
+>
+> Who on your team should I send the agreement and the sample letter to?
 
 ### Generations Healthcare
 
@@ -306,18 +443,37 @@ Subject: The "no longer skilled" cutoff letters across 29 buildings
 > the member no longer requires a skilled level of care, coverage ends
 > Friday. Those cutoffs increasingly come from plan internal criteria and
 > algorithmic length of stay tools, which has been the subject of national
-> reporting and federal litigation, and the business office in each building
-> fights them alone, from scratch, under deadline.
+> reporting and federal litigation, and today the business office in each
+> building answers them alone, from scratch, under deadline, with quality
+> that depends on who happens to be at that desk.
 >
-> I built software that writes the appeal the same way every time: the
-> Medicare standard at 42 CFR 409.31 cited, the chart quoted word for word,
-> and where the plan applied its own criteria instead of Medicare's, the 42
-> CFR 422.101(b) argument made explicitly. A citation appendix lets your
-> regional team verify every line without trusting the software.
+> Medeal writes the appeal the same way every time, across every building.
+> It reads the denial letter and the de-identified record, retrieves the
+> governing authority from a library of 1,154 verified Medicare regulation
+> and manual passages, and produces the complete letter: the standard at 42
+> CFR 409.31, the chart measured against each criterion with the exact
+> nursing and therapy notes quoted word for word, and, where the plan
+> applied its own criteria instead of Medicare's, the 42 CFR 422.101(b)
+> argument made explicitly. The software verifies every quote character by
+> character before the letter renders, and reproduces each one in a citation
+> appendix, so your regional team can check any line in any building's
+> letter by hand. Where a chart does not support a criterion, the letter
+> says so plainly, which gives you something no consultant provides:
+> building by building visibility into exactly which documentation habits
+> are losing appeals before they start.
 >
-> One pilot building, one redacted denial, finished appeal back in two
-> business days, free. Portfolio pricing after that is 15 percent of
-> recovered dollars, nothing on losses.
+> Your staff reviews and signs everything filed. We draft; your name goes on
+> the letter.
+>
+> The pilot: pick one building. Its business office emails me one to three
+> denied MA claims with resident identifiers removed, and finished appeals
+> come back within two business days each. Free for up to five letters,
+> under a two page evaluation agreement that moves no PHI and touches
+> nothing in your systems. Portfolio pricing after that is 15 percent of
+> recovered dollars, invoiced only when the plan pays, nothing on losses.
+>
+> Which building has the angriest business office manager? Start there. Can
+> I send the agreement?
 
 ### Windsor
 
@@ -325,12 +481,32 @@ Subject: One appeal standard across every Windsor building
 
 > Hi [name],
 >
-> The quality of an appeal at your buildings depends today on which business
+> The quality of an appeal at your buildings today depends on which business
 > office manager writes it and how much time the deadline leaves them. The
-> plans counting on that variance send the same "no longer requires skilled
-> level of care" letter to every facility in California.
+> plans counting on that variance send the same "no longer requires a
+> skilled level of care" letter to every facility in California, and the
+> cutoffs behind it increasingly come from internal criteria and algorithmic
+> length of stay tools that have drawn national reporting and federal
+> litigation.
 >
-> [Then Generations paragraphs two and three.]
+> Medeal removes the variance. Every appeal is built the same way: the
+> Medicare standard at 42 CFR 409.31 cited, the chart quoted word for word
+> with each quote verified character by character before the letter renders,
+> the 42 CFR 422.101(b) argument made explicitly where the plan substituted
+> its own criteria, and a citation appendix that lets your regional team
+> check any line by hand. Charts that do not support a criterion are
+> reported as documentation gaps rather than papered over, so you also learn
+> which buildings' documentation is costing you appeals.
+>
+> Your staff reviews and signs every letter filed.
+>
+> The pilot: one building, one to three denied MA claims with identifiers
+> removed by your team, finished appeals back within two business days,
+> free for up to five letters under a two page no PHI evaluation agreement.
+> After that, 15 percent of recovered dollars, invoiced only when the plan
+> pays.
+>
+> Can I send the agreement and a sample letter?
 
 ### Ensign affiliate facility, administrator
 
@@ -338,12 +514,32 @@ Subject: Denials do not pause during a transition
 
 > Hi [name],
 >
-> Buildings changing operators is exactly when appeal deadlines get missed:
-> the business office is converting systems, staff are new, and the MA
-> plans' letters keep coming on their own clock. A missed deadline is an
-> automatic loss on a claim that may have been fully meritorious.
+> A building changing operators is exactly when appeal deadlines get missed.
+> The business office is converting systems, staff are new, and the MA
+> plans' denial letters keep arriving on their own clock. Every missed
+> deadline is an automatic loss on a claim that may have been fully
+> meritorious, at precisely the moment the building's census and revenue are
+> under the most scrutiny.
 >
-> [Tool and offer paragraphs, single facility framing.]
+> Medeal writes the appeals while your office finds its feet. It reads the
+> denial letter and the de-identified record, pulls the governing authority
+> from a library of 1,154 verified Medicare regulation and manual passages,
+> and returns a complete appeal with every sentence anchored to a word for
+> word quote from the chart or the regulation, verified character by
+> character before you see it and reproduced in a citation appendix anyone
+> can check by hand. Where the chart does not support a criterion, it says
+> so. Your staff reviews and signs everything; nothing is filed without
+> your approval.
+>
+> Nothing to install, no integration, no IT ticket, which matters in a
+> transition: the pilot runs entirely over email. Send one to three denied
+> MA claims with resident identifiers removed, and finished appeals come
+> back within two business days each. Free for up to five letters under a
+> two page evaluation agreement that moves no PHI. After that, 15 percent of
+> recovered dollars, invoiced only when the plan pays, nothing on losses.
+>
+> Want the agreement? It is two pages and your regional team can read it in
+> ten minutes.
 
 ## The messages
 
