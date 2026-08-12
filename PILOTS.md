@@ -126,6 +126,53 @@ Build the local list in one afternoon:
 4. Twenty five names, one spreadsheet: facility, chain or independent, name,
    title, email, date sent, reply, next step.
 
+### Bay Area list, Tier 2 made concrete
+
+Verified against public sources on 2026-08-12. Counties: Santa Clara,
+Alameda, San Mateo, San Francisco, Contra Costa, Marin, Sonoma.
+
+SNF operators with Bay Area facilities:
+
+- Generations Healthcare, 29 facilities across California including the Bay
+  Area. gen-healthcare.com. Ask for the facility Administrator, then the
+  regional director of operations.
+- Windsor (Windsor Cares), California SNF network. windsorcares.com.
+- Ensign Group California affiliates. Ensign operates through local
+  subsidiaries and is in the middle of absorbing 22 Covenant Care facilities
+  across California, so several Bay Area buildings are changing hands right
+  now. The way in is the facility Administrator, never corporate.
+- Covenant Care: deprioritised, mid sale of its facility portfolio. An
+  operator handing over buildings does not sign pilots.
+- Laguna Honda Hospital and Rehabilitation Center, San Francisco's 700 bed
+  public SNF: real volume, public procurement, later.
+
+Independent and district hospitals, the realistic first hospital targets:
+
+- El Camino Health, Mountain View and Los Gatos. Independent district
+  system, 420 beds at the main campus. elcaminohealth.org.
+- Washington Health, Fremont. Independent district, 415 bed acute hospital.
+  washingtonhealth.com.
+- MarinHealth, Greenbrae. Independent district hospital.
+- St. Rose Hospital, Hayward. Independent and financially pressured, which
+  is exactly who needs recovered denial dollars.
+- Sonoma Valley Hospital. Small district hospital, short decision chain.
+- John Muir Health, Walnut Creek. Independent nonprofit, larger and slower.
+
+Titles: Director of Revenue Cycle or Denials Manager at hospitals; at SNFs
+the Administrator or Business Office Manager.
+
+Associations for the rest of the list and for warm introductions: CAHF, the
+California Association of Health Facilities, is the state SNF association;
+LeadingAge California for the nonprofits; the Hospital Council of Northern
+and Central California for hospitals.
+
+The facility level phone list, ten minutes by hand because CMS blocks
+automated pulls: medicare.gov/care-compare, search Nursing homes by each
+county above, and every facility card carries its phone number and address.
+Cross reference the Administrator's name on the CDPH Cal Health Find license
+lookup. Medicare Advantage plans to name in outreach here: UnitedHealthcare,
+Blue Shield of California, Anthem Blue Cross, Aetna, SCAN, Alignment.
+
 ### Tier 3: hospitals
 
 Critical access and community hospitals, through the state hospital
