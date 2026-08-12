@@ -734,6 +734,34 @@ function keyProviderMismatch(): string {
 }
 
 /**
+ * What the provider itself said, when it said something worth reading.
+ *
+ * Kept for the rate limit case specifically, because "429" is one word for
+ * several unrelated situations that need opposite responses: a per minute
+ * throughput cap that clears by waiting a moment, a daily allowance that will
+ * not clear until tomorrow, and a model an account is not eligible for at all,
+ * which never clears. Waiting is right for the first and useless for the other
+ * two, and nothing on our side can tell them apart.
+ *
+ * Providers do distinguish them, in the body, and this boundary was discarding
+ * that. A real run met five 429s twenty seconds apart, which rules out a per
+ * minute cap by arithmetic alone, and left no way to tell which of the other
+ * two it was without guessing at a different model and spending another run.
+ *
+ * Truncated because a quota body can carry a long block of structured detail
+ * and this goes in a message a person reads. Provider error text is not
+ * sensitive: the boundary never puts a key or a prompt in an error.
+ */
+function providerDetail(error: unknown): string {
+  const shape = error as { error?: { message?: unknown }; message?: unknown } | null;
+  const detail = shape?.error?.message ?? shape?.message;
+  if (typeof detail !== 'string' || detail.trim().length === 0) return '';
+
+  const trimmed = detail.trim().slice(0, 500);
+  return `\n\nThe provider said:\n  ${trimmed}`;
+}
+
+/**
  * Turn a provider error into something that names the thing to go and fix.
  *
  * The SDK's own errors are accurate and unreadable: an HTTP status buried in a
@@ -800,7 +828,8 @@ export function asReadableError(error: unknown): unknown {
         '429), and it was still refusing after the automatic retries. On a free tier ' +
         'this is expected on long runs. Every corpus stage records its progress per ' +
         'passage in the database, so re-running the same command resumes where it ' +
-        'stopped rather than starting again.',
+        'stopped rather than starting again.' +
+        providerDetail(error),
       retryAfterSeconds(error),
     );
   }

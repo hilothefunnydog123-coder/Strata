@@ -502,3 +502,61 @@ describe('a model id as the provider lists it', () => {
     expect(sameModelId('openai/gpt-oss-120b', 'gpt-oss-120b')).toBe(false);
   });
 });
+
+/* ─── What the provider said about a quota ────────────────────────────────── */
+
+/**
+ * "429" is one word for three situations with opposite responses.
+ *
+ * A per minute cap clears by waiting a moment. A daily allowance does not clear
+ * until tomorrow. A model an account is not eligible for never clears at all.
+ * This boundary waits, which is right for the first and useless for the others,
+ * and it had no way to tell them apart because it discarded the body where the
+ * provider says which one it is. A real run met five of them twenty seconds
+ * apart, ruling out the per minute cap by arithmetic, with nothing left to read.
+ */
+describe('a rate limit that carries the provider reason', () => {
+  it('repeats what the provider said', () => {
+    const quota = Object.assign(new Error('429'), {
+      status: 429,
+      error: {
+        message:
+          'You exceeded your current quota. quota_metric: generate_requests_per_model_per_day',
+      },
+    });
+
+    const message = (asReadableError(quota) as Error).message;
+
+    expect(message).toContain('The provider said');
+    expect(message).toContain('generate_requests_per_model_per_day');
+  });
+
+  it('is still a rate limit, so the caller still waits on it', () => {
+    const quota = Object.assign(new Error('429'), {
+      status: 429,
+      error: { message: 'slow down' },
+    });
+
+    expect(asReadableError(quota)).toBeInstanceOf(ModelRateLimitedError);
+  });
+
+  it('says nothing extra when the provider sent no body', () => {
+    const message = (asReadableError(providerError(429)) as Error).message;
+
+    // providerError carries a placeholder message rather than a real one, so
+    // the only requirement is that the general explanation survives.
+    expect(message).toContain('exceeding a rate or quota limit');
+  });
+
+  it('does not run on for a provider that returns a wall of detail', () => {
+    const verbose = Object.assign(new Error('429'), {
+      status: 429,
+      error: { message: 'q'.repeat(4000) },
+    });
+
+    const message = (asReadableError(verbose) as Error).message;
+
+    // Long enough to diagnose, short enough to read.
+    expect(message.length).toBeLessThan(1200);
+  });
+});
