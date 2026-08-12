@@ -7,7 +7,7 @@
  * is indistinguishable, to anyone reading it, from a quota problem or an
  * outage, and those have completely different remedies.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   asReadableError,
   complete,
@@ -371,5 +371,73 @@ describe('provider errors name the remedy', () => {
     const result = await callWithNoKey();
     expect(result).toBeInstanceOf(LlmBoundaryError);
     expect((result as Error).message).toContain('MODEL_API_KEY is not configured');
+  });
+});
+
+/* ─── A key from the wrong provider ───────────────────────────────────────── */
+
+/**
+ * The failure that cost a real run.
+ *
+ * Moving to Cerebras meant a new key and a new endpoint, and only the key was
+ * changed. A valid Cerebras key went to Groq, came back 401, and read exactly
+ * like a bad key: the natural next move is to generate another one from the
+ * same account, which produces the same 401 forever.
+ *
+ * Key prefixes are public and provider specific, so the boundary can say which
+ * provider the key belongs to. It never prints the key or the prefix.
+ */
+describe('a key that belongs to a different provider', () => {
+  it('says which provider it looks like, when the endpoint disagrees', async () => {
+    vi.resetModules();
+    process.env.MODEL_API_KEY = 'csk-notarealkeyjustashapedone';
+    process.env.MODEL_BASE_URL = 'https://api.groq.com/openai/v1';
+
+    const { asReadableError: readable } = await import('@/lib/llm/client');
+    const message = (readable(Object.assign(new Error('401'), { status: 401 })) as Error).message;
+
+    expect(message).toContain('looks like a Cerebras key');
+    expect(message).toContain('api.cerebras.ai');
+    // The model id has to move too, and not saying so sends someone straight
+    // into the next failure.
+    expect(message).toMatch(/model name/i);
+  });
+
+  it('never prints the key or its prefix', async () => {
+    vi.resetModules();
+    process.env.MODEL_API_KEY = 'csk-notarealkeyjustashapedone';
+    process.env.MODEL_BASE_URL = 'https://api.groq.com/openai/v1';
+
+    const { asReadableError: readable } = await import('@/lib/llm/client');
+    const message = (readable(Object.assign(new Error('401'), { status: 401 })) as Error).message;
+
+    expect(message).not.toContain('csk-');
+    expect(message).not.toContain('notarealkey');
+  });
+
+  it('stays quiet when the key and the endpoint agree', async () => {
+    vi.resetModules();
+    process.env.MODEL_API_KEY = 'csk-notarealkeyjustashapedone';
+    process.env.MODEL_BASE_URL = 'https://api.cerebras.ai/v1';
+
+    const { asReadableError: readable } = await import('@/lib/llm/client');
+    const message = (readable(Object.assign(new Error('401'), { status: 401 })) as Error).message;
+
+    expect(message).not.toContain('looks like a');
+    // The general advice is still there, because the key can be wrong even when
+    // it is the right kind of wrong.
+    expect(message).toContain('MODEL_API_KEY is set');
+  });
+
+  it('says nothing about a key format it does not recognise', async () => {
+    vi.resetModules();
+    process.env.MODEL_API_KEY = 'some-internal-gateway-token';
+    process.env.MODEL_BASE_URL = 'https://gateway.internal/v1';
+
+    const { asReadableError: readable } = await import('@/lib/llm/client');
+    const message = (readable(Object.assign(new Error('401'), { status: 401 })) as Error).message;
+
+    // A guess about an unknown format would be worse than the general advice.
+    expect(message).not.toContain('looks like a');
   });
 });

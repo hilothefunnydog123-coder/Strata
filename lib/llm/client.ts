@@ -673,6 +673,49 @@ function retryAfterSeconds(error: unknown): number | undefined {
 }
 
 /**
+ * Which provider issues keys that look like this.
+ *
+ * Key formats are public and provider specific, and the prefix is not secret:
+ * it is the part of a key you can safely put in a bug report. Only the provider
+ * name is ever printed from this. The key itself, and the prefix, are not.
+ */
+const KEY_PREFIXES: { prefix: string; provider: string; host: string }[] = [
+  { prefix: 'gsk_', provider: 'Groq', host: 'api.groq.com' },
+  { prefix: 'csk-', provider: 'Cerebras', host: 'api.cerebras.ai' },
+  { prefix: 'sk-ant-', provider: 'Anthropic', host: 'api.anthropic.com' },
+  { prefix: 'sk-or-', provider: 'OpenRouter', host: 'openrouter.ai' },
+];
+
+/**
+ * A sentence naming the provider the key appears to belong to, when that is not
+ * the one being called.
+ *
+ * Worth the table because of how this failure presents. A key from one provider
+ * sent to another is refused with a bare 401, which reads as a bad key, and the
+ * remedy people reach for is generating a new one from the same wrong account.
+ * A real switch to Cerebras cost a run to exactly this: the key was updated and
+ * the endpoint was not, so a valid Cerebras key was sent to Groq and rejected.
+ *
+ * Empty when the prefix is unrecognised or already matches, because a guess
+ * about an unknown key format would be worse than the general advice above.
+ */
+function keyProviderMismatch(): string {
+  const key = env.MODEL_API_KEY ?? '';
+  const match = KEY_PREFIXES.find((k) => key.startsWith(k.prefix));
+  if (!match) return '';
+  if (env.MODEL_BASE_URL.includes(match.host)) return '';
+
+  return (
+    `\n\nThe key looks like a ${match.provider} key, and MODEL_BASE_URL does not point at ` +
+    `${match.provider}. Either set MODEL_BASE_URL to the ${match.provider} endpoint ` +
+    `(${match.host}) or use a key from the provider it currently names. Changing one ` +
+    'without the other is the usual cause of this. Note that the model name almost ' +
+    'certainly has to change too, because providers publish the same open weights ' +
+    'under different ids.'
+  );
+}
+
+/**
  * Turn a provider error into something that names the thing to go and fix.
  *
  * The SDK's own errors are accurate and unreadable: an HTTP status buried in a
@@ -713,8 +756,9 @@ export function asReadableError(error: unknown): unknown {
     return new LlmBoundaryError(
       `The model provider rejected the API key (HTTP ${status}). MODEL_API_KEY is set, ` +
         'so this is not a missing key: it is the wrong one, or it does not belong to ' +
-        'the provider MODEL_BASE_URL points at. Those two have to match. Verify the key ' +
-        'on its own with:\n' +
+        'the provider MODEL_BASE_URL points at. Those two have to match.' +
+        keyProviderMismatch() +
+        '\nVerify the key on its own with:\n' +
         `  curl ${env.MODEL_BASE_URL}/models -H "Authorization: Bearer YOUR_KEY"`,
     );
   }
