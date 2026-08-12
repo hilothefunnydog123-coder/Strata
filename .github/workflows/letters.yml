@@ -57,6 +57,10 @@ on:
     paths:
       - '.github/workflows/letters.yml'
       - 'scripts/generate-samples.ts'
+      # The gate this job runs before it writes anything. Left out when it was
+      # added, so a change to the check that decides whether a run is worth
+      # starting could not itself start one.
+      - 'scripts/check-provider.ts'
       - 'lib/demo/seed.ts'
       - 'lib/appeals/**'
       # The model boundary, which every stage of a letter goes through. Left
