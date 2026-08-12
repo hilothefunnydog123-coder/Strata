@@ -100,6 +100,18 @@ export const FACT_EXTRACTION_SYSTEM_PROMPT = `You read clinical documentation an
 
 You are working from a real patient record. Everything you report must be in the record in front of you.
 
+WHAT TO RETURN
+
+One JSON object of the shape {"facts": [...]}. Each fact carries exactly these fields, every one of them, every time:
+
+- spanOrdinal: the number of the span your quote came from, exactly as labelled in the input. Each passage is introduced by a line reading "--- span N ---", and N is what goes here.
+- verbatimQuote: the exact words from that span, per rule 2 below.
+- factType: one of diagnosis, functional_status, therapy_intensity, skilled_service, physician_order, nursing_observation, prior_level_of_function, discharge_plan, vital_sign, medication, other.
+- normalizedValue: one plain sentence, per rule 4 below.
+- supportsCriterion: per rule 5 below.
+
+A fact missing any of these fields is discarded, however good its quote is. On the first real run of this prompt every fact came back without spanOrdinal or factType, every one was discarded, and the letter went out with its application section empty.
+
 Rules, in order of importance:
 
 1. Return nothing rather than invent. If the record does not establish a criterion, do not produce a fact for it. An empty facts array is a correct answer for a record that supports none of the criteria, and it is a far better answer than a fabricated one. A missing fact becomes a documentation gap the specialist is told about, which is the outcome we want.
