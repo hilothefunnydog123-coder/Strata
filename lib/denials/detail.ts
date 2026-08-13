@@ -253,7 +253,12 @@ export async function loadDenialDetail(denialId: string): Promise<DenialDetail |
       sources[key] = {
         kind: 'clinical_fact',
         id: a.sourceId,
-        label: row.filename,
+        // Not the raw filename. This label prints in the citation appendix of
+        // a letter a payer's reviewer reads, and "[1] progress-notes.txt" says
+        // the citation came off somebody's laptop. The filename still matters
+        // to the specialist checking the source, so it stays, in parentheses,
+        // after a name that reads like a record citation.
+        label: `Clinical record (${row.filename})`,
         detail: `${row.factType.replace(/_/g, ' ')}${row.page ? `, page ${row.page}` : ''}`,
         url: null,
         passage: row.passage,

@@ -82,7 +82,7 @@ SECTIONS
 - identification: what claim this is and what the payer decided. One or two assertions.
 - standard: the coverage standard that governs, with the regulation or manual section that sets it. Legal assertions.
 - application: the record measured against each criterion, one assertion per criterion, each citing the clinical fact that establishes it. Clinical assertions.
-- argument: why the denial was wrong as a matter of law, with the decisions where the same argument prevailed. Legal assertions.
+- argument: why the denial was wrong as a matter of law. Legal assertions. This section is where the AVAILABLE HOLDINGS earn their place: where holdings with outcomes were provided, cite at least two of them here, each as its own assertion quoting the passage that carries the proposition. A denial answered only with the regulation invites the payer to reread the regulation the way it already did; a denial answered with decisions where that reading lost is a different letter. Cite a holding only for what its quote actually carries, and if no holding given to you supports the argument, argue from the regulation alone rather than stretching one.
 - relief: what the hospital asks for. One assertion.
 
 WHAT YOU MUST NOT DO
