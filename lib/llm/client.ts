@@ -250,6 +250,24 @@ export class ModelRateLimitedError extends LlmBoundaryError {
 }
 
 /**
+ * The provider's servers failed, in a way that is theirs and temporary.
+ *
+ * Its own class because the remedy is the same as a throttle's: wait a moment
+ * and send the identical request again. The 503 that motivated this arrived
+ * mid run with fresh quota and a working key, on the third call of a stage
+ * whose first two had answered fine. The translation already told the reader
+ * "re-running the command is safe", and then nothing re-ran it: patience only
+ * waited on 429s, rotation only moved on quota and bad JSON, and a blip the
+ * error text itself called retryable ended the case.
+ */
+export class ModelProviderUnavailableError extends LlmBoundaryError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ModelProviderUnavailableError';
+  }
+}
+
+/**
  * How many times one generation call waits out a rate limit before giving up.
  *
  * Generation is not the corpus. A corpus stage checkpoints every passage, so
@@ -295,7 +313,14 @@ export async function withRateLimitPatience<T>(
       try {
         return await call();
       } catch (error) {
-        if (!(error instanceof ModelRateLimitedError)) throw error;
+        // A provider outage is waited out exactly like a throttle: both are
+        // the provider declining a request it will accept shortly, and an
+        // outage never names an interval, so the escalating default below is
+        // the schedule for it.
+        const transient =
+          error instanceof ModelRateLimitedError ||
+          error instanceof ModelProviderUnavailableError;
+        if (!transient) throw error;
 
         // Escalating when the provider does not say how long. Gemini's OpenAI
         // compatible endpoint sends a bare 429 with no Retry-After and no body,
@@ -304,8 +329,9 @@ export async function withRateLimitPatience<T>(
         // attempt this is allowed. Twenty, forty, then sixty gives the window
         // time to actually roll over. A provider that names its interval is
         // still taken at its word.
-        const seconds =
-          error.retryAfterSeconds ?? Math.min(20 * attempt, RATE_LIMIT_MAX_WAIT_SECONDS);
+        const named =
+          error instanceof ModelRateLimitedError ? error.retryAfterSeconds : undefined;
+        const seconds = named ?? Math.min(20 * attempt, RATE_LIMIT_MAX_WAIT_SECONDS);
 
         // Longer than the cap means a daily allowance, which will not clear
         // inside this request however patient it is. Failing now with the
@@ -887,7 +913,7 @@ export function asReadableError(error: unknown): unknown {
   }
 
   if (status !== undefined && status >= 500) {
-    return new LlmBoundaryError(
+    return new ModelProviderUnavailableError(
       `The model provider failed with HTTP ${status}. That is their side rather than ` +
         'yours. Nothing was saved, so re-running the command is safe.',
     );

@@ -13,6 +13,7 @@ import {
   complete,
   LlmBoundaryError,
   ModelMalformedOutputError,
+  ModelProviderUnavailableError,
   ModelRateLimitedError,
   ModelRequestTooLargeError,
   withRateLimitPatience,
@@ -608,5 +609,42 @@ describe('an answer that is not JSON', () => {
     expect(extractJson('{"ok":true}')).toEqual({ ok: true });
     expect(extractJson('```json\n{"ok":true}\n```')).toEqual({ ok: true });
     expect(extractJson('Here you go:\n{"ok":true}\nhope that helps')).toEqual({ ok: true });
+  });
+});
+
+/* ─── A provider outage mid run ───────────────────────────────────────────── */
+
+/**
+ * The last unhandled failure class, met on a run with fresh quota and a
+ * working key: the third call of a stage whose first two had answered fine
+ * came back HTTP 503. The translation said "re-running the command is safe"
+ * and nothing re-ran it, because patience only waited on 429s.
+ */
+describe('a provider outage', () => {
+  it('is its own class, and still says it is their side', () => {
+    const translated = asReadableError(providerError(503));
+
+    expect(translated).toBeInstanceOf(ModelProviderUnavailableError);
+    expect((translated as Error).message).toContain('their side');
+  });
+
+  it('is waited out like a throttle rather than thrown', async () => {
+    const slept: number[] = [];
+    let calls = 0;
+
+    const value = await withRateLimitPatience(
+      'writing the appeal',
+      async () => {
+        calls += 1;
+        if (calls < 3) throw new ModelProviderUnavailableError('503');
+        return 'a letter';
+      },
+      { sleep: async (ms) => void slept.push(ms) },
+    );
+
+    expect(value).toBe('a letter');
+    // An outage never names an interval, so the waits escalate: twenty
+    // seconds, then forty.
+    expect(slept).toEqual([20000, 40000]);
   });
 });

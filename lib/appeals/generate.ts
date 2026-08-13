@@ -29,6 +29,7 @@ import { env } from '@/lib/env';
 import { log } from '@/lib/log';
 import {
   ModelMalformedOutputError,
+  ModelProviderUnavailableError,
   ModelRateLimitedError,
   ModelRequestTooLargeError,
   modelName,
@@ -259,6 +260,19 @@ export async function withModelFallback<T>(
       if (error instanceof ModelMalformedOutputError) {
         lastRefusal = error;
         log.info('model could not produce parseable JSON here, trying the next model', {
+          what,
+          model: resolved,
+        });
+        continue;
+      }
+
+      // An outage that outlasted the patience. Another model is often served
+      // by a different backend pool, so rotating is worth one try, and like
+      // bad JSON it says nothing about this model's allowance, so nothing is
+      // marked spent.
+      if (error instanceof ModelProviderUnavailableError) {
+        lastRefusal = error;
+        log.info('model backend unavailable, trying the next model', {
           what,
           model: resolved,
         });
