@@ -496,7 +496,28 @@ describe('the whole chain, once', () => {
     expect(result.attempts).toBe(1);
     expect(result.assertionCount).toBeGreaterThanOrEqual(4);
     expect(result.proprietaryCriteriaDetected).toBe(true);
+
+    // The letter says "plateaued", so triage has to have named the improvement
+    // standard as a defect, with the payer's own sentence as evidence.
+    expect(result.triage.defects.map((d) => d.id)).toContain('improvement_standard');
+    expect(result.triage.score).toBeGreaterThan(0);
   }, 60_000);
+
+  it('stored the triage with the draft, defects and all', async () => {
+    const [draft] = await db
+      .select()
+      .from(appealDraft)
+      .where(eq(appealDraft.denialId, denialId));
+
+    expect(draft!.triageJson).toBeTruthy();
+    const stored = JSON.parse(draft!.triageJson!) as {
+      recommendation: string;
+      defects: { id: string; evidence: string | null }[];
+    };
+    expect(['take', 'strengthen', 'decline']).toContain(stored.recommendation);
+    const improvement = stored.defects.find((d) => d.id === 'improvement_standard');
+    expect(improvement?.evidence).toContain('plateaued');
+  });
 
   it('wrote the classification back onto the case', async () => {
     // Proves the classifier's output reached the record rather than being used

@@ -226,6 +226,24 @@ async function main(): Promise<void> {
     if (result.proprietaryCriteriaDetected) {
       out('  The payer applied proprietary criteria, and the letter says so.');
     }
+    out('');
+    out(
+      `  Triage: ${result.triage.recommendation.toUpperCase()} ` +
+        `(score ${result.triage.score} of 100, ` +
+        `${result.triage.criteriaSupported} of ${result.triage.criteriaTotal} criteria supported)`,
+    );
+    for (const reason of result.triage.reasons) {
+      out(`    ${reason}`);
+    }
+    if (result.triage.defects.length > 0) {
+      out('');
+      out('  Defects found in the denial notice:');
+      for (const defect of result.triage.defects) {
+        out(`    ${defect.title}`);
+        out(`      Offends: ${defect.authority}`);
+        if (defect.evidence) out(`      The payer's words: "${defect.evidence}"`);
+      }
+    }
     if (result.gaps.length > 0) {
       out('');
       out('  Documentation gaps the draft could not close:');

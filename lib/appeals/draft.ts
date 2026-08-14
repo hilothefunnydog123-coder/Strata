@@ -143,6 +143,23 @@ export interface DraftContext {
    */
   payerCriteria: string[];
   gaps: { criterion: string; why: string }[];
+  /**
+   * What the triage scan found wrong with the denial notice itself.
+   *
+   * Each defect is an argument the letter should make, and each has to be
+   * made from a source the drafter was actually given: the assertion schema
+   * has no way to cite the denial letter, so the payer's words go in the
+   * assertion text and the citation goes to the regulation or holding that
+   * carries the rule the defect offends. Retrieval is steered by these
+   * defects (defectRetrievalTerms in lib/appeals/triage.ts) precisely so that
+   * such a source is on the list.
+   */
+  defects: {
+    title: string;
+    authority: string;
+    explanation: string;
+    evidence: string | null;
+  }[];
 }
 
 export function buildDraftPrompt(context: DraftContext): string {
@@ -171,6 +188,20 @@ The passage showing it:
 "${context.proprietaryCriteria.quote}"
 
 42 CFR 422.101(b) requires a Medicare Advantage organisation to comply with Medicare coverage rules, and a plan may not apply criteria more restrictive than Traditional Medicare. Build this argument in the argument section, citing the regulation and the decisions below where it prevailed. Cite the payer's own words above as the source for the assertion that internal criteria were applied.`);
+  }
+
+  if (context.defects.length > 0) {
+    parts.push(`DEFECTS IN THE DENIAL NOTICE
+
+A deterministic scan of the denial letter found the defects below. Each one is an argument for the argument section: state what the plan did, using the payer's quoted words in your assertion text where they are given, and rest the assertion on a regulation passage or holding from the lists below that carries the rule named. The denial letter itself is not a source you can cite, so the citation always goes to the law. If nothing you were given carries the rule a defect names, leave that defect out rather than stretch a citation to cover it.
+
+${context.defects
+  .map(
+    (d, i) => `${i + 1}. ${d.title}
+   Offends: ${d.authority}
+   ${d.explanation}${d.evidence ? `\n   The payer's words: "${d.evidence}"` : ''}`,
+  )
+  .join('\n\n')}`);
   }
 
   parts.push(`COVERAGE CRITERIA AT ISSUE

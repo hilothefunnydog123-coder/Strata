@@ -42,6 +42,7 @@ function contextWith(overrides: Partial<DraftContext>): DraftContext {
     criteria: criteriaFor('skilled_nursing', 'test'),
     payerCriteria: [],
     gaps: [],
+    defects: [],
     ...overrides,
   };
 }

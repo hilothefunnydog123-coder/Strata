@@ -771,6 +771,14 @@ export const appealDraft = pgTable(
     proprietaryCriteriaFlag: boolean('proprietary_criteria_flag')
       .notNull()
       .default(false),
+    /**
+     * The triage that accompanied this draft: score, recommendation, and the
+     * defects found in the denial notice, as JSON. Encrypted rather than jsonb
+     * because defect evidence quotes the denial letter, and letter text is
+     * clinical adjacent, same as denialBasisText and bodyJson. Null on drafts
+     * generated before triage existed.
+     */
+    triageJson: encryptedText('triage_json'),
     verificationFailures: integer('verification_failures').notNull().default(0),
     generatedAt: timestamp('generated_at', { withTimezone: true }).notNull().defaultNow(),
     generatedByModel: text('generated_by_model').notNull(),

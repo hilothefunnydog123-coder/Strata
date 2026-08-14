@@ -47,6 +47,12 @@ import {
   MIN_DRAFT_OUTPUT_TOKENS,
   type DraftContext,
 } from './draft';
+import {
+  defectRetrievalTerms,
+  scanDefects,
+  triageDenial,
+  type Triage,
+} from './triage';
 import { verifyDraft, type AssertionCandidate } from './verify';
 
 /** How many times a failing draft is regenerated before a human is told. */
@@ -97,6 +103,8 @@ export interface GenerationResult {
   gaps: DocumentationGap[];
   proprietaryCriteriaDetected: boolean;
   attempts: number;
+  /** The case scored and the denial's own defects named, before drafting. */
+  triage: Triage;
 }
 
 /**
@@ -340,6 +348,18 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
   // answer. See criteriaFor for what happened when the two were the same list.
   const payerCriteria = classification.value.criteriaCited;
 
+  // What is wrong with the denial itself. Deterministic, so it costs nothing
+  // and cannot soften: a letter that says "plateau" said it whichever model is
+  // answering today. The defects steer retrieval below so the authority they
+  // are argued from is actually in the prompt, and they are handed to the
+  // drafter as arguments to make.
+  const defects = scanDefects(
+    letterSpans.map((s) => ({ ordinal: s.ordinal, text: s.text })),
+    classification.value,
+    serviceType,
+    basis,
+  );
+
   // Record what the classification found on the denial itself, so the case
   // metadata reflects what the letter says rather than what was typed at intake.
   await db
@@ -458,6 +478,7 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
     'daily basis',
     'more restrictive',
     'coverage criteria',
+    ...defectRetrievalTerms(defects),
   ]);
 
   // Nothing to argue from. Drafting anyway produces a letter of clinical
@@ -468,6 +489,27 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
   if (retrieved.length === 0 && regulations.length === 0) {
     throw new NoAuthorityError(serviceType, basis);
   }
+
+  /* 4b. Triage: score the case and name the denial's own defects. */
+
+  // Advice, never a gate. The recommendation is stored with the draft and
+  // shown to the specialist; a case scored "decline" still gets its letter,
+  // because the decision to fight belongs to the hospital and a letter is the
+  // best evidence of what fighting would look like.
+  const triage = triageDenial({
+    defects,
+    criteria,
+    gaps,
+    authorityCount: retrieved.length + regulations.length,
+    appealDeadline: record.appealDeadline,
+  });
+
+  log.info('the case was triaged before drafting', {
+    denialId,
+    score: triage.score,
+    recommendation: triage.recommendation,
+    defects: defects.map((d) => d.id),
+  });
 
   /* 5, 6, 7. Draft and verify, regenerating on failure. */
 
@@ -502,6 +544,12 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
     criteria,
     payerCriteria: [...payerCriteria],
     gaps,
+    defects: defects.map((d) => ({
+      title: d.title,
+      authority: d.authority,
+      explanation: d.explanation,
+      evidence: d.evidence,
+    })),
   };
 
   // Sources are resolved from the rows we just retrieved rather than by a fresh
@@ -615,6 +663,7 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
           status: 'ready',
           documentationGaps: gaps,
           proprietaryCriteriaFlag: classification.value.proprietaryCriteria.detected,
+          triageJson: JSON.stringify(triage),
           verificationFailures: attempt - 1,
           generatedByModel: modelName(),
         })
@@ -659,6 +708,7 @@ export async function generateAppeal(denialId: string): Promise<GenerationResult
         gaps,
         proprietaryCriteriaDetected: classification.value.proprietaryCriteria.detected,
         attempts: attempt,
+        triage,
       };
     }
 
