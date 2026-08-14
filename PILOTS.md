@@ -617,6 +617,72 @@ Day four: "Attaching the sample again in case it got buried. One redacted
 denial, finished appeal back in two days, free." Day ten: "Last note from me.
 If denials are someone else's desk, I would be grateful for the name."
 
+## When they reply
+
+The emails promise a finished appeal within two business days. That clock
+starts on their reply, so this section exists to be followed under time
+pressure rather than composed under it.
+
+### The reply to a yes
+
+Send within hours, not days. Attach the evaluation agreement.
+
+> Thank you, this will be quick and easy on your side.
+>
+> Two things:
+>
+> 1. The attached two page evaluation agreement. It moves no patient
+>    information, costs nothing, and your administrator or CFO can sign it
+>    the same day. Happy to work from your template instead if legal
+>    prefers.
+> 2. When it is signed, email me the denial letter and the relevant
+>    clinical notes with patient identifiers removed by your staff: name,
+>    date of birth, member ID, address, and any other identifier blacked
+>    out or deleted. Scans and PDFs are fine.
+>
+> The finished appeal comes back within two business days of your
+> documents arriving. Your team reviews it, edits anything, and files it
+> under your name. Nothing is filed by us.
+
+### The 48 hour runbook, internal
+
+1. The moment documents arrive, confirm receipt by email and check the
+   de-identification yourself. If any identifier survived, delete the
+   files, say so plainly, and ask for a clean copy. Do not process a
+   document with a visible identifier under the Phase A agreement.
+2. Upload through the app as a synthetic tagged case (de-identified
+   documents carry no PHI, which is what the tag asserts), let parsing
+   finish, confirm spans exist for both documents.
+3. Run generation. Read the letter the way the payer's reviewer will:
+   check every citation for relevance, not only existence. Relevance is
+   the reviewer's job and today that reviewer is you.
+4. If a citation is off point or a section is thin, regenerate before
+   sending. Two business days is enough for several passes.
+5. Render to the letter PDF format, without the sample banner, with a
+   header line: "Draft for review by [facility]. Not filed. Prepared under
+   evaluation agreement dated [date]."
+6. Send it back with three questions: does the argument match how your
+   team would have argued it, is every citation one your reviewer accepts,
+   and what would you change before filing it. Their answers are the
+   product feedback that matters most this year.
+7. Log everything in the tracking sheet: dates, turnaround, their edits.
+
+### Held and bounced
+
+A bounce: find a better address once, through the main line, and resend
+the same day. No reply: follow ups on day four and day ten as written, then
+stop. A no: thank them, ask what would have made it worth trying, log it.
+
+### Before the first documents arrive, two things must exist
+
+1. Billing enabled on the Google project, because the evaluation letter
+   must come from the strong model every time. A lite model letter with an
+   off point citation, sent to the one CFO who said yes, is the expensive
+   version of saving pennies.
+2. The LLC, because the evaluation agreement needs an entity on the
+   signature line. Same week filing, and the agreement can go out marked
+   draft while it processes.
+
 ## The paperwork, Phase A (no PHI)
 
 One combined document, two to three pages, so a facility signs once. E-sign
