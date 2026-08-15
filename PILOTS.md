@@ -298,6 +298,158 @@ always described as a synthetic demonstration case; ten calls a day beats
 thirty once; log every call, name, and outcome in the tracking sheet next
 to the email columns.
 
+### Word for word, by place
+
+Every script below is complete: the line to whoever answers, the pitch to
+the right person, and the voicemail. The minimum win on every call is a
+name and a direct email; a conversation is the bonus. Where an email
+already went to the organisation, the call says so, because "I wrote to
+you and I'm following up" is a warmer opening than a cold hello. Two
+shared blocks appear in every script and are worth knowing cold:
+
+THE FACT: "Federal reviews of Medicare Advantage denials, by the HHS
+Inspector General and by KFF, found that most denials that get appealed
+end up overturned, and that almost none get appealed at all. The plans are
+counting on nobody having time."
+
+THE ASK: "Two things, both free. I'll email you a complete sample appeal
+our software wrote, so you can judge the writing yourself. And if you want
+the real test, send back any one denial letter with the patient
+information blacked out, and you'll have a finished appeal draft within
+two business days. No patient data, nothing to install, no contract. If
+the draft is good, you file it and we talk about a pilot. If it isn't,
+you got a free draft and I learned something."
+
+#### Windsor Healthcare Center of Oakland, 510-261-8564
+
+To whoever answers: "Good morning, could I speak with your Business Office
+Manager? It's about Medicare Advantage denials." If they ask more: "I
+build software that writes appeal letters for skilled nursing denials. I'd
+like two minutes with whoever handles those."
+
+To the BOM: "Hi, this is [name]. I build software that writes Medicare
+Advantage appeal letters for skilled nursing facilities, and I'll be
+quick. When a plan like UnitedHealthcare or Blue Shield cuts off a
+resident's stay saying they've plateaued or no longer need skilled care,
+does someone in the building have time to appeal those, or do most get
+written off?" Stop. Listen. Then THE FACT, then: "The plateau one
+specifically is the reason I called you first: Medicare settled in Jimmo
+v. Sebelius that coverage doesn't require improvement, so those denials
+are built to be appealed, and our software catches that language
+automatically." Then THE ASK. Then: "What's your direct email? I'll send
+the sample before lunch."
+
+Voicemail: "Hi, this is [name], [number]. I build software that writes
+Medicare Advantage appeal letters for skilled nursing facilities, the
+plateau and no-longer-skilled denials specifically. Most appealed MA
+denials get overturned, per the HHS Inspector General, and I'd like to
+send you a free sample appeal so you can judge it yourself. Again, [name],
+[number]. I'll also try you by email."
+
+#### Any Generations Healthcare facility, numbers at lifegen.net/locations
+
+Same script as Windsor Oakland, with one change to the opener: "I build
+software that writes Medicare Advantage appeal letters for skilled
+nursing facilities, and I'm calling buildings in the Bay Area first." If
+the BOM says appeals are handled above the facility: "Perfect, who's the
+right person regionally? I'd rather talk to them with your name than cold."
+Get the regional reimbursement contact's name and email, thank them, done.
+That referral is a better outcome than a maybe from the wrong person.
+
+#### Windsor Cares corporate, 310-854-8424
+
+Call only after a facility conversation, ideally with a name to drop. To
+whoever answers: "Good morning. I spoke with [name/the Business Office
+Manager] at your Oakland building about Medicare Advantage appeals, and
+they pointed me upstream. Who handles reimbursement or denials across the
+portfolio, a regional director of reimbursement or similar?" To that
+person: "Windsor runs thirty five buildings, and every one of them is
+eating Medicare Advantage denials that federal reviewers say mostly get
+overturned when anyone bothers to appeal. I build software that writes the
+appeal, with every quote verified against the record and the regulation,
+for the fifteen thousand dollar SNF claims that never justify a lawyer."
+Then THE ASK, portfolio version: "Pick one building. Its business office
+sends me one redacted denial, they get a finished draft in two days, and
+you judge whether that's worth rolling out."
+
+#### Sonoma Valley Hospital, 707-935-5000
+
+To the operator: "Good morning, could you connect me with Patient
+Financial Services?" To whoever answers there: "Hi, I'm looking for
+whoever handles denied claims and appeals, could you point me to them?"
+
+To that person: "Hi, this is [name]. I sent your team a note earlier this
+week, but email being email, I figured I'd call. I build software that
+writes Medicare Advantage appeal letters. A hospital your size usually
+doesn't have a dedicated appeals person, which is exactly what the plans
+are counting on when they deny a skilled nursing or rehab stay. Does
+someone here fight those, or do the small ones get written off?" Stop.
+Listen. THE FACT. Then: "Our software drafts the whole appeal, cites the
+regulation, quotes the record, and every quote is machine-verified against
+its source before a person ever reviews it. Your team reads it, edits it,
+signs it, files it. It drafts; you decide." THE ASK. Email. Done.
+
+Voicemail: "Hi, this is [name], [number]. I emailed your revenue cycle
+team this week about Medicare Advantage denial appeals for skilled
+nursing and rehab stays. Federal reviews say most appealed MA denials get
+overturned, and I'd like to send a free sample appeal our software wrote.
+[Name], [number]."
+
+#### St. Rose Hospital, Hayward, 510-264-4000
+
+Same routing as Sonoma Valley. The framing that fits here, said with
+respect and no reference to their finances: "Every appealed denial that
+reverses is revenue the hospital already earned, for care it already
+gave. That's the cheapest dollar in healthcare, and it's the one MA plans
+are betting you don't have staff to collect." Then the standard script:
+question, listen, THE FACT, THE ASK, email.
+
+#### Washington Health, Fremont, 510-797-1111
+
+To the operator: "Good morning, could you connect me to the revenue cycle
+department, or Patient Financial Services?" You may need two transfers;
+each time, ask for "whoever handles denials and appeals" and collect the
+name. To the denials person: "Hi, this is [name]. I wrote to your team
+earlier this week about Medicare Advantage denials, and I'm following up
+by phone. I build software that writes appeal letters, skilled nursing
+and inpatient rehab stays specifically, which are the denials that are
+too small to send to counsel and too many to hand-write. When an MA plan
+denies at that level, who appeals it here?" Listen. THE FACT. THE ASK.
+Email.
+
+#### MarinHealth Medical Center, Greenbrae, 415-925-7000
+
+Same script as Washington Health. If they mention an outside vendor or an
+appeals company: "Do they take the skilled nursing and rehab denials, or
+just the big inpatient dollars? The small ones are what I built this for,
+and it can sit alongside whoever you use for the rest."
+
+#### El Camino Health, Mountain View, 650-940-7000
+
+Same routing. Expect the vendor objection here and answer it the same
+way. One extra line that fits a system this size: "I'm not asking for an
+integration or an IT conversation. The evaluation runs entirely outside
+your systems, on one redacted letter, which is why it costs your team ten
+minutes instead of a project."
+
+#### John Muir Medical Center, Walnut Creek, 925-939-3000
+
+Call last, expect gatekeeping, and set the goal to a name and a direct
+email rather than a conversation. To the operator: "Could you connect me
+with revenue cycle administration?" If you reach any human in the
+department: "I'm trying to reach whoever leads denials management. Could
+you give me their name so I can write to them directly?" Send the email
+the same day addressed to that name. If you get their voicemail, use the
+Sonoma Valley voicemail script.
+
+### After every call
+
+Log it: facility, number, who you reached, their direct email, what they
+said, next step and its date. Send the promised email within the hour
+while the call is warm. A call with no same-day email is a wasted call,
+and the day 4 follow up applies to these emails the same as the first
+nine.
+
 ## Specialised drafts, Bay Area, full length
 
 Complete and ready to send. Two blanks per email: [name] and the sender
