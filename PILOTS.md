@@ -186,6 +186,118 @@ statutory criteria wired in. A home health denial would be argued under the
 wrong standard today, so it is excluded in writing until the criteria are
 written down.
 
+## Cold calling, because email alone gets ghosted
+
+Ghosting is the default outcome of cold email and nothing eliminates it.
+Nobody at a hospital gets fired for ignoring an unknown vendor, so the
+email's career value to the reader is zero and deleting it is free. What
+reduces ghosting, in order of effect: being a voice instead of an inbox
+line, an ask so small that saying yes costs nothing, talking about their
+problem before the product, and following up, because most replies in
+healthcare come after the second touch, not the first. The day 4 and day 10
+follow ups on the sent emails matter more than any new outreach.
+
+The phone works where the email dies, and it works best at the small end.
+At an independent SNF the Administrator or Business Office Manager actually
+answers the phone. At a district hospital the operator will transfer you to
+Patient Financial Services if you ask properly. Nobody answers at Sutter.
+
+### Who to ask for
+
+- SNF: "Could I speak to your Business Office Manager?" If asked why: "It's
+  about Medicare Advantage denials." The BOM owns that pain personally.
+- Hospital: ask the operator for "Patient Financial Services" or "the
+  revenue cycle department," then ask whoever answers for the person who
+  handles denials and appeals. Two transfers is normal. Get a name every
+  call, even when the person is out: a name turns the next call warm.
+
+### The call sheet, Bay Area, verified 2026-08-15
+
+Numbers from public listings, official site preferred. Re-verify anything
+marked weak before dialing. Best windows: Tuesday to Thursday, 10:00 to
+11:30 or 2:00 to 3:30 local. SNF mornings before 9:30 are stand-up
+meetings; Mondays and Fridays are for nobody.
+
+SNFs and SNF operators first, they decide fastest:
+
+- Windsor Healthcare Center of Oakland, 2919 Fruitvale Ave, Oakland.
+  510-261-8564. 94 beds. Ask for the Business Office Manager.
+- Windsor (Windsor Cares) corporate, 310-854-8424, info@windsorcares.com.
+  35 facilities in CA and AZ. Facility first, corporate second.
+- Generations Healthcare corporate (note: the site is lifegen.net, not
+  gen-healthcare.com as an earlier draft of this file said). A 714 area
+  corporate number appears in directories but was not confirmed on the
+  official site: verify at lifegen.net/contact before dialing. Facilities
+  across the Bay Area are listed at lifegen.net/locations, each with its
+  own number; call facilities, not corporate.
+- More facilities: medicare.gov/care-compare, Nursing homes, by county.
+  Every facility card carries the phone number. Ten minutes by hand fills
+  a 25 row sheet.
+
+District and independent hospitals, in order of decision chain length:
+
+- Sonoma Valley Hospital, Sonoma. 707-935-5000 main. Small district
+  hospital, shortest chain on this list.
+- St. Rose Hospital, Hayward. 510-264-4000 main. Independent and
+  financially pressured; recovered denial dollars matter here.
+- Washington Health, Fremont. 510-797-1111 main. Independent district.
+- MarinHealth Medical Center, Greenbrae. 415-925-7000 main.
+- El Camino Health, Mountain View. 650-940-7000 main.
+- John Muir Medical Center, Walnut Creek. 925-939-3000 main. Largest and
+  slowest here; call last.
+
+### The script
+
+Twenty seconds to their problem, one question, one tiny ask. Never a demo,
+never a meeting, never "solution."
+
+Opener, once the right person is on:
+
+> Hi [name], I'm [you], I build software that writes Medicare Advantage
+> appeal letters. One question and I'll be quick: when UnitedHealthcare or
+> Blue Shield denies a stay saying the resident plateaued or no longer
+> needs skilled care, does someone have time to appeal those, or do most
+> get written off?
+
+Then stop talking. Whatever they answer is the conversation. The one fact
+to land, attributed or it sounds like hype: federal reviews of Medicare
+Advantage denials, by the HHS Inspector General and KFF, found most
+appealed denials get overturned, and only a tiny fraction ever get
+appealed. The plans are counting on nobody having time. Then the ask:
+
+> Let me send you the sample letter our software wrote so you can judge
+> the quality yourself. And if you want the real test: send back any one
+> denial letter with the patient information blacked out, and I'll return
+> a finished appeal draft within two days, free, no patient data, nothing
+> to install, no contract. If it's good, you file it and we talk. If it's
+> not, you got a free draft and I got a lesson.
+
+Get the direct email while still on the phone, send the matching email
+body from this file within the hour, log the call.
+
+Objections, answered honestly:
+
+- "We already have a vendor for appeals." "Do they take the fifteen
+  thousand dollar SNF claims, or only the big hospital ones? The small
+  denials are exactly what gets written off, and those are the ones I
+  built this for."
+- "Is this AI? We can't share patient data." "The first step involves no
+  patient data at all: the sample is a synthetic case, and the test drive
+  runs on a denial letter you redact yourself. Nothing with a name on it
+  leaves your building."
+- "Just send me something." "Happy to. What's your direct email?" That
+  email plus the day 4 follow up is a better outcome than most calls.
+- "Not interested." "No problem. One thing worth keeping whoever you use:
+  denials that say plateau are appealable under Jimmo v. Sebelius,
+  Medicare settled that coverage doesn't require improvement. Thanks for
+  your time." Leave them smarter; some call back.
+
+Rules that hold on every call: no win rate promises, ours or anyone's; the
+overturn statistic is always attributed to OIG and KFF; the sample is
+always described as a synthetic demonstration case; ten calls a day beats
+thirty once; log every call, name, and outcome in the tracking sheet next
+to the email columns.
+
 ## Specialised drafts, Bay Area, full length
 
 Complete and ready to send. Two blanks per email: [name] and the sender
