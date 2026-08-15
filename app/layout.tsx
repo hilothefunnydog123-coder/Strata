@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { IBM_Plex_Mono, Public_Sans, Source_Serif_4 } from 'next/font/google';
+import { IBM_Plex_Mono, Instrument_Serif, Public_Sans, Source_Serif_4 } from 'next/font/google';
 import './globals.css';
 
 /**
@@ -31,6 +31,19 @@ const sourceSerif = Source_Serif_4({
   display: 'swap',
 });
 
+/**
+ * The fourth face has exactly one stage: the landing page's headlines. A
+ * display serif at 100 point does what Source Serif at document sizes should
+ * never try, and nothing outside the landing may reach for it.
+ */
+const instrumentSerif = Instrument_Serif({
+  subsets: ['latin'],
+  weight: '400',
+  style: ['normal', 'italic'],
+  variable: '--font-instrument',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: {
     default: 'Medeal: appeal the denials you are writing off',
@@ -53,7 +66,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${publicSans.variable} ${plexMono.variable} ${sourceSerif.variable}`}
+      className={`${publicSans.variable} ${plexMono.variable} ${sourceSerif.variable} ${instrumentSerif.variable}`}
     >
       <body>{children}</body>
     </html>

@@ -1,0 +1,529 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   The landing page: one film, played on scroll.
+
+   A black stage, one shaft of light, denial letters adrift. Three words and
+   one button, then four acts that explain the process in the same frame. The
+   rest of the site keeps its paper; this page alone is allowed the dark.
+
+   Text on the dark ground is warm off-white at weight, never dim grey: the
+   same rule the paper pages follow, inverted.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.cine-root {
+  --cine-black: #050505;
+  --cine-ivory: #f6f2e7;
+  --cine-warm: #eee8da;
+  --cine-gold: #d9b96a;
+  --cine-red: #ba2016;
+
+  position: relative;
+  background: var(--cine-black);
+  color: var(--cine-warm);
+  font-family: var(--font-sans);
+  overflow: clip;
+}
+
+/* ── The stage ─────────────────────────────────────────────────────────── */
+
+.cine-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cine-beam-wide {
+  position: absolute;
+  top: -30%;
+  left: 50%;
+  width: 1500px;
+  height: 170%;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    ellipse 45% 60% at 50% 18%,
+    rgba(255, 238, 204, 0.16),
+    rgba(255, 238, 204, 0.05) 55%,
+    transparent 75%
+  );
+  filter: blur(30px);
+}
+
+.cine-beam-core {
+  position: absolute;
+  top: -25%;
+  left: 50%;
+  width: 760px;
+  height: 165%;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 241, 209, 0.3),
+    rgba(255, 241, 209, 0.11) 48%,
+    transparent 90%
+  );
+  clip-path: polygon(34% 0, 66% 0, 118% 100%, -18% 100%);
+  filter: blur(44px);
+  animation: cine-breathe 14s ease-in-out infinite alternate;
+}
+
+.cine-floor-glow {
+  position: absolute;
+  bottom: -12%;
+  left: 50%;
+  width: 1100px;
+  height: 34%;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    ellipse 50% 50% at 50% 60%,
+    rgba(255, 240, 209, 0.14),
+    transparent 70%
+  );
+  filter: blur(24px);
+}
+
+@keyframes cine-breathe {
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.cine-paper {
+  position: absolute;
+  background: linear-gradient(160deg, #fbf7ee 0%, #efe9da 60%, #ddd5c2 100%);
+  border-radius: 1.5px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.55);
+  transform: rotate(var(--rot));
+  animation: cine-drift var(--dur) ease-in-out var(--delay) infinite alternate;
+}
+
+@keyframes cine-drift {
+  from {
+    transform: translateY(-3.5vh) rotate(var(--rot));
+  }
+  to {
+    transform: translateY(3.5vh) rotate(var(--rot));
+  }
+}
+
+.cine-paper-head {
+  position: absolute;
+  top: 6%;
+  left: 12%;
+  width: 38%;
+  height: 4%;
+  background: rgba(20, 18, 14, 0.34);
+}
+
+.cine-paper-lines {
+  position: absolute;
+  inset: 14% 12% 12% 12%;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(20, 18, 14, 0.18) 0 2px,
+    transparent 2px 9px
+  );
+}
+
+.cine-paper-stamp {
+  position: absolute;
+  right: 9%;
+  bottom: 9%;
+  width: 42%;
+  height: 16%;
+  border: 2.5px solid rgba(186, 32, 22, 0.75);
+  border-radius: 2px;
+  transform: rotate(-10deg);
+}
+
+.cine-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 120% 90% at 50% 42%, transparent 55%, rgba(0, 0, 0, 0.62) 100%),
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.55),
+      transparent 16%,
+      transparent 82%,
+      rgba(0, 0, 0, 0.6)
+    );
+}
+
+.cine-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+
+/* ── Chrome ────────────────────────────────────────────────────────────── */
+
+.cine-chrome {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 20;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 34px 44px;
+}
+
+.cine-wordmark,
+.cine-signin {
+  color: var(--cine-ivory);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.42em;
+  text-decoration: none;
+}
+
+.cine-signin {
+  font-weight: 700;
+  letter-spacing: 0.24em;
+}
+
+.cine-signin:hover {
+  color: #ffffff;
+}
+
+/* ── Words ─────────────────────────────────────────────────────────────── */
+
+.cine-content {
+  position: relative;
+  z-index: 10;
+}
+
+.cine-hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 96px 20px 10vh;
+}
+
+.cine-h1 {
+  font-family: var(--font-instrument), Georgia, serif;
+  font-weight: 400;
+  color: #f8f4ea;
+  font-size: clamp(58px, 10.5vw, 148px);
+  line-height: 0.96;
+  letter-spacing: -0.015em;
+  text-shadow:
+    0 0 90px rgba(255, 240, 208, 0.28),
+    0 2px 26px rgba(0, 0, 0, 0.65);
+}
+
+.cine-it {
+  font-style: italic;
+}
+
+.cine-cta {
+  display: inline-block;
+  margin-top: 56px;
+  background: var(--cine-ivory);
+  color: #0b0a08;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-decoration: none;
+  padding: 21px 52px;
+  border-radius: 999px;
+  box-shadow:
+    0 0 60px rgba(255, 240, 205, 0.28),
+    0 14px 40px rgba(0, 0, 0, 0.5);
+}
+
+.cine-cta:hover {
+  background: #ffffff;
+}
+
+.cine-cta:focus-visible,
+.cine-signin:focus-visible,
+.cine-endlink:focus-visible {
+  outline: 2px solid var(--cine-gold);
+  outline-offset: 4px;
+}
+
+/* ── Acts ──────────────────────────────────────────────────────────────── */
+
+.cine-act {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 17vh 24px;
+}
+
+.cine-kicker {
+  font-family: var(--font-mono);
+  color: var(--cine-gold);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.34em;
+}
+
+.cine-h2 {
+  font-family: var(--font-instrument), Georgia, serif;
+  font-weight: 400;
+  color: #f8f4ea;
+  font-size: clamp(44px, 6.4vw, 88px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  margin-top: 22px;
+  text-shadow:
+    0 0 70px rgba(255, 240, 208, 0.22),
+    0 2px 22px rgba(0, 0, 0, 0.6);
+}
+
+.cine-copy {
+  margin-top: 26px;
+  max-width: 600px;
+  font-size: 18px;
+  line-height: 1.65;
+  font-weight: 500;
+  color: var(--cine-warm);
+  text-shadow: 0 1px 18px rgba(0, 0, 0, 0.8);
+}
+
+.cine-copy strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.cine-attr {
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--cine-ivory);
+}
+
+/* ── Documents in the light ────────────────────────────────────────────── */
+
+.cine-doc {
+  position: relative;
+  margin-top: 54px;
+  max-width: 620px;
+  background: #f7f3e9;
+  color: #23211c;
+  border-radius: 2px;
+  padding: 44px 48px 48px;
+  box-shadow:
+    0 0 90px rgba(255, 240, 205, 0.14),
+    0 40px 80px rgba(0, 0, 0, 0.6);
+  font-family: var(--font-document);
+  font-size: 15px;
+  line-height: 1.75;
+  transform: rotate(-0.8deg);
+}
+
+.cine-doc-tag {
+  position: absolute;
+  top: -12px;
+  right: 22px;
+  background: var(--cine-gold);
+  color: #23211c;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  padding: 6px 12px;
+  transform: rotate(2deg);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+.cine-doc-head {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+.cine-doc-meta {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: #555046;
+  margin: 4px 0 20px;
+}
+
+.cine-doc p + p {
+  margin-top: 12px;
+}
+
+.cine-hl {
+  padding: 1px 3px;
+  font-weight: 600;
+  background: #ffb3ad;
+  box-shadow: inset 0 -2px 0 #d92b1f;
+}
+
+.cine-hl-quote {
+  padding: 1px 3px;
+  font-weight: 600;
+  background: #f3edda;
+  box-shadow: inset 0 -2px 0 #c9b968;
+}
+
+.cine-doc-cite {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #555046;
+}
+
+.cine-doc-stamp {
+  position: absolute;
+  bottom: 26px;
+  right: 30px;
+  border: 3px solid #b02318;
+  color: #b02318;
+  font-family: var(--font-sans);
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: 0.2em;
+  padding: 6px 14px;
+  transform: rotate(-8deg);
+  opacity: 0.75;
+}
+
+/* Findings pinned beneath a document. */
+
+.cine-findings {
+  margin-top: 26px;
+  max-width: 620px;
+  display: grid;
+  gap: 10px;
+}
+
+.cine-finding {
+  background: #0e0d0b;
+  border: 1px solid #2c2a24;
+  border-left: 3px solid var(--cine-red);
+  padding: 14px 18px;
+}
+
+.cine-finding-title {
+  font-family: var(--font-mono);
+  color: #ff6b5e;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+}
+
+.cine-finding p {
+  margin-top: 6px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: var(--cine-warm);
+}
+
+.cine-finding p strong {
+  color: #ffffff;
+}
+
+.cine-finding-law {
+  margin-top: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cine-gold);
+}
+
+/* Verification chips beside quoted passages. */
+
+.cine-verify {
+  display: inline-block;
+  margin: 10px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: #135c33;
+  background: #e6f4ea;
+  border: 1px solid #b7dcc2;
+  border-radius: 3px;
+  padding: 4px 9px;
+}
+
+.cine-verify::before {
+  content: '✓ ';
+  font-weight: 700;
+}
+
+/* ── The close ─────────────────────────────────────────────────────────── */
+
+.cine-final {
+  min-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12vh 20px 9vh;
+}
+
+.cine-endlinks {
+  margin-top: 12vh;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 30px;
+}
+
+.cine-endlink {
+  color: var(--cine-ivory);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-decoration: none;
+}
+
+.cine-endlink:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+/* ── Choreography ──────────────────────────────────────────────────────── */
+
+.cine-fx {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.9s cubic-bezier(0.2, 0.6, 0.2, 1) var(--d, 0s),
+    transform 0.9s cubic-bezier(0.2, 0.6, 0.2, 1) var(--d, 0s);
+}
+
+.cine-scene.is-on .cine-fx {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cine-fx {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .cine-paper,
+  .cine-beam-core {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .cine-chrome {
+    padding: 24px 22px;
+  }
+  .cine-doc {
+    padding: 30px 26px 36px;
+    transform: none;
+  }
+  .cine-act {
+    padding: 13vh 20px;
+  }
+}

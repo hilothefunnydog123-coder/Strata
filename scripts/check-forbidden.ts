@@ -38,7 +38,11 @@ const RULES: Rule[] = [
     extensions: ['.tsx', '.css'],
     pattern: /linear-gradient|radial-gradient|bg-gradient-|from-\[#|via-\[#/g,
     why: 'No gradients anywhere, including subtle ones and including on buttons.',
-    allow: [/^scripts\/check-forbidden\.ts$/],
+    // The landing page is the one deliberate exception, decided by the owner
+    // on 2026-08-15: its stage is a volumetric light scene, and light is a
+    // gradient. The rule stands everywhere a gradient would be decoration on
+    // an interface; the landing's stage file is scenery, not interface.
+    allow: [/^scripts\/check-forbidden\.ts$/, /^app\/landing\.css$/],
   },
   {
     name: 'backdrop blur',
