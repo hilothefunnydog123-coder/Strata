@@ -52,7 +52,7 @@ def main() -> int:
     parser.add_argument("--fill-mode", default="limit", choices=["limit", "market"])
     parser.add_argument("--stop-points", type=float, default=50.0)
     parser.add_argument(
-        "--stop-mode", default="swing", choices=["fixed", "structure", "swing", "tighter_of"]
+        "--stop-mode", default="gap", choices=["fixed", "gap", "swing", "tighter_of"]
     )
     parser.add_argument("--swing-anchor", default="session", choices=["session", "excursion"])
     parser.add_argument(

@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import unittest
-from datetime import timedelta
 
 from strata_vp import PLANS, Backtest, Costs, PropFirmRules, StrategyConfig, resample
 from strata_vp.backtest import Pending, Trade
-from strata_vp.brokers.base import BracketOrder
-from strata_vp.brokers.paper import PaperBroker
 from tools.synth_data import generate
 from tests.helpers import bar, signal, utc
 
@@ -184,37 +181,6 @@ class TestRiskStopsTheRun(unittest.TestCase):
         )
         result = engine.run(resample(generate(days=45, seed=3), 5))
         self.assertIn("max trades for the day", result.blocked)
-
-
-class TestPaperBroker(unittest.TestCase):
-    def test_an_inverted_bracket_is_refused(self):
-        broker = PaperBroker()
-        with self.assertRaises(ValueError):
-            broker.submit(BracketOrder("MNQ", "long", 1, entry=100.0, stop=110.0, target=90.0))
-        with self.assertRaises(ValueError):
-            broker.submit(BracketOrder("MNQ", "short", 1, entry=100.0, stop=90.0, target=110.0))
-
-    def test_a_bracket_fills_and_then_exits(self):
-        broker = PaperBroker(point_value=2.0, commission_per_contract=1.0, slippage_ticks=0.0)
-        broker.submit(BracketOrder("MNQ", "long", 2, entry=100.0, stop=90.0, target=110.0))
-        broker.on_bar(bar(MORNING, 101, 102, 99, 100))  # trades through the limit
-        self.assertEqual(broker.position("MNQ").side, "long")
-        broker.on_bar(bar(MORNING + timedelta(minutes=5), 100, 111, 100, 110))
-        self.assertIsNone(broker.position("MNQ").side)
-        self.assertAlmostEqual(broker.balance, 50_000 + 10 * 2 * 2.0 - 2 * 1.0)
-
-    def test_the_paper_broker_takes_the_stop_when_a_bar_holds_both(self):
-        broker = PaperBroker(point_value=2.0, commission_per_contract=0.0, slippage_ticks=0.0)
-        broker.submit(BracketOrder("MNQ", "long", 1, entry=None, stop=90.0, target=110.0))
-        broker.on_bar(bar(MORNING, 100, 115, 85, 105))
-        self.assertLess(broker.balance, 50_000)
-
-    def test_flatten_closes_everything(self):
-        broker = PaperBroker(point_value=2.0, slippage_ticks=0.0)
-        broker.submit(BracketOrder("MNQ", "long", 1, entry=None, stop=90.0, target=110.0))
-        broker.on_bar(bar(MORNING, 100, 101, 99, 100))
-        broker.flatten("MNQ")
-        self.assertIsNone(broker.position("MNQ").side)
 
 
 if __name__ == "__main__":

@@ -123,7 +123,7 @@ class TestModes(unittest.TestCase):
         floor rejects every one of them and the strategy stands down rather
         than taking a trade it cannot win enough of."""
         _, fixed = _run(StrategyConfig(stop_mode="fixed", stop_points=50.0, min_reward_risk=1.2))
-        _, structural = _run(StrategyConfig(stop_mode="structure", min_reward_risk=1.2))
+        _, structural = _run(StrategyConfig(stop_mode="gap", min_reward_risk=1.2))
         self.assertEqual(len(fixed), 0)
         self.assertGreater(len(structural), 0)
 
@@ -144,7 +144,7 @@ class TestModes(unittest.TestCase):
         rather than on a trade count, because the count moves whenever an
         unrelated default does and then the test only says the numbers
         changed."""
-        config = StrategyConfig(stop_mode="structure", require_fvg=False, stop_points=37.0,
+        config = StrategyConfig(stop_mode="gap", require_fvg=False, stop_points=37.0,
                                 max_stop_points=40.0)
         _, signals = _run(config)
         for signal in signals:

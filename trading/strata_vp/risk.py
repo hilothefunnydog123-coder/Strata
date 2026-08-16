@@ -62,7 +62,7 @@ class PropFirmRules:
     risk_per_trade_pct: float = 0.01
     daily_budget_fraction: float = 0.5
     drawdown_budget_fraction: float = 0.25
-    max_trades_per_day: int = 4
+    max_trades_per_day: int = 6
     max_consecutive_losses: int = 2
     stop_after_daily_target: float | None = 900.0
     flat_by: time = time(12, 55)

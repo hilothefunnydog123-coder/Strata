@@ -158,7 +158,7 @@ class TestSwingStop(unittest.TestCase):
 
     def test_the_swing_stop_is_wider_than_the_gap_stop(self):
         swing = self._signals(stop_mode="swing")
-        structure = self._signals(stop_mode="structure")
+        structure = self._signals(stop_mode="gap")
         self.assertGreater(len(swing), 0)
         self.assertGreater(len(structure), 0)
         average = lambda group: sum(s.risk_points for s in group) / len(group)  # noqa: E731

@@ -98,15 +98,17 @@ class StrategyConfig:
     # setups.
     excursion_scope: Literal["session", "recent"] = "session"
     excursion_max_age_bars: int = 40
-    setup_valid_bars: int = 12
+    setup_valid_bars: int = 20
 
     # Trigger.
     fill_mode: Literal["limit", "market"] = "limit"
-    # Where in the gap the limit sits. "proximal" is the near edge, which fills
-    # most often. "midpoint" is consequent encroachment, the halfway line.
-    # "distal" is the far edge: the best price, the worst fill rate, and the
-    # one that turns a winner into a missed trade when price turns early.
-    fvg_entry: Literal["proximal", "midpoint", "distal"] = "proximal"
+    # Where in the gap the limit sits. "midpoint" is consequent encroachment,
+    # the halfway line, and is the default because it is what the trade is
+    # actually taken at. "proximal" is the near edge, which fills most often
+    # and pays worst. "distal" is the far edge: the best price, the worst fill
+    # rate, and the one that turns a winner into a missed trade when price
+    # turns early.
+    fvg_entry: Literal["proximal", "midpoint", "distal"] = "midpoint"
     limit_valid_bars: int = 8
     require_fvg: bool = True
     min_fvg_points: float = 2.0
@@ -123,15 +125,17 @@ class StrategyConfig:
 
     # Exits.
     stop_points: float = 50.0
-    # "fixed"      the brief's 50 points.
-    # "structure"  behind the far edge of the trigger gap. Tight, and it is
-    #              inside the noise of the level it is trading.
-    # "swing"      behind the low that swept the level. This is where a stop
-    #              goes when the trade is placed by hand: if that low breaks,
-    #              the sweep was not a sweep and the idea is wrong.
+    # "gap"        ten points past the far edge of the trigger gap. If price
+    #              closes the gap and keeps going, the imbalance that was the
+    #              reason for the trade has been filled and there is nothing
+    #              left to be right about.
+    # "fixed"      the brief's flat 50 points.
+    # "swing"      behind the extreme that reached the level. Wider, and mostly
+    #              here so a backtest can compare it rather than because the
+    #              setup calls for it.
     # "tighter_of" whichever of the applicable ones sits closest to the entry.
-    stop_mode: Literal["fixed", "structure", "swing", "tighter_of"] = "swing"
-    structure_buffer_points: float = 4.0
+    stop_mode: Literal["gap", "fixed", "swing", "tighter_of"] = "gap"
+    gap_stop_buffer_points: float = 10.0
     swing_buffer_points: float = 6.0
     # What the swing stop is measured from. "session" is the lowest low of the
     # session so far, which is where the stop goes when the trade is placed by
@@ -150,10 +154,13 @@ class StrategyConfig:
     partial_fraction: float = 0.5
     min_runner_points: float = 8.0
 
-    # Gating.
-    min_bars_into_session: int = 15
-    no_new_trades_before_close_min: float = 45.0
-    max_signals_per_session: int = 3
+    # Gating. These were tuned down after an audit showed the session signal
+    # cap, not the strategy, was deciding how often it traded: every session in
+    # the sample swept the value area low or high, 86 percent armed, and only
+    # 55 percent were allowed to produce a signal.
+    min_bars_into_session: int = 6  # 30 minutes, enough for a developing profile
+    no_new_trades_before_close_min: float = 20.0
+    max_signals_per_session: int = 6
     min_trend_confidence: float = 0.35  # to trade the point of control variant
     min_reference_volume: float = 0.0
 
@@ -809,8 +816,13 @@ class Strategy:
         fixed = entry - config.stop_points if long else entry + config.stop_points
         if config.stop_mode in ("fixed", "tighter_of"):
             candidates.append(fixed)
-        if config.stop_mode in ("structure", "tighter_of") and gap is not None:
-            buffer = config.structure_buffer_points
+        elif gap is None:
+            # Every other mode needs the gap. Without one the flat distance is
+            # all that is left, and it is deliberately loud in the config that
+            # this is what happens.
+            candidates.append(fixed)
+        if config.stop_mode in ("gap", "tighter_of") and gap is not None:
+            buffer = config.gap_stop_buffer_points
             candidates.append(gap.distal - buffer if long else gap.distal + buffer)
         if config.stop_mode in ("swing", "tighter_of"):
             buffer = config.swing_buffer_points

@@ -1,108 +1,116 @@
 # Strata VP
 
-A session volume profile strategy for funded futures accounts, with the
-discretionary part of it handled by Gemini and everything else handled by code
-that does not need an internet connection.
+A session volume profile **signal engine** for MNQ on a funded account. It
+tells you the trade. You place it.
 
 Python 3.11, standard library only. No pip install, no data subscription, no
-paid charting tier, no broker fees beyond the ones the account already has.
+paid charting tier.
 
 ```
 cd trading
-python3 tools/run_backtest.py --synthetic --days 90 --trades
-python3 tools/run_backtest.py --csv mnq_1m.csv --instrument MNQ --plan ny_vs_brief
-python3 -m unittest discover -s tests -t .
+python3 tools/run_signals.py  --synthetic --days 10          # tickets
+python3 tools/run_backtest.py --synthetic --days 90 --trades # did they work
+python3 -m unittest discover -s tests -t .                   # 130 tests
+```
+
+A ticket looks like this, and is meant to be typed into a DOM in fifteen
+seconds:
+
+```
+LONG MNQ x5   09:15 PT
+  limit     19938.00   (midpoint of the gap)
+  stop      19923.00   15.00 pt   $150
+  target    19953.50   point of control
+  runner    19984.00   50% off at the target, stop to breakeven, rest here
+  R:R           2.05
+  levels  VAL 19935.00  POC 19953.50  VAH 19984.00
+  why     swept value area low, reclaimed, downtrend
 ```
 
 ---
 
 ## Read this before you build anything
 
-Three constraints decide the shape of the whole system, and two of them are
-not what people expect.
+There is no execution layer, and that is not a gap waiting to be filled.
+Tradovate gates API access behind an add on and the prop firm decides
+separately on top of that, so this account cannot place an automated order at
+all. Everything below is built around that rather than in spite of it.
 
-**TradingView cannot trigger trades on the free plan.** Alerts that call a
-webhook are a paid feature. On a free account an alert can pop up on screen and
-send an email, and that is all. So TradingView is the chart, the research tool
-and the thing you look at when a trade goes wrong. It is not the trigger. The
-Pine script in `pine/` draws exactly what the engine computes so the two can be
-compared, and it is not in the execution path.
+**The Pine script is the live half of the system.** It is not a decoration. It
+computes the profile, the gaps, the arm and trigger states and the full trade
+ticket on the chart during the session, using the same arithmetic as the Python
+engine including the reward to risk test, so a setup the engine would reject is
+not drawn either. Load `pine/strata_volume_profile.pine`, set the two session
+strings, and create alerts on "Volume profile long" and "Volume profile short".
 
-**The execution path has to come from the broker, and on Tradovate there is
-one thing to confirm before writing any code: whether API access is enabled on
-your account at all.** Tradovate gates automated access behind an API Access
-add on, and prop firms reselling Tradovate then make their own decision on top
-of that. Some allow it, some allow it only on evaluations, some not at all, and
-none of them put it on the sales page. An account without it authenticates
-perfectly and rejects every order, so the failure looks like a bug in your code
-for about a day.
+TradingView cannot send a webhook on the free plan, but it does not need to.
+The alert messages interpolate the actual prices, so the popup and the email
+carry the entry, the stop and both targets and the trade can be placed straight
+from the alert without opening the chart.
 
-Test it for free against the demo host before assuming anything:
+**The Python engine is the research half.** It decides what the parameters
+should be, proves the rules are internally consistent, and replays exported
+bars into the same tickets so the chart and the backtest can be checked against
+each other. `tools/run_signals.py` is that replay. `strata_vp/runner.py` will
+also run it live against any bar source, with sinks for the console, a JSONL
+file, Discord, Slack and Telegram, if a feed ever turns up. Nothing in it
+places an order.
 
-```python
-from strata_vp.brokers import TradovateBroker, TradovateCredentials
+An execution adapter for Tradovate existed briefly and is in the git history at
+`089f315` if API access ever appears. It is not in the tree, because shipping a
+path that cannot be used invites trusting it.
 
-broker = TradovateBroker(TradovateCredentials(...), live=False)
-broker.connect()
-print(broker.accounts())
-```
-
-`strata_vp/brokers/tradovate.py` covers authentication including the `p-ticket`
-throttle, contract lookup, bracket placement, cancel, position and flatten.
-Bars are the gap: Tradovate serves chart data over the market data websocket
-rather than REST, and that is the one piece needing a dependency, so `bars()`
-raises and says so rather than returning something empty. Until it is wired up,
-feed `LiveTrader` from any other bar source. The strategy does not care where
-bars come from, only that they are closed and in order.
-
-Other routes, for when the firm changes:
-
-| Route | Cost | Notes |
-| --- | --- | --- |
-| Tradovate REST | API Access add on, and firm permission | Implemented here. Confirm access on demo first. |
-| ProjectX REST and websocket | Included with several futures firms | Best option if your firm moves to it. A direct port of the same four method interface. |
-| MetaTrader 5 Python package | Free | Windows only. Forex and CFD firms, not futures. `brokers/mt5.py`. |
-| Rithmic or CQG | Licence and approval | Not realistic for a first system. |
-| TradingView webhook | Paid plan | Also puts a network hop and a service you do not control between the signal and the order. |
-
-**A 50 point stop cannot pay for a point of control target.** This is the one
-real problem with the strategy as briefed, and it is arithmetic rather than
+**A flat 50 point stop cannot pay for a point of control target.** This is the
+one real problem with the strategy as briefed, and it is arithmetic rather than
 opinion. The distance from the value area low to the point of control is
 roughly half a value area width, which on an overnight profile is commonly 20
 to 40 points. Risking 50 to make 30 is 0.6 to 1. That needs a 63 percent win
 rate before costs just to break even, and mean reversion into value does not
 win 63 percent of the time.
 
-The engine does not paper over this. `min_reward_risk` rejects the trade and
-the strategy stands down. Run it and see, on 90 days of synthetic MNQ bars:
+The engine does not paper over it. `min_reward_risk` rejects the trade and the
+strategy stands down. Ten points past the far edge of the gap, which is the
+other stop in the brief, is 13 points on average and works. On 90 days of
+synthetic MNQ bars, 65 sessions:
 
-| Configuration | Trades | Win rate | Expectancy | Avg stop |
+| Configuration | Trades | Per session | Win rate | Expectancy |
 | --- | --- | --- | --- | --- |
-| The brief literally: fixed 50 point stop | 0 | | | |
-| Stop behind the gap, no runner | 41 | 32% | +0.13 R | 10 pt |
-| Stop behind the sweep, no runner | 3 | 0% | -0.68 R | 15 pt |
-| Stop behind the sweep, half off at the point of control | 9 | 44% | +0.14 R | 25 pt |
-| Stop behind the gap, half off at the point of control | 51 | 39% | +0.17 R | 10 pt |
+| Flat 50 point stop | 0 | | | |
+| **10 past the gap, midpoint entry, runner** | **58** | **0.89** | **43%** | **+0.21 R** |
+| 10 past the gap, no runner | 48 | 0.74 | 31% | +0.11 R |
+| Entry at the near edge instead of the middle | 54 | 0.83 | 54% | +0.14 R |
+| Entry at the far edge instead of the middle | 58 | 0.89 | 29% | +0.12 R |
+| Entering below value instead of on the reclaim | 61 | 0.94 | 46% | +0.21 R |
 
-Synthetic bars, so none of that says the strategy makes money. What it says is
-structural and would hold on real data.
+Synthetic bars, so none of that says the strategy makes money. What it does say
+is structural. The flat 50 is not a risk setting, it is an off switch. The
+midpoint entry beats both edges: the near edge wins more often and earns less,
+the far edge misses the moves that turn early. And the runner is worth about
+double the expectancy, because half the setups cannot pay 1.2 to 1 on the point
+of control alone.
 
-The 50 point stop is not a risk setting, it is an off switch. And the honest
-version of the stop, the one in your chart, is behind the swing that swept the
-level rather than behind the gap: if that low breaks, the sweep was not a sweep
-and the idea is wrong. But a stop that wide cannot be paid for by the point of
-control alone, which is the third row: three trades in ninety days, all losers,
-because the geometry test correctly rejected everything else.
+### Why it trades as often as you said it would
 
-The runner is what resolves it, and it is what the setup is missing when
-written down as "target the point of control". Half off there, stop to
-breakeven, the rest to the far side of value. That is the fourth row, and it is
-the default: `--stop-mode swing --partial 0.5`.
+The first version took 9 trades in 90 days, which was wrong, and it was not the
+strategy being selective. An audit of every session found:
 
-Two smaller things the table shows. The reclaim entry beats the literal
-below-value entry on the same data, which is why it is the default. And turning
-off the fair value gap requirement does not loosen the strategy, it collapses
-it, because the gap is where the structural stop comes from.
+| | Sessions |
+| --- | --- |
+| Total | 65 |
+| Swept the value area low or high | 65 |
+| Armed a setup | 56 |
+| Produced a signal | 36 |
+
+Every session rotates through a level, exactly as you said. What was throwing
+setups away were three gates that had nothing to do with the setup: a 75 minute
+warmup that skipped the open, a 45 minute cutoff before the close, and a cap of
+3 signals per session. Those are now 30 minutes, 20 minutes and 6, and the same
+data produces about two setups a session.
+
+The remaining brake is the regime layer refusing counter trend entries: it will
+not buy the value area low in a session it has classified as a strong downtrend.
+That one is deliberate and it is the thing most worth arguing about once there
+is real data to argue with.
 
 ---
 
@@ -137,7 +145,7 @@ later. `recent` enforces a bar window instead and throws most of them away.
    fair.
 4. Price has reclaimed the level, and has not already reached the target.
 
-**Trigger** while armed, for up to 12 bars:
+**Trigger** while armed, for up to 20 bars:
 
 5. A bullish fair value gap in the band between the zone and the current price,
    less than half filled.
@@ -146,25 +154,23 @@ later. `recent` enforces a bar window instead and throws most of them away.
 
 ### Entries, stops and exits
 
-Entry is a limit inside the gap. `fvg_entry` picks where: `proximal` is the
-near edge and fills most often, `midpoint` is consequent encroachment, `distal`
-is the far edge, which is the best price, the worst fill rate, and the one that
-turns a winner into a missed trade when price turns early.
+Entry is a limit at the **midpoint of the gap**, consequent encroachment.
+`fvg_entry` can move it to `proximal`, the near edge, which fills more often and
+pays worse, or `distal`, the far edge, which pays best and misses the moves that
+turn early.
 
 Stop, by `stop_mode`:
 
 | Mode | Where | Typical |
 | --- | --- | --- |
-| `fixed` | 50 points, the brief | 50 pt |
-| `structure` | behind the far edge of the trigger gap | 10 pt |
-| `swing` | behind the low that swept the level | 15 to 30 pt |
+| `gap` | ten points past the far edge of the trigger gap. The default. | 13 pt |
+| `fixed` | a flat 50 points | 50 pt |
+| `swing` | behind the extreme that reached the level | 15 to 30 pt |
 | `tighter_of` | whichever of the above sits closest to the entry | 9 pt |
 
-`swing_anchor` decides what "the low that swept the level" means. `session` is
-the lowest low of the session so far, which is what a hand placed stop uses
-even when price has rotated through value once since the sweep. `excursion`
-uses only the most recent leg into the level, which is tighter and gets run
-more often.
+`gap_stop_buffer_points` is the ten. If price closes the gap and keeps going,
+the imbalance that was the reason for the trade has been filled and there is
+nothing left to be right about.
 
 Exits are a ladder. `partial_fraction` of the position comes off at the first
 target, normally the reference point of control, the stop moves to breakeven,
@@ -269,13 +275,13 @@ strata_vp/
   signals.py    The strategy: arm, trigger, target, stop.
   risk.py       Prop firm rules: trailing drawdown, daily loss, sizing.
   backtest.py   Event driven loop with pessimistic fills.
-  live.py       The live loop. Boring on purpose.
+  notify.py     Trade tickets and where they go: console, JSONL, Discord,
+                Slack, Telegram. A failing sink never stops the others.
+  runner.py     The loop, and `replay` for running it over a file. No orders.
   instruments.py Contract specs. MNQ is the default.
-  brokers/      base.py is four methods. paper.py, tradovate.py and mt5.py
-                implement them.
-pine/           The TradingView indicator. Chart only, not execution.
-tools/          Synthetic data and the backtest CLI.
-tests/          100 tests, standard library unittest, no runner to install.
+pine/           The TradingView indicator. This is the live half.
+tools/          Synthetic data, the backtest CLI, the signal CLI.
+tests/          130 tests, standard library unittest, no runner to install.
 ```
 
 ### Why the backtest can be believed
@@ -348,27 +354,27 @@ modelling. `--signal-tf` controls the signal timeframe independently.
 
 ---
 
-## Going live
+## Working it up
 
-1. Backtest on real minute bars, both entry modes, both stop modes.
+1. Export MNQ 1 minute bars from the chart and backtest on them. Both entry
+   modes, all four stop modes. Everything above came from synthetic data and is
+   worth exactly nothing until this step is done.
 2. Walk forward: fit nothing on the last two months, then run on them.
-3. Confirm API access on the Tradovate demo host, since everything after this
-   depends on it.
-4. Run `live.py` against `PaperBroker` with `dry_run=True` for two weeks and
-   compare the paper fills against what the backtest would have produced on the
-   same bars. If they disagree, one of them is lying and you want to know which
-   before the account is funded.
-5. Run on the Tradovate demo with one micro contract.
-6. Evaluation account, one micro, `--gemini` off, so there is one fewer moving
-   part while you learn what the system actually does. At one contract nothing
-   scales out, so the runner is either the whole position or none of it: decide
-   which before funding, not during.
-7. Turn the model on and compare a month of both.
+3. Load the Pine script, set the sessions, and watch it live for two weeks
+   without trading it. Every time it prints a ticket, write down whether you
+   would have taken it. The disagreements are the specification for the next
+   round of changes.
+4. Replay the same days through `tools/run_signals.py` and compare the tickets
+   against what the chart drew. They should match. If they do not, one of them
+   is wrong and it matters which.
+5. Trade it on the evaluation at one micro, from the alerts, with `--gemini`
+   off so there is one fewer moving part.
+6. Log what you actually take next to what the system said, and compare. The
+   gap between those two is the part of the system that is you.
 
-The live loop only acts on closed bars, warms up on history before its first
-decision so the reference profile is real, reads position state from the broker
-rather than from local belief, and runs its flat by timer off the wall clock so
-a quiet feed cannot leave a position open past the session close.
+At one contract nothing scales out, so the runner is either the whole position
+or none of it. `partial_fraction` has no effect below two contracts and the
+backtest refuses to pretend otherwise.
 
 ## What this is not
 

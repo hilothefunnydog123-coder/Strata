@@ -10,13 +10,17 @@
 //
 // Read this before relying on it for anything live:
 //
+//   This is the live half of the system, not a decoration. The Python engine
+//   has no broker API to trade through, so it is the backtester that decides
+//   the parameters, and this script is what runs during the session and tells
+//   you the trade. Every number it draws is computed the same way the engine
+//   computes it, including the reward to risk test, so a setup the engine
+//   would have rejected is not drawn here either.
+//
 //   TradingView cannot send a webhook on the free plan. Alerts that call a URL
-//   are a paid feature. The alertcondition calls below will fire a popup and an
-//   email on a free account, and that is all. The engine does not depend on
-//   them. If you do have a paid plan, the alert() calls carry a JSON payload
-//   the engine can consume, but the supported path is the engine reading bars
-//   from the broker directly, because an alert that arrives late or not at all
-//   is worse than no alert.
+//   are a paid feature. On a free account the alertcondition messages below
+//   reach a popup and an email, which is enough: they carry the entry, the
+//   stop and the targets, so the trade can be placed from the alert itself.
 //
 //   A profile built from chart bars is not a profile built from ticks. Volume
 //   inside a bar is distributed across the bar's range, which is the same
@@ -51,9 +55,11 @@ drawSessions = input.int(10, "Sessions to draw", minval = 1, maxval = 60,
 grpSetup = "Setup"
 minGapPoints = input.float(2.0, "Minimum fair value gap, points", minval = 0.0, group = grpSetup)
 excursionBars = input.int(20, "Excursion stays valid for, bars", minval = 1, group = grpSetup)
-armBars = input.int(12, "Arm stays valid for, bars", minval = 1, group = grpSetup)
+armBars = input.int(20, "Arm stays valid for, bars", minval = 1, group = grpSetup)
 gapMaxAge = input.int(40, "Gap stays valid for, bars", minval = 1, group = grpSetup)
-warmupBars = input.int(15, "Bars into session before arming", minval = 0, group = grpSetup)
+warmupBars = input.int(6, "Bars into session before arming", minval = 0, group = grpSetup)
+stopBuffer = input.float(10.0, "Stop, points past the gap", minval = 0.25, group = grpSetup)
+minRewardRisk = input.float(1.2, "Minimum reward to risk", minval = 0.1, group = grpSetup)
 
 grpStyle = "Style"
 pocColour = input.color(color.new(#e0a800, 0), "Point of control", group = grpStyle)
@@ -298,27 +304,88 @@ plotshape(canArmLong and na(armedLong[1]) ? low : na, "Armed long", shape.triang
      location.absolute, color.new(#1e8449, 40), size = size.tiny)
 plotshape(canArmShort and na(armedShort[1]) ? high : na, "Armed short", shape.triangledown,
      location.absolute, color.new(#a93226, 40), size = size.tiny)
-plotshape(longTrigger ? low : na, "Long trigger", shape.labelup, location.belowbar,
+
+// ------------------------------------------------------------ the ticket ---
+
+// The trade, priced. Entry at consequent encroachment, the halfway line of the
+// gap. Stop a fixed distance past the far edge, because if price closes the
+// gap and keeps going the imbalance that was the reason for the trade is gone.
+// First target the point of control, runner the far side of value.
+entryPrice = longTrigger ? math.avg(bullTop, bullBottom) :
+     shortTrigger ? math.avg(bearTop, bearBottom) : na
+stopPrice = longTrigger ? bullBottom - stopBuffer :
+     shortTrigger ? bearTop + stopBuffer : na
+targetPrice = longTrigger or shortTrigger ? refPoc : na
+runnerPrice = longTrigger ? refVah : shortTrigger ? refVal : na
+
+riskPoints = math.abs(entryPrice - stopPrice)
+blendedReward = na(runnerPrice) ? math.abs(targetPrice - entryPrice) :
+     0.5 * math.abs(targetPrice - entryPrice) + 0.5 * math.abs(runnerPrice - entryPrice)
+rewardRisk = riskPoints > 0 ? blendedReward / riskPoints : 0.0
+
+// The same geometry test the engine applies. A setup that cannot pay for its
+// own stop is not drawn, so the chart and the backtest agree about what counts
+// as a signal rather than the chart being the optimistic one.
+longTicket = longTrigger and rewardRisk >= minRewardRisk and targetPrice > entryPrice
+shortTicket = shortTrigger and rewardRisk >= minRewardRisk and targetPrice < entryPrice
+
+if longTicket or shortTicket
+    ticketColour = longTicket ? color.new(#1e8449, 0) : color.new(#a93226, 0)
+    line.new(bar_index, entryPrice, bar_index + 12, entryPrice, color = ticketColour, width = 2)
+    line.new(bar_index, stopPrice, bar_index + 12, stopPrice, color = color.new(#a93226, 30),
+         width = 1, style = line.style_dashed)
+    line.new(bar_index, targetPrice, bar_index + 12, targetPrice, color = color.new(#1e8449, 30),
+         width = 1, style = line.style_dashed)
+    label.new(bar_index + 12, entryPrice,
+         (longTicket ? "LONG " : "SHORT ") + str.tostring(entryPrice, format.mintick) +
+         "\nstop " + str.tostring(stopPrice, format.mintick) +
+         "  (" + str.tostring(riskPoints, "#.##") + " pt)" +
+         "\ntgt  " + str.tostring(targetPrice, format.mintick) +
+         "\nrun  " + str.tostring(runnerPrice, format.mintick) +
+         "\nR:R  " + str.tostring(rewardRisk, "#.##"),
+         style = label.style_label_left,
+         color = ticketColour, textcolor = color.white, size = size.small)
+
+plotshape(longTicket ? low : na, "Long ticket", shape.labelup, location.belowbar,
      color.new(#1e8449, 0), text = "L", textcolor = color.white, size = size.small)
-plotshape(shortTrigger ? high : na, "Short trigger", shape.labeldown, location.abovebar,
+plotshape(shortTicket ? high : na, "Short ticket", shape.labeldown, location.abovebar,
      color.new(#a93226, 0), text = "S", textcolor = color.white, size = size.small)
 
 // ---------------------------------------------------------------- alerts ---
 
-alertcondition(longTrigger, "Volume profile long",
-     "Long: oversold against both profiles, reclaimed, bullish gap in the zone. " +
-     "Target the reference point of control.")
-alertcondition(shortTrigger, "Volume profile short",
-     "Short: overbought against both profiles, rejected, bearish gap in the zone. " +
-     "Target the reference point of control.")
+// On the free plan these reach a popup and an email, not a webhook. That is
+// the whole live path for an account with no broker API, so the message has to
+// carry the prices: an alert saying "setup" and nothing else means opening the
+// chart to find out what it meant, by which time the limit is gone.
+// The prices are published as named hidden plots so the alert text can
+// interpolate them. {{plot_0}} would have resolved to the reference point of
+// control, which is the first plot in the script and not what anyone wants to
+// read in an email at 06:47.
+plot(longTicket or shortTicket ? entryPrice : na, "Entry", display = display.none)
+plot(longTicket or shortTicket ? stopPrice : na, "Stop", display = display.none)
+plot(longTicket or shortTicket ? targetPrice : na, "Target", display = display.none)
+plot(longTicket or shortTicket ? runnerPrice : na, "Runner", display = display.none)
 
-// Only reaches a webhook on a paid plan. The payload matches what the Python
-// engine expects, so a paid account can drive the engine from the chart, and a
-// free one can ignore this entirely and let the engine read bars itself.
-if longTrigger or shortTrigger
-    alert('{"side":"' + (longTrigger ? "long" : "short") +
+alertcondition(longTicket, "Volume profile long",
+     'LONG {{ticker}} limit {{plot("Entry")}} stop {{plot("Stop")}} ' +
+     'target {{plot("Target")}} runner {{plot("Runner")}}. ' +
+     'Swept the value area low, reclaimed, gap in the zone.')
+alertcondition(shortTicket, "Volume profile short",
+     'SHORT {{ticker}} limit {{plot("Entry")}} stop {{plot("Stop")}} ' +
+     'target {{plot("Target")}} runner {{plot("Runner")}}. ' +
+     'Swept the value area high, rejected, gap in the zone.')
+
+// Paid plans only. The payload matches what notify.py emits so a webhook can
+// feed the same ticket into Discord or Telegram without reformatting.
+if longTicket or shortTicket
+    alert('{"side":"' + (longTicket ? "long" : "short") +
          '","symbol":"' + syminfo.ticker +
-         '","price":' + str.tostring(close) +
+         '","entry":' + str.tostring(entryPrice) +
+         ',"stop":' + str.tostring(stopPrice) +
+         ',"target":' + str.tostring(targetPrice) +
+         ',"runner":' + str.tostring(runnerPrice) +
+         ',"risk_points":' + str.tostring(riskPoints) +
+         ',"reward_risk":' + str.tostring(rewardRisk) +
          ',"poc":' + str.tostring(refPoc) +
          ',"vah":' + str.tostring(refVah) +
          ',"val":' + str.tostring(refVal) + '}', alert.freq_once_per_bar_close)
