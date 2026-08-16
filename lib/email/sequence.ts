@@ -27,7 +27,7 @@ import { and, eq, isNull, lte, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { contact, sequence, sequenceEnrollment } from '@/lib/db/schema';
 import { log } from '@/lib/log';
-import { send } from './send';
+import { emailConfigured, send } from './send';
 import { campaignFooter, substitute, type Substitutable } from './substitute';
 
 export interface SequenceStep {
@@ -206,7 +206,14 @@ export type StepOutcome =
   | { sent: true; step: number; emailSendId: string }
   | {
       sent: false;
-      reason: 'replied' | 'unsubscribed' | 'not_active' | 'not_due' | 'no_step' | 'send_failed';
+      reason:
+        | 'replied'
+        | 'unsubscribed'
+        | 'not_active'
+        | 'not_due'
+        | 'no_step'
+        | 'not_configured'
+        | 'send_failed';
     };
 
 /**
@@ -234,6 +241,23 @@ export async function runStep(enrollmentId: string, now: Date = new Date()): Pro
   // real prospect.
   if (!enrollment.nextRunAt || enrollment.nextRunAt > now) {
     return { sent: false, reason: 'not_due' };
+  }
+
+  // No mail provider means no step is spent.
+  //
+  // The send path records an unsendable message rather than losing it, which is
+  // right for one transactional email and wrong for a cadence: advancing the
+  // cursor here would march every enrolled contact through all four steps into
+  // a void, and the list would be burned without a single message arriving.
+  // Leaving the step due means the opener goes out when the key is set, to
+  // everybody, in order.
+  if (!emailConfigured()) {
+    log.warn('a sequence step came due with no mail provider configured', {
+      enrollmentId,
+      step: enrollment.stepsSent + 1,
+      remedy: 'set RESEND_API_KEY and EMAIL_FROM; the step stays due until then',
+    });
+    return { sent: false, reason: 'not_configured' };
   }
 
   const person = await db.query.contact.findFirst({

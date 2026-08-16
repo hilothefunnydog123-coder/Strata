@@ -8,10 +8,16 @@
  *
  *   pnpm outreach seed                     create or update the sequence
  *   pnpm outreach import targets.csv       load contacts (email,first,org,title)
- *   pnpm outreach enroll --sent=1          enrol every contact, first mail done
+ *   pnpm outreach enroll                   enrol everyone; the opener sends itself
+ *   pnpm outreach enroll --sent=1          for contacts already written to by hand
  *   pnpm outreach replied someone@x.com    somebody answered: stop everything
  *   pnpm outreach status                   where every enrolment stands
  *   pnpm outreach run                      send whatever is due right now
+ *
+ * The cadence is four messages: the opener on the day of enrolment, then a
+ * short bump, a useful fact, and a close-the-loop note on days 4, 10, and 20.
+ * Openers are paced rather than blasted, because a new domain that sends
+ * seventy cold messages at once stops reaching inboxes at all.
  *
  * The one rule worth repeating: `replied` is the command that matters. Run it
  * the moment anybody answers, and the machine will never talk over them.
@@ -48,6 +54,24 @@ export const SEQUENCE_NAME = 'pilot-outreach';
  * and these land on days 4, 10, and 20.
  */
 export const PILOT_STEPS: SequenceStep[] = [
+  {
+    // The opener. Day zero, so enrolling a contact sends it on the next drain.
+    //
+    // Short, because the reader owes us nothing and a wall of text from a
+    // stranger reads as a brochure. Their problem before our product, one
+    // attributed number, and an ask small enough to answer with a single word.
+    dayOffset: 0,
+    subject: 'The denials {{org_name}} is writing off',
+    body: `Hi {{first_name}},
+
+When a Medicare Advantage plan denies a skilled nursing or rehab stay, appealing it takes about forty minutes of someone's day, so most of those denials get written off instead. The plans know that.
+
+Federal reviewers have looked at this: the HHS Office of Inspector General and KFF both found that most Medicare Advantage denials that get appealed end up overturned, and that very few are ever appealed at all.
+
+I build software that writes the appeal. It reads the denial letter, finds where the plan applied the wrong standard, drafts the argument from Medicare's own rules and the patient's record, and checks every quoted passage against its source before anyone signs it. Your appeals specialist reviews, edits, and files it. Nothing is submitted by software.
+
+Would it be useful if I sent you a sample letter it wrote? It is a synthetic demonstration case, so there is no patient information in it and nothing to sign.`,
+  },
   {
     dayOffset: 4,
     subject: 'Following up: Medicare Advantage denials at {{org_name}}',
@@ -138,25 +162,68 @@ async function importContacts(path: string): Promise<void> {
   out(`${added} new contact(s) added, ${parsed.contacts.length - added} already known.`);
 }
 
-async function enrollAll(alreadySent: number): Promise<void> {
+/**
+ * How many opening emails go out in a day, and how far apart.
+ *
+ * Not a politeness setting. A new sending domain that emits seventy cold
+ * messages in one minute is a new sending domain that gets filtered, and once a
+ * domain is classified as a spam source, every later message from it lands in a
+ * junk folder no matter how good it is. That failure is invisible from this
+ * side: the sends all report success and nobody ever replies.
+ *
+ * So enrolment spreads the start times instead of the runner throttling itself.
+ * Contact number N is enrolled a little later than contact N minus one, which
+ * staggers the opener and every follow-up behind it, using the due-date
+ * machinery that already exists rather than a second mechanism that could
+ * disagree with it.
+ */
+const DEFAULT_PER_DAY = 20;
+const SPACING_MINUTES = 7;
+
+async function enrollAll(alreadySent: number, perDay: number): Promise<void> {
   const everyone = await db
     .select({ id: contact.id, email: contact.email })
     .from(contact)
     .where(sql`${contact.unsubscribedAt} is null`);
 
+  const start = new Date();
   let fresh = 0;
+  let queued = 0;
+
   for (const person of everyone) {
+    // Whole days first, then minutes within the day, so the shape is "twenty a
+    // day, one every few minutes" rather than a burst at midnight.
+    const dayShift = Math.floor(queued / perDay);
+    const withinDay = (queued % perDay) * SPACING_MINUTES;
+    const enrolledAt = new Date(
+      start.getTime() + dayShift * 24 * 60 * 60 * 1000 + withinDay * 60 * 1000,
+    );
+
     const result = await enroll({
       sequenceName: SEQUENCE_NAME,
       contactId: person.id,
       alreadySent,
+      enrolledAt,
     });
-    if (!result.alreadyEnrolled) fresh += 1;
+
+    if (!result.alreadyEnrolled) {
+      fresh += 1;
+      queued += 1;
+    }
   }
 
   out(`${fresh} contact(s) enrolled, ${everyone.length - fresh} already in the sequence.`);
+  if (fresh > 0) {
+    const days = Math.ceil(fresh / perDay);
+    out(
+      alreadySent === 0
+        ? `Opening emails go out ${perDay} a day, one every ${SPACING_MINUTES} minutes, ` +
+            `over ${days} day${days === 1 ? '' : 's'}.`
+        : `Follow-ups are scheduled from each contact's enrolment date.`,
+    );
+  }
   out('');
-  out('From here the drain sends the follow-ups. Nothing else to remember,');
+  out('From here the drain sends everything on its own. Nothing else to remember,');
   out('except running "pnpm outreach replied <email>" when somebody answers.');
 }
 
@@ -179,8 +246,15 @@ async function main(): Promise<void> {
     }
 
     case 'enroll': {
-      const arg = rest.find((a) => a.startsWith('--sent='));
-      await enrollAll(Number(arg?.split('=')[1] ?? 1) || 0);
+      // Default 0: the common case is a fresh list nobody has written to yet,
+      // and the machine sends the opener. Pass --sent=1 for the contacts who
+      // already got a first email by hand, so they start at the follow-ups.
+      const sentArg = rest.find((a) => a.startsWith('--sent='));
+      const perDayArg = rest.find((a) => a.startsWith('--per-day='));
+      await enrollAll(
+        Number(sentArg?.split('=')[1] ?? 0) || 0,
+        Math.max(1, Number(perDayArg?.split('=')[1] ?? DEFAULT_PER_DAY) || DEFAULT_PER_DAY),
+      );
       break;
     }
 
@@ -223,7 +297,8 @@ async function main(): Promise<void> {
       out('');
       out('  pnpm outreach seed                  create or update the sequence');
       out('  pnpm outreach import targets.csv    load contacts');
-      out('  pnpm outreach enroll --sent=1       enrol everyone, first mail already sent');
+      out('  pnpm outreach enroll                enrol everyone, machine sends the opener');
+      out('  pnpm outreach enroll --sent=1       for contacts you already wrote to by hand');
       out('  pnpm outreach replied a@b.com       somebody answered: stop everything');
       out('  pnpm outreach status                where every enrolment stands');
       out('  pnpm outreach run                   send whatever is due right now');

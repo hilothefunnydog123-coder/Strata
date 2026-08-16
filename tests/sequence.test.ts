@@ -11,9 +11,11 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sent: { to: string; subject: string; text: string }[] = [];
+/** Flipped by the one test about a deployment with no mail provider. */
+let configured = true;
 
 vi.mock('@/lib/email/send', () => ({
-  emailConfigured: () => true,
+  emailConfigured: () => configured,
   send: async (input: { to: string; subject: string; text: string }) => {
     sent.push(input);
     return { status: 'sent' as const, providerId: 'msg-test', emailSendId: 'send-x' };
@@ -65,6 +67,7 @@ async function makeContact(email: string): Promise<string> {
 
 beforeEach(async () => {
   sent.length = 0;
+  configured = true;
   await db.delete(contact).where(inArray(contact.email, EMAILS));
   await db.delete(sequence).where(eq(sequence.name, SEQ));
   await db.delete(user).where(eq(user.id, OWNER));
@@ -293,6 +296,39 @@ describe('the rule that matters: stopping', () => {
 
   it('says plainly when a reply arrives from somebody not in the list', async () => {
     expect(await markReplied('stranger@example.test')).toBe(false);
+  });
+
+  it('spends no step when there is no mail provider to send it', async () => {
+    // Found by running the real command against a deployment with no key: the
+    // step advanced anyway, so a list of seventy would have marched through
+    // every message in the cadence without one of them arriving. The step stays
+    // due instead, and goes out in order once the key is set.
+    configured = false;
+
+    const id = await makeContact(EMAILS[0]!);
+    const { enrollmentId } = await enroll({
+      sequenceName: SEQ,
+      contactId: id,
+      enrolledAt: ENROLLED,
+    });
+
+    expect(await runStep(enrollmentId, day(4))).toEqual({
+      sent: false,
+      reason: 'not_configured',
+    });
+
+    const [held] = await db
+      .select()
+      .from(sequenceEnrollment)
+      .where(eq(sequenceEnrollment.id, enrollmentId));
+    expect(held!.stepsSent).toBe(0);
+    expect(held!.status).toBe('active');
+
+    // And the held step is still first in line once mail works again.
+    configured = true;
+    await runDueSteps(day(4));
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.subject).toBe('Following up, Dana');
   });
 });
 
