@@ -7,6 +7,7 @@ import { assertPlatform, requirePrincipalOrThrow } from '@/lib/auth/guards';
 import { db } from '@/lib/db';
 import { contact } from '@/lib/db/schema';
 import { parseContactsCsv, upsertContact } from '@/lib/email/campaign';
+import { extractContacts } from '@/lib/email/extract-contacts';
 import {
   enrollEveryone,
   PILOT_SEQUENCE,
@@ -21,6 +22,87 @@ export type OutreachState =
   | { status: 'idle' }
   | { status: 'ok'; message: string; notes?: string[] }
   | { status: 'error'; message: string; notes?: string[] };
+
+/**
+ * Read a messy paste into contacts, and add the ones it can prove.
+ *
+ * The formatting step is what stops outreach happening, so this accepts a
+ * copied contact page, a signature block, or three lines typed from memory.
+ * The model labels the parts; it is given no authority over what the addresses
+ * are, because an address it invents is a message to a stranger and a bounce
+ * against this domain's name. See lib/email/extract-contacts.ts.
+ */
+export async function readTargets(
+  _previous: OutreachState,
+  formData: FormData,
+): Promise<OutreachState> {
+  const principal = await requirePrincipalOrThrow();
+  assertPlatform(principal, 'admin:email');
+
+  const text = String(formData.get('text') ?? '');
+  if (text.trim().length < 5) {
+    return { status: 'error', message: 'Paste something first.' };
+  }
+
+  let result;
+  try {
+    result = await extractContacts(text);
+  } catch (error) {
+    log.warn('reading a pasted contact list failed', { error });
+    return {
+      status: 'error',
+      message:
+        error instanceof Error
+          ? `That could not be read: ${error.message}`
+          : 'That could not be read.',
+    };
+  }
+
+  if (result.contacts.length === 0) {
+    return {
+      status: 'error',
+      message:
+        'No email address was found in that. Only addresses that actually appear in ' +
+        'what you paste are used, so paste a page or signature that contains one.',
+      notes: [...result.invented.map(inventedNote), ...result.discarded].slice(0, 8),
+    };
+  }
+
+  let created = 0;
+  for (const found of result.contacts) {
+    const outcome = await upsertContact({
+      email: found.email,
+      ...(found.firstName ? { firstName: found.firstName } : {}),
+      ...(found.lastName ? { lastName: found.lastName } : {}),
+      ...(found.title ? { title: found.title } : {}),
+      ...(found.orgName ? { orgName: found.orgName } : {}),
+    });
+    if (outcome.created) created += 1;
+  }
+
+  await audit({
+    userId: principal.userId,
+    organizationId: null,
+    action: 'create',
+    entityType: 'contact',
+    entityId: null,
+  });
+
+  revalidatePath('/admin/outreach');
+  return {
+    status: 'ok',
+    message:
+      `Found ${result.contacts.length}: ${created} added, ` +
+      `${result.contacts.length - created} already known. ` +
+      result.contacts.map((c) => c.email).join(', '),
+    notes: [...result.invented.map(inventedNote), ...result.discarded].slice(0, 8),
+  };
+}
+
+/** Said in full, because a discarded invention is the interesting event. */
+function inventedNote(email: string): string {
+  return `${email} was not in the text you pasted, so it was discarded rather than written to.`;
+}
 
 /**
  * Load targets from pasted text.

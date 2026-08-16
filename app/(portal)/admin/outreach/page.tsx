@@ -5,7 +5,13 @@ import { emailConfigured } from '@/lib/email/send';
 import { env } from '@/lib/env';
 import { enrollmentBoard, PILOT_SEQUENCE, PILOT_STEPS } from '@/lib/email/sequence';
 import { EmptyState, Panel, PanelHeader } from '@/components/ui/primitives';
-import { AddTargetsForm, ContactRow, SendNowButton, StartForm } from './client';
+import {
+  AddTargetsForm,
+  ContactRow,
+  ReadTargetsForm,
+  SendNowButton,
+  StartForm,
+} from './client';
 
 export const metadata: Metadata = { title: 'Outreach' };
 
@@ -44,7 +50,7 @@ export default async function OutreachPage() {
         </p>
       </header>
 
-      <AddTargetsForm />
+      <ReadTargetsForm />
 
       <StartForm ready={ready} waiting={waiting} />
 
@@ -52,6 +58,13 @@ export default async function OutreachPage() {
         <PanelHeader title="3. Watch it go" />
         <SendNowButton />
       </Panel>
+
+      {/*
+        Kept, and kept second. Pasting a tidy spreadsheet is the faster path
+        when a tidy spreadsheet already exists, and the slower path the rest of
+        the time, which is why it is not the one at the top of the page.
+      */}
+      <AddTargetsForm />
 
       <Panel>
         <PanelHeader title="Everyone on the list">

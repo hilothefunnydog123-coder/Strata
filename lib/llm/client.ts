@@ -172,7 +172,15 @@ export type LlmStage =
   | 'denial_classify'
   | 'fact_extract'
   | 'appeal_draft'
-  | 'gap_check';
+  | 'gap_check'
+  /**
+   * Reading a pasted page or signature block into contacts. The only stage
+   * whose output is checked against the operator's own input rather than
+   * against a stored document, because the input is the whole source of truth:
+   * an address the model produces that is not in the paste was invented, and an
+   * invented address is a message to a stranger.
+   */
+  | 'contact_extract';
 
 export class LlmBoundaryError extends Error {
   constructor(message: string) {

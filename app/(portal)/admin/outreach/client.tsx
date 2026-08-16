@@ -4,6 +4,7 @@ import { useActionState, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   addTargets,
+  readTargets,
   sendDueNow,
   startOutreach,
   stopWriting,
@@ -36,12 +37,59 @@ function Feedback({ state }: { state: OutreachState }) {
   );
 }
 
+/**
+ * Paste anything, and let the model find the contacts in it.
+ *
+ * The CSV form below still exists for a tidy spreadsheet, but this is the one
+ * that gets used, because the reason a list never gets loaded is the twenty
+ * minutes of formatting rather than the paste itself.
+ */
+export function ReadTargetsForm() {
+  const [state, action, pending] = useActionState(readTargets, INITIAL);
+
+  return (
+    <Panel>
+      <PanelHeader title="1. Add the people to write to" />
+      <form action={action} className="space-y-3 p-4">
+        <p className="text-sm font-medium">
+          Paste anything: a contact page copied from a website, an email signature, a
+          directory listing, or a few lines typed out. It will be read for names, titles
+          and organisations.
+        </p>
+        <p className="text-sm font-medium">
+          Only addresses that actually appear in what you paste are used. Nothing is
+          guessed at from a name and a company, because a guessed address either bounces
+          or reaches a stranger, and both are permanent.
+        </p>
+        <Field label="Paste it here" name="text" required>
+          {(field) => (
+            <Textarea
+              {...field}
+              rows={8}
+              placeholder={
+                'Windsor Gardens Care Center of Hayward\n' +
+                'Contact us: (510) 537-8848\n' +
+                'Dana Whitfield, Business Office Manager\n' +
+                'dana.whitfield@example.com'
+              }
+            />
+          )}
+        </Field>
+        <Button type="submit" intent="primary" disabled={pending}>
+          {pending ? 'Reading' : 'Find the contacts'}
+        </Button>
+        <Feedback state={state} />
+      </form>
+    </Panel>
+  );
+}
+
 export function AddTargetsForm() {
   const [state, action, pending] = useActionState(addTargets, INITIAL);
 
   return (
     <Panel>
-      <PanelHeader title="1. Add the people to write to" />
+      <PanelHeader title="Or paste a spreadsheet" />
       <form action={action} className="space-y-3 p-4">
         <p className="text-sm font-medium">
           One per line, comma separated. The first line names the columns. A row without
