@@ -313,12 +313,42 @@ reference sessions, session slope in ATR, open type against the reference value
 area, and swing structure. That is the baseline the model has to beat, and the
 `--gemini` flag exists so the two can be run over the same data and compared.
 
+### Where the key goes
+
+Get one free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+Then put it in a file, which is the version that still works tomorrow morning:
+
 ```bash
-export GEMINI_API_KEY=...        # free key at aistudio.google.com/apikey
-python3 tools/check_gemini.py    # prove it works before a session
+echo 'YOUR_KEY_HERE' > trading/.env
+```
+
+`trading/.env` is gitignored. A bare key on its own line works, and so does
+`GEMINI_API_KEY=...` if you prefer. Quotes around it are stripped, because
+pasting them by accident fails as a 400 from the API that says nothing about
+quotes.
+
+An environment variable works too and takes priority, but has to be set again
+in every new terminal:
+
+```bash
+export GEMINI_API_KEY=YOUR_KEY_HERE      # macOS, Linux, this shell only
+setx GEMINI_API_KEY YOUR_KEY_HERE        # Windows, new terminals afterwards
+```
+
+The search order is the environment variable, then `trading/.env`, then
+`~/.strata_vp/gemini.key`. `check_gemini.py` prints all three and says which
+ones do not exist, so a key that is not being found is a two second problem
+rather than an afternoon.
+
+```bash
+python3 tools/check_gemini.py                 # prove it works before a session
+python3 tools/check_gemini.py --list          # which models the key can call
 python3 tools/run_backtest.py --csv mnq_1m.csv
 python3 tools/run_backtest.py --csv mnq_1m.csv --no-gemini   # the comparison
 ```
+
+Never paste the key into a source file. That is the one place it gets
+committed.
 
 Set `GEMINI_MODEL` if the default model name has moved on. The client is plain
 `urllib` against the REST endpoint, so there is nothing to install and nothing

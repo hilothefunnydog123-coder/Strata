@@ -34,6 +34,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal
 
 from .regime import Regime, RegimeFeatures, classify
@@ -43,6 +44,57 @@ Target = Literal["point_of_control", "value_area_high", "value_area_low", "none"
 
 ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+
+# Where the key is looked for, in order. The environment variable is the right
+# answer on a server and an annoyance on a laptop, where it has to be re set
+# every time a terminal opens and is silently absent the one morning it
+# matters. A file next to the package is the boring version that keeps working.
+KEY_FILENAME = ".env"
+KEY_LOCATIONS = (
+    Path(__file__).resolve().parent.parent / KEY_FILENAME,   # trading/.env
+    Path.home() / ".strata_vp" / "gemini.key",
+)
+
+
+def read_api_key() -> str | None:
+    """GEMINI_API_KEY from the environment, or from one of the key files.
+
+    A key file is either a bare key on its own line or `GEMINI_API_KEY=...`,
+    because both are what people actually write. Blank lines and `#` comments
+    are skipped, and surrounding quotes are stripped: a key pasted with the
+    quotes still on it is the single most common way this fails, and it fails
+    as a 400 from the API rather than as anything that mentions quotes.
+    """
+    from_env = os.environ.get("GEMINI_API_KEY", "").strip()
+    if from_env:
+        return from_env
+
+    for location in KEY_LOCATIONS:
+        try:
+            text = location.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                name, _, value = line.partition("=")
+                if name.strip().upper() not in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+                    continue
+                line = value.strip()
+            line = line.strip().strip('"').strip("'")
+            if line:
+                return line
+    return None
+
+
+def key_search_path() -> list[str]:
+    """Everywhere read_api_key looked, for an error message worth reading."""
+    return ["the GEMINI_API_KEY environment variable"] + [
+        f"{location}{'' if location.exists() else '  (does not exist)'}"
+        for location in KEY_LOCATIONS
+    ]
 
 SYSTEM_INSTRUCTION = """\
 You are a market state classifier inside an automated futures trading system.
@@ -215,7 +267,7 @@ class GeminiJudge:
     error, and the two runs are directly comparable.
     """
 
-    api_key: str | None = field(default_factory=lambda: os.environ.get("GEMINI_API_KEY"))
+    api_key: str | None = field(default_factory=read_api_key)
     model: str = DEFAULT_MODEL
     timeout_s: float = 8.0
     max_attempts: int = 2

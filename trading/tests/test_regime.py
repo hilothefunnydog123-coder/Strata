@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
+import tempfile
 import unittest
 from datetime import timedelta
+from pathlib import Path
 
 from strata_vp.gemini import (
     REGIME_RANK,
@@ -128,6 +131,66 @@ class TestDeterministicVerdict(unittest.TestCase):
         self.assertEqual(verdict.preferred_long_zone, "point_of_control")
         self.assertFalse(verdict.short_allowed)
         self.assertEqual(verdict.long_target, "value_area_high")
+
+
+class TestKeyLookup(unittest.TestCase):
+    """Where the key comes from. Every one of these is a real way the key ends
+    up not being found while the engine reports nothing wrong, because a
+    missing key is a veto and the deterministic classifier takes over."""
+
+    def setUp(self):
+        import strata_vp.gemini as gemini
+
+        self.gemini = gemini
+        self.saved_locations = gemini.KEY_LOCATIONS
+        self.saved_env = os.environ.pop("GEMINI_API_KEY", None)
+        self.folder = tempfile.TemporaryDirectory()
+        self.path = Path(self.folder.name) / ".env"
+        gemini.KEY_LOCATIONS = (self.path,)
+
+    def tearDown(self):
+        self.gemini.KEY_LOCATIONS = self.saved_locations
+        if self.saved_env is not None:
+            os.environ["GEMINI_API_KEY"] = self.saved_env
+        else:
+            os.environ.pop("GEMINI_API_KEY", None)
+        self.folder.cleanup()
+
+    def test_no_key_anywhere_is_none_not_an_error(self):
+        self.assertIsNone(self.gemini.read_api_key())
+
+    def test_the_environment_wins(self):
+        self.path.write_text("from-the-file")
+        os.environ["GEMINI_API_KEY"] = "from-the-env"
+        self.assertEqual(self.gemini.read_api_key(), "from-the-env")
+
+    def test_a_bare_key_on_its_own_line(self):
+        self.path.write_text("AIzaSyExample123\n")
+        self.assertEqual(self.gemini.read_api_key(), "AIzaSyExample123")
+
+    def test_dotenv_style(self):
+        self.path.write_text("# my key\nGEMINI_API_KEY=AIzaSyExample123\n")
+        self.assertEqual(self.gemini.read_api_key(), "AIzaSyExample123")
+
+    def test_quotes_are_stripped(self):
+        """Pasting the key with quotes still on it fails as a 400 from the API,
+        which mentions nothing about quotes."""
+        self.path.write_text('GEMINI_API_KEY="AIzaSyExample123"\n')
+        self.assertEqual(self.gemini.read_api_key(), "AIzaSyExample123")
+
+    def test_an_empty_environment_variable_falls_through_to_the_file(self):
+        os.environ["GEMINI_API_KEY"] = "   "
+        self.path.write_text("AIzaSyExample123")
+        self.assertEqual(self.gemini.read_api_key(), "AIzaSyExample123")
+
+    def test_unrelated_dotenv_entries_are_skipped(self):
+        self.path.write_text("DATABASE_URL=postgres://x\nGEMINI_API_KEY=real\n")
+        self.assertEqual(self.gemini.read_api_key(), "real")
+
+    def test_the_search_path_names_every_place_it_looked(self):
+        places = self.gemini.key_search_path()
+        self.assertIn("the GEMINI_API_KEY environment variable", places[0])
+        self.assertTrue(any(str(self.path) in place for place in places))
 
 
 class TestJudgeCage(unittest.TestCase):

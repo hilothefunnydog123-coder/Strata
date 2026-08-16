@@ -36,6 +36,7 @@ from strata_vp import (  # noqa: E402
     resample,
 )
 from strata_vp.runner import replay  # noqa: E402
+from strata_vp.gemini import read_api_key  # noqa: E402
 from tools.synth_data import generate  # noqa: E402
 
 
@@ -93,7 +94,7 @@ def main() -> int:
         point_value=instrument.point_value,
         bin_size=instrument.bin_size,
     )
-    use_gemini = bool(os.environ.get("GEMINI_API_KEY")) and not args.no_gemini
+    use_gemini = bool(read_api_key()) and not args.no_gemini
     print(f"Gemini: {'on' if use_gemini else 'off, deterministic classifier only'}")
     judge = GeminiJudge(enabled=use_gemini)
     strategy = Strategy(config, PLANS[args.plan], judge)

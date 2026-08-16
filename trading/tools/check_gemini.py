@@ -29,7 +29,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from strata_vp.gemini import DEFAULT_MODEL, GeminiJudge, deterministic_verdict  # noqa: E402
+from strata_vp.gemini import (  # noqa: E402
+    DEFAULT_MODEL,
+    GeminiJudge,
+    deterministic_verdict,
+    key_search_path,
+    read_api_key,
+)
 from strata_vp.regime import RegimeFeatures  # noqa: E402
 
 
@@ -94,13 +100,24 @@ def main() -> int:
     parser.add_argument("--model", default=None, help="override GEMINI_MODEL for this check")
     args = parser.parse_args()
 
-    key = os.environ.get("GEMINI_API_KEY")
+    key = read_api_key()
     if not key:
-        print("GEMINI_API_KEY is not set.")
-        print("Get a free key at https://aistudio.google.com/apikey, then:")
-        print("  export GEMINI_API_KEY=...")
+        print("No API key found. Looked in, in order:\n")
+        for place in key_search_path():
+            print(f"  {place}")
+        print("\nGet a free key at https://aistudio.google.com/apikey, then either")
+        print("write it to a file, which survives closing the terminal:\n")
+        print("  echo 'YOUR_KEY_HERE' > trading/.env")
+        print("\nor set it for this shell only:\n")
+        print("  export GEMINI_API_KEY=YOUR_KEY_HERE        # macOS, Linux")
+        print("  setx GEMINI_API_KEY YOUR_KEY_HERE          # Windows, new terminals")
+        print("\nThe file is already gitignored. Do not paste the key into a")
+        print("source file, because that is the one place it will get committed.")
         return 1
-    print(f"key: {key[:6]}...{key[-4:]}  ({len(key)} chars)")
+    source = "environment" if os.environ.get("GEMINI_API_KEY", "").strip() else "key file"
+    print(f"key: {key[:6]}...{key[-4:]}  ({len(key)} chars, from the {source})")
+    if key.startswith(("'", '"')) or key.endswith(("'", '"')):
+        print("  the key still has quotes around it, which the API rejects as a 400")
 
     if args.list:
         return list_models(key)

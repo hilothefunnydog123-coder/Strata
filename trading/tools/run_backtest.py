@@ -33,6 +33,7 @@ from strata_vp import (  # noqa: E402
     resample,
     summarise,
 )
+from strata_vp.gemini import read_api_key  # noqa: E402
 from tools.synth_data import generate  # noqa: E402
 
 
@@ -137,14 +138,15 @@ def main() -> int:
     # Gemini runs whenever a key is present. It used to be opt in behind a
     # flag, which meant the discretionary layer was off in every run anyone
     # actually did and the thing being measured was never the thing shipped.
-    has_key = bool(os.environ.get("GEMINI_API_KEY"))
+    has_key = bool(read_api_key())
     use_gemini = has_key and not args.no_gemini
     if use_gemini:
         print("Gemini: on. Check it with tools/check_gemini.py if a run looks odd.")
     elif has_key:
         print("Gemini: off by request, deterministic classifier only")
     else:
-        print("Gemini: no GEMINI_API_KEY, deterministic classifier only")
+        print("Gemini: no key found, deterministic classifier only "
+              "(tools/check_gemini.py says where it looked)")
     judge = GeminiJudge(enabled=use_gemini)
 
     backtest = Backtest(config, PLANS[args.plan], rules, costs, judge)
