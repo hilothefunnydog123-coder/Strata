@@ -13,6 +13,7 @@ and nothing in it needs a subscription.
 from .backtest import Backtest, Costs, Result, Trade, summarise
 from .bars import Bar, atr, load_csv, resample, write_csv
 from .gemini import GeminiJudge, Verdict, deterministic_verdict
+from .instruments import BY_SYMBOL, ES, MES, MNQ, NQ, Instrument, lookup
 from .pdarray import FVG, FVGTracker, detect, swings
 from .profile import ProfileLevels, VolumeProfile, build_profile
 from .regime import RegimeFeatures, classify, measure
@@ -27,7 +28,13 @@ __all__ = [
     "Decision",
     "FVG",
     "FVGTracker",
+    "BY_SYMBOL",
+    "ES",
     "GeminiJudge",
+    "Instrument",
+    "MES",
+    "MNQ",
+    "NQ",
     "PLANS",
     "ProfileLevels",
     "PropFirmRules",
@@ -48,6 +55,7 @@ __all__ = [
     "detect",
     "deterministic_verdict",
     "load_csv",
+    "lookup",
     "measure",
     "resample",
     "summarise",

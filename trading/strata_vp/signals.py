@@ -90,11 +90,23 @@ class StrategyConfig:
 
     # Arming.
     entry_mode: Literal["value_reentry", "outside_value"] = "value_reentry"
-    excursion_max_age_bars: int = 20
+    # How long an excursion keeps a level in play. "session" means once price
+    # has swept the level today, the level is live for the rest of the session,
+    # which is how the setup is actually read by hand: the sweep happens in the
+    # first hour and the rotation is taken at midday. "recent" enforces a bar
+    # window instead, which is tighter but throws away the majority of the real
+    # setups.
+    excursion_scope: Literal["session", "recent"] = "session"
+    excursion_max_age_bars: int = 40
     setup_valid_bars: int = 12
 
     # Trigger.
     fill_mode: Literal["limit", "market"] = "limit"
+    # Where in the gap the limit sits. "proximal" is the near edge, which fills
+    # most often. "midpoint" is consequent encroachment, the halfway line.
+    # "distal" is the far edge: the best price, the worst fill rate, and the
+    # one that turns a winner into a missed trade when price turns early.
+    fvg_entry: Literal["proximal", "midpoint", "distal"] = "proximal"
     limit_valid_bars: int = 8
     require_fvg: bool = True
     min_fvg_points: float = 2.0
@@ -102,14 +114,41 @@ class StrategyConfig:
     fvg_max_fill: float = 0.5
     zone_slack_points: float = 4.0
     zone_slack_atr: float = 0.75
+    # How far through a level price must trade for it to count as an
+    # excursion. Zero means it has to actually reach the level. This is
+    # deliberately NOT the gap band slack: using that here counted price
+    # arriving ten points above the value area low as a sweep of it, which
+    # made every swing stop a few points wide and meaningless.
+    touch_tolerance_points: float = 0.0
 
     # Exits.
     stop_points: float = 50.0
-    stop_mode: Literal["fixed", "structure", "tighter_of"] = "fixed"
+    # "fixed"      the brief's 50 points.
+    # "structure"  behind the far edge of the trigger gap. Tight, and it is
+    #              inside the noise of the level it is trading.
+    # "swing"      behind the low that swept the level. This is where a stop
+    #              goes when the trade is placed by hand: if that low breaks,
+    #              the sweep was not a sweep and the idea is wrong.
+    # "tighter_of" whichever of the applicable ones sits closest to the entry.
+    stop_mode: Literal["fixed", "structure", "swing", "tighter_of"] = "swing"
     structure_buffer_points: float = 4.0
+    swing_buffer_points: float = 6.0
+    # What the swing stop is measured from. "session" is the lowest low of the
+    # session so far, which is where the stop goes when the trade is placed by
+    # hand: the sweep that set the day's low is the thing being faded, even if
+    # price has rotated through value once since. "excursion" uses only the
+    # most recent leg into the level, which is tighter and gets run more often.
+    swing_anchor: Literal["session", "excursion"] = "session"
     max_stop_points: float = 60.0
     min_reward_risk: float = 1.2
     breakeven_at_r: float = 1.0  # move the stop to entry once this much is banked
+    # Scaling out. Half off at the point of control, stop to breakeven, the
+    # rest to the far side of value. Set to 0.0 to take the whole position at
+    # the first target, which is the version the brief describes and which, with
+    # a stop behind the sweep, clears the reward to risk floor about a tenth as
+    # often.
+    partial_fraction: float = 0.5
+    min_runner_points: float = 8.0
 
     # Gating.
     min_bars_into_session: int = 15
@@ -138,6 +177,11 @@ class Signal:
     fill_mode: str
     expires_after_bars: int
     armed_bars_ago: int = 0
+    # The runner. `target` is the point of control, taken with
+    # `partial_fraction` of the position; the rest goes to `runner_target`,
+    # normally the far side of value, with the stop at breakeven behind it.
+    runner_target: float | None = None
+    partial_fraction: float = 0.0
 
     @property
     def risk_points(self) -> float:
@@ -145,7 +189,18 @@ class Signal:
 
     @property
     def reward_points(self) -> float:
-        return abs(self.target - self.entry)
+        """Blended across both exits, weighted by size.
+
+        The first target is what the setup is nominally for, but grading the
+        trade on it alone understates a scaled exit and rejects setups whose
+        runner is what pays for them. Grading on the runner alone overstates
+        every one of them. The weighted number is the one that matches what
+        the position actually earns."""
+        first = abs(self.target - self.entry)
+        if self.runner_target is None or self.partial_fraction <= 0:
+            return first
+        second = abs(self.runner_target - self.entry)
+        return self.partial_fraction * first + (1.0 - self.partial_fraction) * second
 
     @property
     def reward_risk(self) -> float:
@@ -177,6 +232,11 @@ class Armed:
     zone_price: float
     armed_index: int
     verdict: Verdict
+    # The extreme of the excursion that put the level in play: the lowest low
+    # since the sweep for a long, the highest high for a short. This is what a
+    # swing stop is placed behind, and it keeps updating while the setup waits,
+    # because a second, deeper poke moves where "wrong" is.
+    extreme: float = 0.0
 
 
 @dataclass(slots=True)
@@ -214,6 +274,7 @@ class Strategy:
         self._reference: ProfileLevels | None = None
         self._prior_pocs: list[float] = []
         self._last_touch: dict[str, int] = {}
+        self._extreme: dict[str, float] = {}
         self._armed: dict[str, Armed] = {}
         self._signals_this_session = 0
 
@@ -263,6 +324,7 @@ class Strategy:
         self._developing = self._new_profile()
         self._tracker = self._new_tracker()
         self._last_touch = {}
+        self._extreme = {}
         self._armed = {}
         self._signals_this_session = 0
         self._reference = self._build_reference(ts)
@@ -342,30 +404,98 @@ class Strategy:
 
     def _record_touches(self, bar: Bar) -> None:
         index = len(self._session) - 1
-        volatility = atr(self._session) or self.config.tick_size * 4
-        slack = self.config.slack(volatility)
+        tolerance = self.config.touch_tolerance_points
         reference = self._reference
         if reference is not None:
-            if bar.low <= reference.val + slack:
-                self._last_touch["ref_val"] = index
-            if bar.low <= reference.poc + slack:
-                self._last_touch["ref_poc_from_above"] = index
-            if bar.high >= reference.vah - slack:
-                self._last_touch["ref_vah"] = index
-            if bar.high >= reference.poc - slack:
-                self._last_touch["ref_poc_from_below"] = index
+            self._touch("ref_val", bar.low <= reference.val + tolerance, "low", bar, index)
+            self._touch(
+                "ref_poc_from_above",
+                bar.low <= reference.poc + tolerance,
+                "low",
+                bar,
+                index,
+            )
+            self._touch(
+                "ref_vah", bar.high >= reference.vah - tolerance, "high", bar, index
+            )
+            self._touch(
+                "ref_poc_from_below",
+                bar.high >= reference.poc - tolerance,
+                "high",
+                bar,
+                index,
+            )
+            # A completed rotation ends the excursion it was rotating away
+            # from, so a second sweep later in the session is measured against
+            # its own low rather than the first one's.
+            #
+            # Both the flag and the extreme are cleared together. Clearing only
+            # the extreme leaves the level marked as in play with no excursion
+            # behind it, and the swing stop then silently falls back to the
+            # current bar, which is how it ended up two points wide.
+            #
+            # Each zone clears at its own target, not all of them at the point
+            # of control: a long taken at the point of control in a trend is
+            # rotating to the value area high, and is not spent when price
+            # crosses the level it entered from.
+            for key, done in (
+                ("ref_val", bar.close >= reference.poc),
+                ("ref_poc_from_above", bar.close >= reference.vah),
+                ("ref_vah", bar.close <= reference.poc),
+                ("ref_poc_from_below", bar.close <= reference.val),
+            ):
+                if done:
+                    self._last_touch.pop(key, None)
+                    self._extreme.pop(key, None)
         developing = self._developing.levels()
         if developing is not None:
-            if bar.low <= developing.val:
-                self._last_touch["dev_val"] = index
-            if bar.high >= developing.vah:
-                self._last_touch["dev_vah"] = index
+            self._touch("dev_val", bar.low <= developing.val, "low", bar, index)
+            self._touch("dev_vah", bar.high >= developing.vah, "high", bar, index)
+
+    def _touch(self, key: str, touched: bool, side: str, bar: Bar, index: int) -> None:
+        """Record that a level was reached, and keep the extreme of the move
+        that reached it.
+
+        The extreme is not the touching bar's low. It is the lowest low since
+        the level was first reached, updated on every bar afterwards, because
+        the sweep of a level is usually several bars long and a swing stop
+        belongs behind all of it. Taking it from the most recent touching bar
+        instead puts the stop inside the very noise it exists to survive.
+        """
+        low_side = side == "low"
+        if touched:
+            self._last_touch[key] = index
+            if key not in self._extreme:
+                self._extreme[key] = bar.low if low_side else bar.high
+        if key in self._extreme:
+            self._extreme[key] = (
+                min(self._extreme[key], bar.low)
+                if low_side
+                else max(self._extreme[key], bar.high)
+            )
 
     def _recent(self, key: str) -> bool:
         index = self._last_touch.get(key)
         if index is None:
             return False
+        if self.config.excursion_scope == "session":
+            return True
         return (len(self._session) - 1 - index) <= self.config.excursion_max_age_bars
+
+    def _excursion_extreme(self, side: Side, touch_key: str) -> float:
+        """The low of the sweep for a long, the high for a short."""
+        long = side == "long"
+        if self.config.swing_anchor == "session":
+            return (
+                min(bar.low for bar in self._session)
+                if long
+                else max(bar.high for bar in self._session)
+            )
+        recorded = self._extreme.get(touch_key)
+        if recorded is not None:
+            return recorded
+        last = self._session[-1]
+        return last.low if long else last.high
 
     def _reject(self, bar: Bar, side: Side, reason: str) -> None:
         self.rejections.append(Rejection(bar.ts, side, reason))
@@ -490,6 +620,7 @@ class Strategy:
             zone_price=zone_price,
             armed_index=len(self._session) - 1,
             verdict=verdict,
+            extreme=self._excursion_extreme(side, touch_key),
         )
         self._armed[side] = setup
         self.armings.append(setup)
@@ -510,6 +641,13 @@ class Strategy:
         index = len(self._session) - 1
         for side in list(self._armed):
             setup = self._armed[side]
+            # A deeper poke while waiting moves where the idea is wrong, and
+            # therefore where the stop goes.
+            setup.extreme = (
+                min(setup.extreme, bar.low)
+                if setup.side == "long"
+                else max(setup.extreme, bar.high)
+            )
             if index - setup.armed_index > self.config.setup_valid_bars:
                 self._reject(bar, setup.side, "setup expired before a trigger")
                 del self._armed[side]
@@ -545,7 +683,7 @@ class Strategy:
                 return None
 
         if config.fill_mode == "limit" and gap is not None:
-            entry = gap.unfilled_entry()
+            entry = self._gap_entry(gap)
             # A limit that is already through is not a limit, it is a worse
             # market order. Fall back rather than book a fill we could not get.
             if (long and entry > bar.close) or (not long and entry < bar.close):
@@ -553,12 +691,12 @@ class Strategy:
         else:
             entry = bar.close
 
-        target = self._target_price(side, setup.verdict, reference, entry)
+        target, runner = self._target_price(side, setup.verdict, reference, entry)
         if target is None:
             self._reject(bar, side, "no target beyond entry")
             return None
 
-        stop = self._stop_price(side, entry, gap)
+        stop = self._stop_price(side, entry, gap, setup)
         risk = abs(entry - stop)
         if risk <= 0:
             self._reject(bar, side, "degenerate stop")
@@ -567,12 +705,7 @@ class Strategy:
             self._reject(bar, side, f"stop {risk:.0f} points over the cap")
             return None
 
-        reward_risk = abs(target - entry) / risk
-        if reward_risk < config.min_reward_risk:
-            self._reject(bar, side, "reward to risk below the floor")
-            return None
-
-        return Signal(
+        candidate = Signal(
             ts=bar.ts,
             side=side,
             entry=_round_to_tick(entry, config.tick_size),
@@ -587,7 +720,15 @@ class Strategy:
             fill_mode=config.fill_mode,
             expires_after_bars=config.limit_valid_bars,
             armed_bars_ago=len(self._session) - 1 - setup.armed_index,
+            runner_target=(
+                _round_to_tick(runner, config.tick_size) if runner is not None else None
+            ),
+            partial_fraction=config.partial_fraction if runner is not None else 0.0,
         )
+        if candidate.reward_risk < config.min_reward_risk:
+            self._reject(bar, side, "reward to risk below the floor")
+            return None
+        return candidate
 
     def _gap_band(
         self, side: Side, zone_price: float, slack: float, close: float
@@ -613,34 +754,83 @@ class Strategy:
 
     def _target_price(
         self, side: Side, verdict: Verdict, reference: ProfileLevels, entry: float
-    ) -> float | None:
+    ) -> tuple[float | None, float | None]:
+        """(first target, runner target). Either may be None.
+
+        The first is whatever the regime layer named, normally the point of
+        control. The runner is the next level out in the same direction, which
+        is what makes the trade pay when the stop is behind the sweep rather
+        than a few points under the entry.
+        """
         long = side == "long"
         named = verdict.target_for(side)
         if named == "point_of_control":
-            candidates = [reference.poc, reference.vah if long else reference.val]
+            ladder = [reference.poc, reference.vah if long else reference.val]
         elif named == "value_area_high":
-            candidates = [reference.vah, reference.poc]
+            ladder = [reference.vah, reference.profile_high]
         elif named == "value_area_low":
-            candidates = [reference.val, reference.poc]
+            ladder = [reference.val, reference.profile_low]
         else:
-            candidates = [reference.poc]
-        for price in candidates:
-            if (long and price > entry) or (not long and price < entry):
-                return price
-        return None
+            ladder = [reference.poc]
 
-    def _stop_price(self, side: Side, entry: float, gap: FVG | None) -> float:
+        beyond = [
+            price
+            for price in ladder
+            if (long and price > entry) or (not long and price < entry)
+        ]
+        if not beyond:
+            return None, None
+        first = beyond[0]
+        if self.config.partial_fraction <= 0 or len(beyond) < 2:
+            return first, None
+        runner = beyond[1]
+        # A runner that is not meaningfully past the first target is not a
+        # runner, it is a rounding error with extra commission.
+        if abs(runner - first) < self.config.min_runner_points:
+            return first, None
+        return first, runner
+
+    def _gap_entry(self, gap: FVG) -> float:
+        """Where the limit rests inside the gap."""
+        mode = self.config.fvg_entry
+        if mode == "midpoint":
+            return gap.midpoint
+        if mode == "distal":
+            return gap.distal
+        return gap.unfilled_entry()
+
+    def _stop_price(
+        self, side: Side, entry: float, gap: FVG | None, setup: Armed
+    ) -> float:
         config = self.config
         long = side == "long"
+
+        candidates: list[float] = []
         fixed = entry - config.stop_points if long else entry + config.stop_points
-        if config.stop_mode == "fixed" or gap is None:
+        if config.stop_mode in ("fixed", "tighter_of"):
+            candidates.append(fixed)
+        if config.stop_mode in ("structure", "tighter_of") and gap is not None:
+            buffer = config.structure_buffer_points
+            candidates.append(gap.distal - buffer if long else gap.distal + buffer)
+        if config.stop_mode in ("swing", "tighter_of"):
+            buffer = config.swing_buffer_points
+            candidates.append(
+                setup.extreme - buffer if long else setup.extreme + buffer
+            )
+
+        if not candidates:
             return fixed
-        buffer = config.structure_buffer_points
-        structural = gap.distal - buffer if long else gap.distal + buffer
-        if config.stop_mode == "structure":
-            return structural
-        # tighter_of: whichever sits closer to the entry.
-        return max(fixed, structural) if long else min(fixed, structural)
+        # Whichever sits closest to the entry, which for a long is the highest
+        # stop and for a short is the lowest. A stop on the wrong side of the
+        # entry is not a stop, so those are dropped first.
+        valid = [
+            price
+            for price in candidates
+            if (long and price < entry) or (not long and price > entry)
+        ]
+        if not valid:
+            return fixed
+        return max(valid) if long else min(valid)
 
 
 def _round_to_tick(price: float, tick: float) -> float:

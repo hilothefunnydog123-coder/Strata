@@ -29,6 +29,7 @@ from strata_vp import (  # noqa: E402
     PropFirmRules,
     StrategyConfig,
     load_csv,
+    lookup,
     resample,
     summarise,
 )
@@ -46,21 +47,30 @@ def main() -> int:
     parser.add_argument("--plan", default="ny_vs_brief", choices=sorted(PLANS))
     parser.add_argument("--signal-tf", type=int, default=5, help="signal timeframe in minutes")
 
+    parser.add_argument("--instrument", default="MNQ", help="MNQ, NQ, MES, ES, MGC, M2K")
     parser.add_argument("--entry-mode", default="value_reentry", choices=["value_reentry", "outside_value"])
     parser.add_argument("--fill-mode", default="limit", choices=["limit", "market"])
     parser.add_argument("--stop-points", type=float, default=50.0)
-    parser.add_argument("--stop-mode", default="fixed", choices=["fixed", "structure", "tighter_of"])
+    parser.add_argument(
+        "--stop-mode", default="swing", choices=["fixed", "structure", "swing", "tighter_of"]
+    )
+    parser.add_argument("--swing-anchor", default="session", choices=["session", "excursion"])
+    parser.add_argument(
+        "--partial", type=float, default=0.5,
+        help="fraction taken at the point of control; 0 takes the whole position there",
+    )
+    parser.add_argument(
+        "--excursion-scope", default="session", choices=["session", "recent"],
+    )
     parser.add_argument("--min-rr", type=float, default=1.2)
     parser.add_argument("--bin-size", type=float, default=1.0)
     parser.add_argument("--no-fvg", action="store_true", help="drop the fair value gap requirement")
 
     parser.add_argument(
-        "--point-value",
-        type=float,
-        default=2.0,
-        help="dollars per point per contract: 2 for MNQ, 20 for NQ, 5 for MES, 50 for ES",
+        "--point-value", type=float, default=None,
+        help="override the instrument's dollars per point per contract",
     )
-    parser.add_argument("--tick-size", type=float, default=0.25)
+    parser.add_argument("--tick-size", type=float, default=None)
     parser.add_argument("--account", type=float, default=50_000.0)
     parser.add_argument("--daily-loss", type=float, default=1_200.0)
     parser.add_argument("--trailing-dd", type=float, default=2_500.0)
@@ -86,15 +96,24 @@ def main() -> int:
         f"{len(signal_bars)} bars at {args.signal_tf} minutes"
     )
 
+    instrument = lookup(args.instrument)
+    tick_size = args.tick_size if args.tick_size is not None else instrument.tick_size
+    point_value = args.point_value if args.point_value is not None else instrument.point_value
+    print(f"{instrument.name}: tick {tick_size}, ${point_value} a point, "
+          f"${instrument.commission_round_turn} round turn")
+
     config = StrategyConfig(
-        tick_size=args.tick_size,
-        point_value=args.point_value,
+        tick_size=tick_size,
+        point_value=point_value,
         bin_size=args.bin_size,
         entry_mode=args.entry_mode,
+        excursion_scope=args.excursion_scope,
         fill_mode=args.fill_mode,
         require_fvg=not args.no_fvg,
         stop_points=args.stop_points,
         stop_mode=args.stop_mode,
+        swing_anchor=args.swing_anchor,
+        partial_fraction=args.partial,
         min_reward_risk=args.min_rr,
         max_stop_points=max(args.stop_points * 1.2, args.stop_points + 10),
     )
@@ -103,7 +122,11 @@ def main() -> int:
         max_daily_loss=args.daily_loss,
         trailing_drawdown=args.trailing_dd,
     )
-    costs = Costs(tick_size=args.tick_size, point_value=args.point_value)
+    costs = Costs(
+        tick_size=tick_size,
+        point_value=point_value,
+        commission_per_contract=instrument.commission_round_turn,
+    )
 
     if args.gemini and not os.environ.get("GEMINI_API_KEY"):
         print("--gemini given but GEMINI_API_KEY is not set; running deterministic")
@@ -123,7 +146,8 @@ def main() -> int:
             print(
                 f"  {row['entered_at']}  {row['side']:<5} x{row['contracts']} "
                 f"@{row['entry']:<10} stop {row['stop']:<10} target {row['target']:<10} "
-                f"{row['reason']:<14} {row['pnl']:>9} ({row['r']:+.2f}R) [{row['zone']}/{row['regime']}]"
+                f"{row['reason']:<14} {row['pnl']:>9} ({row['r']:+.2f}R) "
+                f"[{row['zone']}/{row['regime']}{', scaled' if len(row['legs']) > 1 else ''}]"
             )
 
     if args.json:

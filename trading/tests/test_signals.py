@@ -139,10 +139,16 @@ class TestModes(unittest.TestCase):
         self.assertGreater(len(without), len(with_gap))
 
     def test_turning_off_the_gap_also_gives_up_the_structural_stop(self):
-        _, signals = _run(StrategyConfig(stop_mode="structure", require_fvg=False))
-        # With no gap there is no structure to place a stop behind, so the
-        # fixed distance is used and the geometry test rejects nearly all of it.
-        self.assertLessEqual(len(signals), 2)
+        """With no gap there is no structure to place a stop behind, so every
+        signal falls back to the fixed distance. Asserted on the stop distance
+        rather than on a trade count, because the count moves whenever an
+        unrelated default does and then the test only says the numbers
+        changed."""
+        config = StrategyConfig(stop_mode="structure", require_fvg=False, stop_points=37.0,
+                                max_stop_points=40.0)
+        _, signals = _run(config)
+        for signal in signals:
+            self.assertAlmostEqual(signal.risk_points, 37.0, places=2, msg=signal)
 
 
 class TestSessionState(unittest.TestCase):

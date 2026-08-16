@@ -60,18 +60,35 @@ class Trade:
     pnl: float = 0.0
     max_favourable: float = 0.0
     max_adverse: float = 0.0
+    remaining: int = 0
+    partial_taken: bool = False
+    legs: list[tuple[int, float, str]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.remaining == 0:
+            self.remaining = self.contracts
 
     @property
     def side(self) -> str:
         return self.signal.side
 
     @property
+    def risk_dollars_per_contract(self) -> float:
+        return abs(self.entry - self.signal.stop)
+
+    @property
     def r_multiple(self) -> float:
-        risk = abs(self.entry - self.signal.stop)
-        if risk <= 0 or self.exit is None:
+        """Dollar profit over the dollars that were at risk when the trade was
+        opened. On a scaled exit this is not the R of any single leg, and it is
+        the only number that means anything about the position as a whole."""
+        risk = self.risk_dollars_per_contract
+        if risk <= 0 or not self.legs:
             return 0.0
-        points = (self.exit - self.entry) if self.side == "long" else (self.entry - self.exit)
-        return points / risk
+        weighted = sum(
+            qty * ((price - self.entry) if self.side == "long" else (self.entry - price))
+            for qty, price, _ in self.legs
+        )
+        return weighted / (risk * self.contracts)
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -84,6 +101,12 @@ class Trade:
             "entry": round(self.entry, 2),
             "stop": round(self.signal.stop, 2),
             "target": round(self.signal.target, 2),
+            "runner": (
+                round(self.signal.runner_target, 2)
+                if self.signal.runner_target is not None
+                else None
+            ),
+            "legs": [(qty, round(price, 2), why) for qty, price, why in self.legs],
             "exit": round(self.exit, 2) if self.exit is not None else None,
             "reason": self.reason,
             "pnl": round(self.pnl, 2),
@@ -201,14 +224,21 @@ class Backtest:
             if self.risk.failed:
                 break
 
-        # Anything still open at the end of the data is marked out, not ignored.
+        # Anything still open at the end of the data is marked out at its own
+        # entry, not ignored and not marked to the last close. A position the
+        # data ran out underneath did not earn anything and did not lose
+        # anything, and letting it book either would be inventing a result.
         if open_trade is not None and open_trade.exit is None:
-            last = open_trade
-            last.exit = last.signal.entry
-            last.exit_at = last.entered_at
-            last.reason = "unclosed at end of data"
-            last.pnl = 0.0
-            result.trades.append(last)
+            self._book(open_trade, open_trade.remaining, open_trade.entry)
+            open_trade.legs[-1] = (
+                open_trade.legs[-1][0],
+                open_trade.entry,
+                "unclosed at end of data",
+            )
+            open_trade.exit = open_trade.entry
+            open_trade.exit_at = open_trade.entered_at
+            open_trade.reason = "unclosed at end of data"
+            result.trades.append(open_trade)
 
         for rejection in self.strategy.rejections:
             result.rejections[rejection.reason] = result.rejections.get(rejection.reason, 0) + 1
@@ -272,22 +302,37 @@ class Backtest:
         trade.max_favourable = max(trade.max_favourable, favourable)
         trade.max_adverse = max(trade.max_adverse, adverse)
 
-        moved_to_breakeven = (
+        # Taking the partial also moves the stop to entry, so from then on the
+        # runner is being risked with money the first target already paid for.
+        moved_to_breakeven = trade.partial_taken or (
             self.config.breakeven_at_r > 0
             and risk > 0
             and banked_before_this_bar >= self.config.breakeven_at_r * risk
         )
         effective_stop = trade.entry if moved_to_breakeven else stop
+        live_target = (
+            trade.signal.runner_target
+            if trade.partial_taken and trade.signal.runner_target is not None
+            else target
+        )
 
         hit_stop = bar.low <= effective_stop if long else bar.high >= effective_stop
-        hit_target = bar.high >= target if long else bar.low <= target
+        hit_target = bar.high >= live_target if long else bar.low <= live_target
 
         if hit_stop:
             slip = 0.0 if moved_to_breakeven else self.costs.slippage_points()
             self._close(trade, bar, effective_stop - slip if long else effective_stop + slip, "stop")
             return True
+
         if hit_target:
-            self._close(trade, bar, target, "target")
+            partial = self._partial_quantity(trade)
+            if partial > 0:
+                # Scale out and keep going. The runner's exit, not this one,
+                # is what the trade is finally recorded as.
+                self._book(trade, partial, live_target)
+                trade.partial_taken = True
+                return False
+            self._close(trade, bar, live_target, "runner" if trade.partial_taken else "target")
             return True
 
         # Session close. Prop accounts must be flat, and a position carried
@@ -299,15 +344,35 @@ class Backtest:
             return True
         return False
 
-    def _close(self, trade: Trade, bar: Bar, price: float, reason: str) -> None:
-        trade.exit = price
-        trade.exit_at = bar.ts
-        trade.reason = reason
+    def _partial_quantity(self, trade: Trade) -> int:
+        """How many contracts come off at the first target, or zero if the
+        whole position does. Zero is also the answer when the position is one
+        contract, which is most of them on a micro account: half of one
+        contract does not exist, and pretending otherwise is the most common
+        way a scaled backtest beats the account that ran it."""
+        signal = trade.signal
+        if trade.partial_taken or signal.runner_target is None:
+            return 0
+        if signal.partial_fraction <= 0:
+            return 0
+        quantity = int(trade.remaining * signal.partial_fraction)
+        return quantity if 1 <= quantity < trade.remaining else 0
+
+    def _book(self, trade: Trade, quantity: int, price: float) -> None:
         points = (
             price - trade.entry if trade.side == "long" else trade.entry - price
         )
-        gross = points * trade.contracts * self.costs.point_value
-        trade.pnl = gross - trade.contracts * self.costs.commission_per_contract
+        trade.pnl += points * quantity * self.costs.point_value
+        trade.pnl -= quantity * self.costs.commission_per_contract
+        trade.remaining -= quantity
+        trade.legs.append((quantity, price, "partial"))
+
+    def _close(self, trade: Trade, bar: Bar, price: float, reason: str) -> None:
+        self._book(trade, trade.remaining, price)
+        trade.legs[-1] = (trade.legs[-1][0], price, reason)
+        trade.exit = price
+        trade.exit_at = bar.ts
+        trade.reason = reason
 
 
 def summarise(result: Result, *, top: int = 6) -> str:

@@ -4,5 +4,15 @@ a backtest from running on a machine that will never place an order."""
 
 from .base import Broker, BracketOrder, Fill, Position
 from .paper import PaperBroker
+from .tradovate import TradovateBroker, TradovateCredentials, TradovateError
 
-__all__ = ["Broker", "BracketOrder", "Fill", "PaperBroker", "Position"]
+__all__ = [
+    "Broker",
+    "BracketOrder",
+    "Fill",
+    "PaperBroker",
+    "Position",
+    "TradovateBroker",
+    "TradovateCredentials",
+    "TradovateError",
+]
