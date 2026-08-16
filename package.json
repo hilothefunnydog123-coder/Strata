@@ -32,7 +32,8 @@
     "check:env": "tsx scripts/check-env.ts",
     "check:provider": "tsx scripts/check-provider.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
-    "letters:sample": "tsx scripts/generate-samples.ts"
+    "letters:sample": "tsx scripts/generate-samples.ts",
+    "outreach": "tsx scripts/outreach.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",

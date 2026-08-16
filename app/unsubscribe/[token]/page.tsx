@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { contact } from '@/lib/db/schema';
+import { stopFor } from '@/lib/email/sequence';
 import { log } from '@/lib/log';
 
 export const metadata: Metadata = {
@@ -36,6 +37,11 @@ export default async function UnsubscribePage({
       .update(contact)
       .set({ unsubscribedAt: new Date() })
       .where(eq(contact.id, row.id));
+    // And end any follow-up cadence they are walking through. The send path
+    // would refuse each step anyway, but an enrolment left active would keep
+    // waking up to be refused, and the counts an operator reads would say
+    // people are still being contacted when they are not.
+    await stopFor(row.id, 'unsubscribed', 'clicked the unsubscribe link');
     log.info('contact unsubscribed', { contactId: row.id });
   }
 

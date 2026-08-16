@@ -260,6 +260,20 @@ export const jobStatusEnum = pgEnum('job_status', [
   'done',
   'failed',
 ]);
+/**
+ * Why a contact is or is no longer walking through a sequence.
+ *
+ * Every terminal value except `completed` is a reason to stop early, and they
+ * are kept apart rather than collapsed into one "stopped" because the answer to
+ * "how is outreach going" is entirely different depending on which one grew.
+ */
+export const enrollmentStatusEnum = pgEnum('enrollment_status', [
+  'active',
+  'replied',
+  'unsubscribed',
+  'completed',
+  'stopped',
+]);
 export const emailStatusEnum = pgEnum('email_status', [
   'queued',
   'sent',
@@ -1142,6 +1156,84 @@ export const contact = pgTable(
     createdAt: now(),
   },
   (t) => [index('contact_unsubscribed_idx').on(t.unsubscribedAt)],
+);
+
+/**
+ * A follow-up sequence: the same prospect, touched again on a schedule.
+ *
+ * Cold outreach is not a message, it is a cadence. Most replies to a cold email
+ * arrive on the second or third touch, and the single most common failure is
+ * that nobody sends them, because sending them by hand is boring on exactly the
+ * days it matters. So the cadence lives in the database and the job drain runs
+ * it.
+ *
+ * Steps are stored as JSON rather than rows because a sequence is edited as a
+ * whole: reordering steps or changing a delay is one edit to one object, and
+ * the alternative is a step table whose ordinals have to be kept consistent by
+ * hand for no benefit anybody asked for.
+ */
+export const sequence = pgTable('sequence', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull().unique(),
+  /**
+   * Ordered. dayOffset counts from enrolment, not from the previous step, so
+   * changing step 2's delay never silently moves step 3.
+   */
+  steps: jsonb('steps')
+    .$type<{ dayOffset: number; subject: string; body: string }[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  createdBy: text('created_by')
+    .notNull()
+    .references(() => user.id),
+  createdAt: now(),
+});
+
+/**
+ * One contact walking through one sequence.
+ *
+ * The status column is the whole safety story. A sequence that keeps mailing
+ * somebody who already answered is worse than a sequence that never sent
+ * anything: it reads as automated indifference to the one person who did the
+ * thing you wanted. So a reply, an unsubscribe, or a manual stop ends the
+ * enrolment, and the send path checks the status again at send time rather than
+ * trusting that whoever scheduled the job knew the state.
+ */
+export const sequenceEnrollment = pgTable(
+  'sequence_enrollment',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sequenceId: uuid('sequence_id')
+      .notNull()
+      .references(() => sequence.id, { onDelete: 'cascade' }),
+    contactId: uuid('contact_id')
+      .notNull()
+      .references(() => contact.id, { onDelete: 'cascade' }),
+    status: enrollmentStatusEnum('status').notNull().default('active'),
+    /**
+     * How many steps have gone out. The next step to send is steps[stepsSent],
+     * so this doubles as the cursor and as the count, and there is no way for
+     * the two to disagree.
+     */
+    stepsSent: integer('steps_sent').notNull().default(0),
+    /** When the next step is due. Null once the enrolment is no longer active. */
+    nextRunAt: timestamp('next_run_at', { withTimezone: true }),
+    /**
+     * Every step's due date counts from here, so this is the anchor of the whole
+     * cadence rather than a record of when the row appeared. It is set to when
+     * the first email actually went out, which is usually before the enrolment.
+     */
+    enrolledAt: timestamp('enrolled_at', { withTimezone: true }).notNull().defaultNow(),
+    repliedAt: timestamp('replied_at', { withTimezone: true }),
+    stoppedReason: text('stopped_reason'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // One enrolment per contact per sequence: re-enrolling somebody who is
+    // already mid-cadence is how a prospect gets two emails on the same day.
+    uniqueIndex('sequence_enrollment_unique_idx').on(t.sequenceId, t.contactId),
+    index('sequence_enrollment_due_idx').on(t.status, t.nextRunAt),
+  ],
 );
 
 export const campaign = pgTable('campaign', {

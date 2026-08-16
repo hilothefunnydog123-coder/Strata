@@ -16,6 +16,7 @@ import { job } from '@/lib/db/schema';
 import { env } from '@/lib/env';
 import { log } from '@/lib/log';
 import { runCampaignSend } from '@/lib/email/campaign';
+import { runDueSteps } from '@/lib/email/sequence';
 import { pruneRateLimits } from '@/lib/rate-limit';
 import { sendDeadlineWarnings } from '@/lib/notifications/deadlines';
 
@@ -116,9 +117,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   // Housekeeping that has no natural trigger of its own.
-  const [prunedLimits, warnings] = await Promise.all([
+  //
+  // Follow-up steps ride here rather than in the jobs table on purpose. A job
+  // row scheduled ten days out is a promise made before the prospect had a
+  // chance to reply, and cancelling it would mean finding and deleting rows on
+  // every reply. Asking "who is due right now, and are they still active" at
+  // drain time cannot go stale, so a reply that landed a minute ago stops the
+  // next step even though it was scheduled a week before.
+  const [prunedLimits, warnings, steps] = await Promise.all([
     pruneRateLimits(new Date(Date.now() - 24 * 60 * 60 * 1000)),
     sendDeadlineWarnings(),
+    runDueSteps(),
   ]);
 
   const [remaining] = await db
@@ -132,5 +141,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     pending: remaining?.n ?? 0,
     prunedRateLimits: prunedLimits,
     deadlineWarningsSent: warnings,
+    followUpsSent: steps.sent,
+    followUpsDue: steps.considered,
   });
 }
