@@ -10,6 +10,7 @@ paid charting tier.
 cd trading
 python3 tools/run_signals.py  --synthetic --days 10          # tickets
 python3 tools/why.py --synthetic --date 2026-06-09 --summary # why not this one
+python3 tools/check_gemini.py                                # is the model live
 python3 tools/run_backtest.py --synthetic --days 90 --trades # did they work
 python3 -m unittest discover -s tests -t .                   # 130 tests
 ```
@@ -287,6 +288,25 @@ in `gemini.py` is narrow:
 - One call per candidate setup, cached per five bars. A strategy that trades
   three times a day never approaches the free tier's rate limit.
 
+Gemini runs whenever `GEMINI_API_KEY` is set. It used to be opt in behind a
+flag, which meant the discretionary layer was off in every run anyone actually
+did, and the thing being measured was never the thing shipped. `--no-gemini`
+turns it off.
+
+Every ticket says which layer allowed it, so this is answered by looking at a
+signal rather than by reading the config:
+
+```
+  read    Gemini, confidence 0.72: poc migrating down two sessions, slope
+          negative, but price has held the value area low twice
+```
+
+`tools/check_gemini.py` sends one real request and prints what came back. Three
+things go wrong with this and from inside the engine they look identical,
+because every failure is a veto and the classifier quietly takes over: a bad
+key, a model name that has moved on, or a response that did not match the
+schema. `--list` shows which models your key can actually call.
+
 Run without a key and you get the deterministic classifier, which is a complete
 strategy on its own: it reads point of control migration across the last four
 reference sessions, session slope in ATR, open type against the reference value
@@ -294,8 +314,10 @@ area, and swing structure. That is the baseline the model has to beat, and the
 `--gemini` flag exists so the two can be run over the same data and compared.
 
 ```bash
-export GEMINI_API_KEY=...
-python3 tools/run_backtest.py --csv nq_1m.csv --gemini
+export GEMINI_API_KEY=...        # free key at aistudio.google.com/apikey
+python3 tools/check_gemini.py    # prove it works before a session
+python3 tools/run_backtest.py --csv mnq_1m.csv
+python3 tools/run_backtest.py --csv mnq_1m.csv --no-gemini   # the comparison
 ```
 
 Set `GEMINI_MODEL` if the default model name has moved on. The client is plain
@@ -379,20 +401,47 @@ drawdown on one trade. MES, ES, MGC and M2K are there too.
 
 ---
 
-## Getting real data, for free
+## Getting real data
 
-The engine takes a CSV with `time,open,high,low,close,volume` and a header row,
-which is what a TradingView chart export gives you. Free sources that work:
+### Exporting from TradingView
 
-- **TradingView chart export.** Free plan, limited history, fine for a first
-  pass and for checking the Pine script against the Python.
-- **The broker itself.** On Tradovate that means the market data websocket,
-  which is not wired up here. On MT5, `MT5Broker.bars()` returns a few thousand
-  recent minute bars. Note that most retail feeds carry tick volume rather than
-  traded volume, so a profile built from them will not match a CME volume
-  profile exactly.
-- **Databento, Polygon or similar free tiers** for a few months of proper
-  minute bars if you want a longer sample.
+On the desktop web chart, the camera-and-arrow menu at the top right, or right
+click on the chart itself, then **Export chart data**. Pick the CSV, the time
+format, and it downloads.
+
+Three things that ruin the export if you do not know them:
+
+**It only exports the bars currently loaded.** Whatever you can scroll back to
+is what you get. Before exporting, click on the chart and hold the left arrow
+key, or drag the time axis left, until it stops loading more. Otherwise you get
+a few hundred bars and a backtest that means nothing.
+
+**Export is a paid feature on some plan tiers.** If the menu item is missing or
+greyed out, that is why, and no amount of clicking elsewhere will find it.
+
+**Export the contract, not the index.** `MNQ1!` has volume. `NQ` the index does
+not, and a volume profile built from a zero volume column is a range chart
+wearing a costume. The loader refuses that file rather than producing one.
+
+The export writes `Volume` with a capital V, sometimes a `Volume MA` beside it,
+and a column for every indicator on the chart. `load_csv` matches headers case
+insensitively and ignores the extras, so the file works as downloaded.
+
+### You may not need to export at all
+
+The Strategy Tester runs `strata_volume_profile_strategy.pine` on your real
+chart data without exporting anything. That gives you the trade list, the
+equity curve and the drawdown on real MNQ today. The export is for the Python
+side: `why.py`, the parameter sweeps, and anything the tester cannot answer.
+
+### If TradingView will not export
+
+- **Databento** has a free trial with credit, and carries CME data including
+  MNQ at one minute. The best real source on this list.
+- **Your broker.** Tradovate's chart data comes over the market data websocket,
+  which is not wired up here, but it is the same feed you trade on.
+- Most free equity APIs do not carry futures at all, so do not spend an evening
+  on Alpha Vantage or Yahoo expecting MNQ.
 
 Build the profile from 1 minute bars even when signals run on 5. Bar based
 profiles model where volume traded inside each bar, and narrower bars mean less

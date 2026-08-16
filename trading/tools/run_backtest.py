@@ -75,7 +75,10 @@ def main() -> int:
     parser.add_argument("--daily-loss", type=float, default=1_200.0)
     parser.add_argument("--trailing-dd", type=float, default=2_500.0)
 
-    parser.add_argument("--gemini", action="store_true", help="use the model, needs GEMINI_API_KEY")
+    parser.add_argument(
+        "--no-gemini", action="store_true",
+        help="ignore GEMINI_API_KEY and run the deterministic classifier only",
+    )
     parser.add_argument("--trades", action="store_true", help="print every trade")
     parser.add_argument("--json", help="write the full result to this path")
     args = parser.parse_args()
@@ -131,9 +134,18 @@ def main() -> int:
         commission_per_contract=instrument.commission_round_turn,
     )
 
-    if args.gemini and not os.environ.get("GEMINI_API_KEY"):
-        print("--gemini given but GEMINI_API_KEY is not set; running deterministic")
-    judge = GeminiJudge(enabled=bool(args.gemini and os.environ.get("GEMINI_API_KEY")))
+    # Gemini runs whenever a key is present. It used to be opt in behind a
+    # flag, which meant the discretionary layer was off in every run anyone
+    # actually did and the thing being measured was never the thing shipped.
+    has_key = bool(os.environ.get("GEMINI_API_KEY"))
+    use_gemini = has_key and not args.no_gemini
+    if use_gemini:
+        print("Gemini: on. Check it with tools/check_gemini.py if a run looks odd.")
+    elif has_key:
+        print("Gemini: off by request, deterministic classifier only")
+    else:
+        print("Gemini: no GEMINI_API_KEY, deterministic classifier only")
+    judge = GeminiJudge(enabled=use_gemini)
 
     backtest = Backtest(config, PLANS[args.plan], rules, costs, judge)
     result = backtest.run(signal_bars)

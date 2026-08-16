@@ -108,8 +108,17 @@ def render_text(ticket: Ticket) -> str:
     lines.append(
         f"  levels  VAL {reference.val:.2f}  POC {reference.poc:.2f}  VAH {reference.vah:.2f}"
     )
-    lines.append(f"  why     swept {signal.zone_name.replace('_', ' ')}, "
-                 f"reclaimed, {signal.verdict.regime.replace('_', ' ')}")
+    lines.append(
+        f"  why     swept {signal.zone_name.replace('_', ' ')}, reclaimed, "
+        f"{signal.verdict.regime.replace('_', ' ')}"
+    )
+    # Whose judgement this was, and what it was. A signal that does not say
+    # which layer allowed it is a signal you cannot audit after a bad week.
+    source = "Gemini" if signal.verdict.source == "gemini" else "rules"
+    lines.append(
+        f"  read    {source}, confidence {signal.verdict.confidence:.2f}: "
+        f"{signal.verdict.rationale[:120]}"
+    )
     return "\n".join(lines)
 
 

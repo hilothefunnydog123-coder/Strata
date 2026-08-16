@@ -74,38 +74,71 @@ def load_csv(
 ) -> list[Bar]:
     """Read bars from a CSV with a header row.
 
-    The default field names match a TradingView chart export. A file with no
-    volume column is rejected rather than defaulted to zero: a volume profile
-    built from zero volume is a range chart wearing a costume, and silently
-    producing one would be worse than failing here.
+    Written around what TradingView's "Export chart data" actually produces,
+    which is not quite what the defaults above say. It writes `Volume` with a
+    capital V, sometimes ships a `Volume MA` column alongside it, and adds a
+    column for every indicator on the chart at the time of export. So header
+    matching is case insensitive and extra columns are ignored rather than
+    being an error.
+
+    A file with no volume column is rejected rather than defaulted to zero: a
+    volume profile built from zero volume is a range chart wearing a costume,
+    and silently producing one would be worse than failing here. Same for a
+    file whose volume column is entirely zero, which is what a chart exported
+    from an index rather than a futures contract looks like.
     """
+    wanted = {
+        "ts": ts_field,
+        "open": open_field,
+        "high": high_field,
+        "low": low_field,
+        "close": close_field,
+        "volume": volume_field,
+    }
     bars: list[Bar] = []
-    with open(path, newline="", encoding="utf-8") as handle:
+    with open(path, newline="", encoding="utf-8-sig") as handle:
         reader = csv.DictReader(handle)
         if reader.fieldnames is None:
             raise ValueError(f"{path}: no header row")
-        missing = [
-            name
-            for name in (ts_field, open_field, high_field, low_field, close_field, volume_field)
-            if name not in reader.fieldnames
-        ]
-        if missing:
-            raise ValueError(f"{path}: missing columns {missing}; found {reader.fieldnames}")
-        for row in reader:
-            volume = float(row[volume_field] or 0.0)
-            bars.append(
-                Bar(
-                    ts=_parse_ts(row[ts_field]),
-                    open=float(row[open_field]),
-                    high=float(row[high_field]),
-                    low=float(row[low_field]),
-                    close=float(row[close_field]),
-                    volume=volume,
+
+        lookup = {name.strip().lower(): name for name in reader.fieldnames}
+        resolved: dict[str, str] = {}
+        for key, name in wanted.items():
+            actual = lookup.get(name.strip().lower())
+            if actual is None:
+                raise ValueError(
+                    f"{path}: no column matching '{name}'. "
+                    f"Found: {reader.fieldnames}. "
+                    "A TradingView export should have time, open, high, low, close "
+                    "and Volume; if Volume is missing the chart was an index or a "
+                    "spread rather than a contract."
                 )
-            )
+            resolved[key] = actual
+
+        for number, row in enumerate(reader, start=2):
+            try:
+                bars.append(
+                    Bar(
+                        ts=_parse_ts(row[resolved["ts"]]),
+                        open=float(row[resolved["open"]]),
+                        high=float(row[resolved["high"]]),
+                        low=float(row[resolved["low"]]),
+                        close=float(row[resolved["close"]]),
+                        volume=float(row[resolved["volume"]] or 0.0),
+                    )
+                )
+            except (TypeError, ValueError) as error:
+                # A blank row at the end of an export is common and harmless.
+                if not any((row.get(name) or "").strip() for name in resolved.values()):
+                    continue
+                raise ValueError(f"{path}: line {number}: {error}") from error
+
     bars.sort(key=lambda bar: bar.ts)
     if bars and sum(bar.volume for bar in bars) <= 0:
-        raise ValueError(f"{path}: every bar has zero volume, cannot build a profile")
+        raise ValueError(
+            f"{path}: every bar has zero volume, cannot build a profile. "
+            "Export a futures contract such as MNQ1! rather than an index."
+        )
     return bars
 
 
