@@ -203,12 +203,28 @@ class TestReplay(unittest.TestCase):
             self.assertAlmostEqual(ticket.signal.entry, gap.midpoint, delta=MNQ.tick_size)
 
     def test_the_stop_sits_ten_points_past_the_gap(self):
-        tickets, _ = self._replay(gap_stop_buffer_points=10.0)
+        # The noise floor is off here so this tests the gap rule alone. With it
+        # on, most stops are pushed further out, which is the point of it.
+        tickets, _ = self._replay(gap_stop_buffer_points=10.0, min_stop_atr=0.0)
         for ticket in tickets:
             gap = ticket.signal.fvg
             assert gap is not None
             expected = gap.distal - 10.0 if ticket.signal.side == "long" else gap.distal + 10.0
             self.assertAlmostEqual(ticket.signal.stop, expected, delta=MNQ.tick_size)
+
+
+    def test_no_stop_sits_inside_one_bar_of_noise(self):
+        """The fix for stopping out on everything. A stop ten points past a
+        five point gap is thirteen points, and the median five minute bar is
+        eleven, so the stop was one bar of noise from the entry. Nothing may
+        now sit closer than the floor."""
+        tickets, _ = self._replay(min_stop_atr=1.5)
+        self.assertGreater(len(tickets), 3)
+        for ticket in tickets:
+            self.assertGreaterEqual(ticket.signal.risk_points, 1.4 * ticket.signal.reference.bin_size)
+        loose, _ = self._replay(min_stop_atr=0.0)
+        average = lambda group: sum(t.signal.risk_points for t in group) / len(group)  # noqa: E731
+        self.assertGreater(average(tickets), average(loose))
 
 
 class TestRunner(unittest.TestCase):

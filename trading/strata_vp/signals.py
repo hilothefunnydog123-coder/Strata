@@ -136,6 +136,18 @@ class StrategyConfig:
     # "tighter_of" whichever of the applicable ones sits closest to the entry.
     stop_mode: Literal["gap", "fixed", "swing", "tighter_of"] = "gap"
     gap_stop_buffer_points: float = 10.0
+    # A floor under every stop, in multiples of the current average true range.
+    #
+    # Ten points past a five point gap is a thirteen point stop, and the median
+    # five minute bar on this instrument is eleven points wide. That stop is one
+    # bar of noise from the entry, and it showed: three quarters of trades
+    # stopped, with the median loser going more than a full R the right way
+    # before it died. A stop has to sit outside the noise of the thing it is
+    # trading, and the average true range is the measure of that noise, so the
+    # floor is expressed in it rather than in points that go stale when
+    # volatility changes.
+    min_stop_atr: float = 1.5
+    min_stop_points: float = 0.0
     swing_buffer_points: float = 6.0
     # What the swing stop is measured from. "session" is the lowest low of the
     # session so far, which is where the stop goes when the trade is placed by
@@ -144,8 +156,12 @@ class StrategyConfig:
     # most recent leg into the level, which is tighter and gets run more often.
     swing_anchor: Literal["session", "excursion"] = "session"
     max_stop_points: float = 60.0
-    min_reward_risk: float = 1.2
-    breakeven_at_r: float = 1.0  # move the stop to entry once this much is banked
+    min_reward_risk: float = 1.0
+    # Moving the stop to entry at 1R sounds like free protection and measured
+    # as the opposite: it scratched trades that went on to work, costing both
+    # win rate and expectancy. Off by default. The partial exit is the risk
+    # reduction, and it is enough.
+    breakeven_at_r: float = 0.0
     # Scaling out. Half off at the point of control, stop to breakeven, the
     # rest to the far side of value. Set to 0.0 to take the whole position at
     # the first target, which is the version the brief describes and which, with
@@ -267,6 +283,7 @@ class Strategy:
         judge: GeminiJudge | None = None,
         *,
         history_bars: int = 6000,
+        trace: bool = False,
     ) -> None:
         self.config = config
         self.plan = plan
@@ -287,6 +304,11 @@ class Strategy:
 
         self.rejections: list[Rejection] = []
         self.armings: list[Armed] = []
+        # Every condition, every bar, when asked for. Off by default because a
+        # ninety day run would hold a hundred thousand of these, and on when
+        # the question is why a particular trade was not taken.
+        self.tracing = trace
+        self.trace: list[dict] = []
         self.last_features: RegimeFeatures | None = None
         self.last_verdict: Verdict | None = None
 
@@ -526,6 +548,8 @@ class Strategy:
             return None
 
         volatility = atr(self._session) or config.tick_size * 4
+        if self.tracing:
+            self._record_trace(bar, reference, developing, volatility)
 
         # An armed side is triggered before anything new is armed, so that a
         # gap forming on this bar is used by the setup that was waiting for it
@@ -569,6 +593,36 @@ class Strategy:
             if possible and side not in self._armed:
                 self._try_arm(bar, side, reference, verdict, volatility)
         return None
+
+    def _record_trace(
+        self, bar: Bar, reference: ProfileLevels, developing: ProfileLevels, volatility: float
+    ) -> None:
+        rejected = [r.reason for r in self.rejections if r.ts == bar.ts]
+        self.trace.append(
+            {
+                "ts": bar.ts,
+                "close": round(bar.close, 2),
+                "bars_in": len(self._session),
+                "ref_val": round(reference.val, 2),
+                "ref_poc": round(reference.poc, 2),
+                "ref_vah": round(reference.vah, 2),
+                "dev_val": round(developing.val, 2),
+                "dev_vah": round(developing.vah, 2),
+                "atr": round(volatility, 2),
+                "swept_low": self._recent("ref_val"),
+                "swept_high": self._recent("ref_vah"),
+                "below_dev_val": self._recent("dev_val"),
+                "above_dev_vah": self._recent("dev_vah"),
+                "reclaimed_low": bar.close > reference.val,
+                "reclaimed_high": bar.close < reference.vah,
+                "below_poc": bar.close < reference.poc,
+                "gap_long": len(self._tracker.live("bullish")),
+                "gap_short": len(self._tracker.live("bearish")),
+                "armed": sorted(self._armed),
+                "signals_used": self._signals_this_session,
+                "rejected": rejected,
+            }
+        )
 
     # Arming ----------------------------------------------------------------
 
@@ -703,7 +757,7 @@ class Strategy:
             self._reject(bar, side, "no target beyond entry")
             return None
 
-        stop = self._stop_price(side, entry, gap, setup)
+        stop = self._stop_price(side, entry, gap, setup, volatility)
         risk = abs(entry - stop)
         if risk <= 0:
             self._reject(bar, side, "degenerate stop")
@@ -807,7 +861,7 @@ class Strategy:
         return gap.unfilled_entry()
 
     def _stop_price(
-        self, side: Side, entry: float, gap: FVG | None, setup: Armed
+        self, side: Side, entry: float, gap: FVG | None, setup: Armed, volatility: float
     ) -> float:
         config = self.config
         long = side == "long"
@@ -842,7 +896,13 @@ class Strategy:
         ]
         if not valid:
             return fixed
-        return max(valid) if long else min(valid)
+        chosen = max(valid) if long else min(valid)
+
+        # Push it out to the noise floor if it landed inside.
+        floor = max(config.min_stop_points, config.min_stop_atr * volatility)
+        if floor > 0 and abs(entry - chosen) < floor:
+            chosen = entry - floor if long else entry + floor
+        return chosen
 
 
 def _round_to_tick(price: float, tick: float) -> float:

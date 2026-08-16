@@ -62,7 +62,7 @@ def main() -> int:
     parser.add_argument(
         "--excursion-scope", default="session", choices=["session", "recent"],
     )
-    parser.add_argument("--min-rr", type=float, default=1.2)
+    parser.add_argument("--min-rr", type=float, default=1.0)
     parser.add_argument("--bin-size", type=float, default=1.0)
     parser.add_argument("--no-fvg", action="store_true", help="drop the fair value gap requirement")
 
@@ -115,7 +115,10 @@ def main() -> int:
         swing_anchor=args.swing_anchor,
         partial_fraction=args.partial,
         min_reward_risk=args.min_rr,
-        max_stop_points=max(args.stop_points * 1.2, args.stop_points + 10),
+        # The ATR floor can push a stop past a cap derived from the flat
+        # distance, so the cap has to clear it rather than silently reject
+        # every trade on a volatile day.
+        max_stop_points=max(args.stop_points * 1.2, args.stop_points + 10, 90.0),
     )
     rules = PropFirmRules(
         account_size=args.account,

@@ -132,7 +132,10 @@ class TestModes(unittest.TestCase):
         is derived from the gap: turning the gap off would also turn the tight
         stop off, and the reward to risk floor would then reject almost
         everything for an unrelated reason."""
-        tight = dict(stop_mode="fixed", stop_points=12.0, max_stop_points=12.0)
+        # min_stop_atr off: the floor would push every stop past the 12 point
+        # cap and both sides would come back empty for an unrelated reason.
+        tight = dict(stop_mode="fixed", stop_points=12.0, max_stop_points=12.0,
+                     min_stop_atr=0.0)
         _, with_gap = _run(StrategyConfig(require_fvg=True, **tight))
         _, without = _run(StrategyConfig(require_fvg=False, **tight))
         self.assertGreater(len(with_gap), 0)
@@ -145,7 +148,7 @@ class TestModes(unittest.TestCase):
         unrelated default does and then the test only says the numbers
         changed."""
         config = StrategyConfig(stop_mode="gap", require_fvg=False, stop_points=37.0,
-                                max_stop_points=40.0)
+                                max_stop_points=40.0, min_stop_atr=0.0)
         _, signals = _run(config)
         for signal in signals:
             self.assertAlmostEqual(signal.risk_points, 37.0, places=2, msg=signal)

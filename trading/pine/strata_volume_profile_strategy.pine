@@ -78,9 +78,15 @@ stopBuffer = input.float(10.0, "Stop, points past the gap", minval = 0.25, group
 partialPct = input.int(50, "Percent off at the point of control", minval = 0, maxval = 100,
      group = grpExit, tooltip = "0 takes the whole position at the point of control. " +
      "Below two contracts nothing can be scaled and this has no effect.")
-minRewardRisk = input.float(1.2, "Minimum reward to risk", minval = 0.1, group = grpExit,
+minRewardRisk = input.float(1.0, "Minimum reward to risk", minval = 0.1, group = grpExit,
      tooltip = "Measured on the size weighted blend of both exits, not the first alone.")
-useBreakeven = input.bool(true, "Stop to breakeven after the partial", group = grpExit)
+useBreakeven = input.bool(false, "Stop to breakeven after the partial", group = grpExit,
+     tooltip = "Measured worse than leaving the stop alone: it scratched trades " +
+     "that went on to work. The partial is the risk reduction.")
+minStopAtr = input.float(1.5, "Minimum stop, multiples of ATR", minval = 0.0, group = grpExit,
+     tooltip = "Ten points past a five point gap is a thirteen point stop, and " +
+     "the median five minute bar is eleven points wide. Without a floor the stop " +
+     "sits inside one bar of noise and gets taken out by nothing.")
 
 grpRisk = "Risk"
 riskDollars = input.float(150.0, "Risk per trade, dollars", minval = 1.0, group = grpRisk)
@@ -316,8 +322,13 @@ shortTrigger = not na(armedShort) and bearAlive and close > refPoc
 // the imbalance that was the reason for the trade is gone.
 tEntry = longTrigger ? math.avg(bullTop, bullBottom) :
      shortTrigger ? math.avg(bearTop, bearBottom) : na
-tStop = longTrigger ? bullBottom - stopBuffer :
+rawStop = longTrigger ? bullBottom - stopBuffer :
      shortTrigger ? bearTop + stopBuffer : na
+// Push the stop out to the noise floor if the gap put it inside.
+stopFloor = minStopAtr * nz(ta.atr(14), 0)
+tStop = na(rawStop) ? na :
+     longTrigger and (tEntry - rawStop) < stopFloor ? tEntry - stopFloor :
+     shortTrigger and (rawStop - tEntry) < stopFloor ? tEntry + stopFloor : rawStop
 tTarget = longTrigger or shortTrigger ? refPoc : na
 tRunner = longTrigger ? refVah : shortTrigger ? refVal : na
 

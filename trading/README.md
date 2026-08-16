@@ -9,6 +9,7 @@ paid charting tier.
 ```
 cd trading
 python3 tools/run_signals.py  --synthetic --days 10          # tickets
+python3 tools/why.py --synthetic --date 2026-06-09 --summary # why not this one
 python3 tools/run_backtest.py --synthetic --days 90 --trades # did they work
 python3 -m unittest discover -s tests -t .                   # 130 tests
 ```
@@ -116,16 +117,42 @@ strategy being selective. An audit of every session found:
 | Armed a setup | 56 |
 | Produced a signal | 36 |
 
-Every session rotates through a level, exactly as you said. What was throwing
-setups away were three gates that had nothing to do with the setup: a 75 minute
-warmup that skipped the open, a 45 minute cutoff before the close, and a cap of
-3 signals per session. Those are now 30 minutes, 20 minutes and 6, and the same
-data produces about two setups a session.
+Every session rotates through a level. What was throwing setups away were three
+gates that had nothing to do with the setup: a 75 minute warmup that skipped the
+open, a 45 minute cutoff before the close, and a cap of 3 signals per session.
+Those are now 30 minutes, 20 minutes and 6.
 
-The remaining brake is the regime layer refusing counter trend entries: it will
-not buy the value area low in a session it has classified as a strong downtrend.
-That one is deliberate and it is the thing most worth arguing about once there
-is real data to argue with.
+### Why it was stopping out on everything
+
+Ten points past a five point gap is a thirteen point stop. The median five
+minute bar on this instrument is eleven points. **The stop was one bar of noise
+from the entry**, and the median losing trade went more than a full R the right
+way before reversing into it. Those were not bad setups.
+
+| | |
+| --- | --- |
+| Median stop distance | 12.8 pt |
+| Median 5 minute bar range | 11.0 pt |
+| Winners' worst drawdown, median | 5.2 pt |
+| Losers' best excursion before dying, median | 14.0 pt |
+
+`min_stop_atr` is the fix: a floor under every stop at 1.5 times the current
+average true range, so it sits outside the noise of the thing it is trading.
+Expressed in ATR rather than points because the right distance on a quiet
+Tuesday is not the right distance on CPI day.
+
+| Stop floor | Trades | Stopped | Win rate | Expectancy |
+| --- | --- | --- | --- | --- |
+| none | 57 | 70% | 51% | +0.17 R |
+| 1.0 ATR | 56 | 69% | 52% | +0.17 R |
+| **1.5 ATR** | **49** | **61%** | **61%** | **+0.27 R** |
+| 2.0 ATR | 29 | 55% | 62% | +0.23 R |
+| 2.5 ATR | 14 | 50% | 71% | +0.28 R |
+
+Moving the stop to breakeven at 1R was also removed. It reads like free
+protection and measured as the opposite, scratching trades that went on to
+work: 58% stopped without it against 64% with, and a better win rate. The
+partial exit is the risk reduction, and it is enough.
 
 ---
 
