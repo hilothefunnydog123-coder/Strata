@@ -24,91 +24,26 @@
  */
 import 'dotenv/config';
 import { readFileSync } from 'node:fs';
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { db } from '../lib/db';
-import { contact, sequence, user } from '../lib/db/schema';
+import { contact, user } from '../lib/db/schema';
 import { parseContactsCsv, upsertContact } from '../lib/email/campaign';
 import {
   enroll,
   markReplied,
+  PILOT_SEQUENCE,
+  PILOT_STEPS,
   runDueSteps,
   sequenceStatus,
-  type SequenceStep,
+  upsertSequence,
 } from '../lib/email/sequence';
 import { log } from '../lib/log';
 
 const out = (line = ''): void => void process.stdout.write(`${line}\n`);
 
-export const SEQUENCE_NAME = 'pilot-outreach';
+export const SEQUENCE_NAME = PILOT_SEQUENCE;
 
-/**
- * The follow-ups.
- *
- * Short on purpose. A first email earns the right to explain; a follow-up earns
- * the right to be read only by being easy to answer, so each of these is a few
- * sentences and asks for one thing. Step 4 is the one that pulls the most
- * replies of any message in a cadence, which reads as a paradox until you
- * notice it is the only one that costs the reader nothing to end.
- *
- * dayOffset counts from enrolment. Enrol on the day the first email went out
- * and these land on days 4, 10, and 20.
- */
-export const PILOT_STEPS: SequenceStep[] = [
-  {
-    // The opener. Day zero, so enrolling a contact sends it on the next drain.
-    //
-    // Short, because the reader owes us nothing and a wall of text from a
-    // stranger reads as a brochure. Their problem before our product, one
-    // attributed number, and an ask small enough to answer with a single word.
-    dayOffset: 0,
-    subject: 'The denials {{org_name}} is writing off',
-    body: `Hi {{first_name}},
-
-When a Medicare Advantage plan denies a skilled nursing or rehab stay, appealing it takes about forty minutes of someone's day, so most of those denials get written off instead. The plans know that.
-
-Federal reviewers have looked at this: the HHS Office of Inspector General and KFF both found that most Medicare Advantage denials that get appealed end up overturned, and that very few are ever appealed at all.
-
-I build software that writes the appeal. It reads the denial letter, finds where the plan applied the wrong standard, drafts the argument from Medicare's own rules and the patient's record, and checks every quoted passage against its source before anyone signs it. Your appeals specialist reviews, edits, and files it. Nothing is submitted by software.
-
-Would it be useful if I sent you a sample letter it wrote? It is a synthetic demonstration case, so there is no patient information in it and nothing to sign.`,
-  },
-  {
-    dayOffset: 4,
-    subject: 'Following up: Medicare Advantage denials at {{org_name}}',
-    body: `Hi {{first_name}},
-
-I wrote earlier this week about the skilled nursing and rehab denials that get written off because appealing one takes forty minutes nobody has.
-
-One question and I will leave you alone: is that a real problem at {{org_name}}, or does someone there already handle it?
-
-Either answer is useful to me.`,
-  },
-  {
-    dayOffset: 10,
-    subject: 'The plateau denials are appealable',
-    body: `Hi {{first_name}},
-
-One thing worth having whether or not you ever reply to me.
-
-When a Medicare Advantage plan denies a skilled nursing stay because the resident "plateaued" or stopped making progress, that denial applies a standard Medicare disavowed in the Jimmo v. Sebelius settlement. Coverage turns on whether skilled care is needed, not on whether the patient improves. The same goes for denials resting on the plan's internal guidelines rather than Medicare's criteria, which 42 CFR 422.101(b) does not allow where Medicare has rules.
-
-Our software flags both automatically and drafts the appeal, with every quoted passage checked against its source before anyone signs it.
-
-Happy to send a sample letter if that would be useful.`,
-  },
-  {
-    dayOffset: 20,
-    subject: 'Closing the loop',
-    body: `Hi {{first_name}},
-
-I have written a couple of times about appealing Medicare Advantage denials and have not heard back, which almost always means it is not a priority right now. That is a fine answer.
-
-Should I close the loop, or would it be better to try again later in the year?
-
-Thanks either way.`,
-  },
-];
-
+/** Create the cadence, or refresh its wording if it is already there. */
 async function seed(): Promise<void> {
   // Any operator will do as the author: this records who set the cadence up,
   // and the script is only ever run by the operator themselves.
@@ -118,24 +53,10 @@ async function seed(): Promise<void> {
     return;
   }
 
-  const existing = await db.query.sequence.findFirst({
-    where: eq(sequence.name, SEQUENCE_NAME),
-  });
-
-  if (existing) {
-    await db
-      .update(sequence)
-      .set({ steps: PILOT_STEPS })
-      .where(eq(sequence.id, existing.id));
-    out(`Updated "${SEQUENCE_NAME}" with ${PILOT_STEPS.length} steps.`);
-  } else {
-    await db.insert(sequence).values({
-      name: SEQUENCE_NAME,
-      steps: PILOT_STEPS,
-      createdBy: owner.id,
-    });
-    out(`Created "${SEQUENCE_NAME}" with ${PILOT_STEPS.length} steps.`);
-  }
+  const { created } = await upsertSequence(SEQUENCE_NAME, PILOT_STEPS, owner.id);
+  out(
+    `${created ? 'Created' : 'Updated'} "${SEQUENCE_NAME}" with ${PILOT_STEPS.length} steps.`,
+  );
 
   for (const [i, step] of PILOT_STEPS.entries()) {
     out(`  step ${i + 1}: day ${step.dayOffset}  ${step.subject}`);

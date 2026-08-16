@@ -30,6 +30,7 @@ export default async function AdminLayout({
         { href: '/admin/corpus', label: 'Corpus' },
         { href: '/admin/spend', label: 'Spend' },
         { href: '/admin/jobs', label: 'Jobs' },
+        { href: '/admin/outreach', label: 'Outreach' },
         { href: '/admin/email', label: 'Email' },
         { href: '/admin/demo-requests', label: 'Demo requests' },
         { href: '/admin/demo', label: 'Demonstration' },

@@ -68,6 +68,12 @@ async function makeContact(email: string): Promise<string> {
 beforeEach(async () => {
   sent.length = 0;
   configured = true;
+  // The drain is global by design: it asks "who is due" across every sequence,
+  // which is what makes a reply stop a step scheduled a week earlier. That also
+  // means any enrolment left behind by another sequence, or by somebody running
+  // the real command against this database, is an extra message these tests
+  // would count. Clearing them is the test controlling the state it asserts on.
+  await db.delete(sequenceEnrollment);
   await db.delete(contact).where(inArray(contact.email, EMAILS));
   await db.delete(sequence).where(eq(sequence.name, SEQ));
   await db.delete(user).where(eq(user.id, OWNER));

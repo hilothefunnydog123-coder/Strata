@@ -369,6 +369,107 @@ export async function runDueSteps(now: Date = new Date()): Promise<{
   return { considered: due.length, sent };
 }
 
+/**
+ * Create the cadence, or update its steps if it is already there.
+ *
+ * Idempotent, because the console's button can be pressed twice and the second
+ * press must not create a second cadence that everybody then walks through in
+ * parallel.
+ */
+export async function upsertSequence(
+  name: string,
+  steps: SequenceStep[],
+  createdBy: string,
+): Promise<{ created: boolean }> {
+  const existing = await db.query.sequence.findFirst({ where: eq(sequence.name, name) });
+  if (existing) {
+    await db.update(sequence).set({ steps }).where(eq(sequence.id, existing.id));
+    return { created: false };
+  }
+  await db.insert(sequence).values({ name, steps, createdBy });
+  return { created: true };
+}
+
+/**
+ * Enrol everybody not already enrolled, spreading their start times.
+ *
+ * The spread is the point rather than a nicety. A new sending domain that emits
+ * a hundred cold messages in a minute is classified as a spam source, and that
+ * verdict is invisible from this side: every send reports success and no reply
+ * ever comes. Staggering start times paces the opener and every follow-up
+ * behind it, using the due dates that already exist.
+ */
+export async function enrollEveryone(input: {
+  sequenceName: string;
+  alreadySent?: number;
+  perDay?: number;
+  spacingMinutes?: number;
+  from?: Date;
+}): Promise<{ enrolled: number; already: number; days: number }> {
+  const perDay = Math.max(1, input.perDay ?? 20);
+  const spacing = Math.max(1, input.spacingMinutes ?? 7);
+  const start = input.from ?? new Date();
+
+  const everyone = await db
+    .select({ id: contact.id })
+    .from(contact)
+    .where(isNull(contact.unsubscribedAt));
+
+  let enrolled = 0;
+  let already = 0;
+
+  for (const person of everyone) {
+    const dayShift = Math.floor(enrolled / perDay);
+    const withinDay = (enrolled % perDay) * spacing;
+    const enrolledAt = new Date(
+      start.getTime() + dayShift * DAY_MS + withinDay * 60 * 1000,
+    );
+
+    const result = await enroll({
+      sequenceName: input.sequenceName,
+      contactId: person.id,
+      alreadySent: input.alreadySent,
+      enrolledAt,
+    });
+
+    if (result.alreadyEnrolled) already += 1;
+    else enrolled += 1;
+  }
+
+  return { enrolled, already, days: Math.max(1, Math.ceil(enrolled / perDay)) };
+}
+
+/** Every contact with where they stand, for the console's table. */
+export async function enrollmentBoard(sequenceName: string) {
+  const row = await db.query.sequence.findFirst({
+    where: eq(sequence.name, sequenceName),
+  });
+
+  return db
+    .select({
+      contactId: contact.id,
+      email: contact.email,
+      firstName: contact.firstName,
+      orgName: contact.orgName,
+      title: contact.title,
+      unsubscribedAt: contact.unsubscribedAt,
+      status: sequenceEnrollment.status,
+      stepsSent: sequenceEnrollment.stepsSent,
+      nextRunAt: sequenceEnrollment.nextRunAt,
+      repliedAt: sequenceEnrollment.repliedAt,
+      totalSteps: sql<number>`${row?.steps.length ?? 0}::int`,
+    })
+    .from(contact)
+    .leftJoin(
+      sequenceEnrollment,
+      and(
+        eq(sequenceEnrollment.contactId, contact.id),
+        row ? eq(sequenceEnrollment.sequenceId, row.id) : sql`false`,
+      ),
+    )
+    .orderBy(contact.orgName, contact.email);
+}
+
 /** What the operator console shows: where every enrolment stands. */
 export async function sequenceStatus(sequenceName: string) {
   const row = await db.query.sequence.findFirst({
@@ -403,3 +504,71 @@ export async function sequenceStatus(sequenceName: string) {
     dueNow: pending[0]?.count ?? 0,
   };
 }
+
+/* ─── The pilot cadence ───────────────────────────────────────────────────── */
+
+/** The one cadence this product runs today. Named so both the console and the
+ * command line reach the same rows rather than each creating their own. */
+export const PILOT_SEQUENCE = 'pilot-outreach';
+
+/**
+ * The four messages.
+ *
+ * Here rather than in a script so the console and the command line send the
+ * same words, and so changing one of them is one edit in one place.
+ */
+export const PILOT_STEPS: SequenceStep[] = [
+  {
+    // The opener. Day zero, so enrolling a contact sends it on the next drain.
+    //
+    // Short, because the reader owes us nothing and a wall of text from a
+    // stranger reads as a brochure. Their problem before our product, one
+    // attributed number, and an ask small enough to answer with a single word.
+    dayOffset: 0,
+    subject: 'The denials {{org_name}} is writing off',
+    body: `Hi {{first_name}},
+
+When a Medicare Advantage plan denies a skilled nursing or rehab stay, appealing it takes about forty minutes of someone's day, so most of those denials get written off instead. The plans know that.
+
+Federal reviewers have looked at this: the HHS Office of Inspector General and KFF both found that most Medicare Advantage denials that get appealed end up overturned, and that very few are ever appealed at all.
+
+I build software that writes the appeal. It reads the denial letter, finds where the plan applied the wrong standard, drafts the argument from Medicare's own rules and the patient's record, and checks every quoted passage against its source before anyone signs it. Your appeals specialist reviews, edits, and files it. Nothing is submitted by software.
+
+Would it be useful if I sent you a sample letter it wrote? It is a synthetic demonstration case, so there is no patient information in it and nothing to sign.`,
+  },
+  {
+    dayOffset: 4,
+    subject: 'Following up: Medicare Advantage denials at {{org_name}}',
+    body: `Hi {{first_name}},
+
+I wrote earlier this week about the skilled nursing and rehab denials that get written off because appealing one takes forty minutes nobody has.
+
+One question and I will leave you alone: is that a real problem at {{org_name}}, or does someone there already handle it?
+
+Either answer is useful to me.`,
+  },
+  {
+    dayOffset: 10,
+    subject: 'The plateau denials are appealable',
+    body: `Hi {{first_name}},
+
+One thing worth having whether or not you ever reply to me.
+
+When a Medicare Advantage plan denies a skilled nursing stay because the resident "plateaued" or stopped making progress, that denial applies a standard Medicare disavowed in the Jimmo v. Sebelius settlement. Coverage turns on whether skilled care is needed, not on whether the patient improves. The same goes for denials resting on the plan's internal guidelines rather than Medicare's criteria, which 42 CFR 422.101(b) does not allow where Medicare has rules.
+
+Our software flags both automatically and drafts the appeal, with every quoted passage checked against its source before anyone signs it.
+
+Happy to send a sample letter if that would be useful.`,
+  },
+  {
+    dayOffset: 20,
+    subject: 'Closing the loop',
+    body: `Hi {{first_name}},
+
+I have written a couple of times about appealing Medicare Advantage denials and have not heard back, which almost always means it is not a priority right now. That is a fine answer.
+
+Should I close the loop, or would it be better to try again later in the year?
+
+Thanks either way.`,
+  },
+];
