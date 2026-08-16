@@ -31,6 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from strata_vp.gemini import (  # noqa: E402
     DEFAULT_MODEL,
+    KEY_LOCATIONS,
     GeminiJudge,
     deterministic_verdict,
     key_search_path,
@@ -97,8 +98,25 @@ def main() -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--list", action="store_true", help="list callable models and exit")
+    parser.add_argument(
+        "--set-key", metavar="KEY",
+        help="write the key to trading/.env and then check it",
+    )
     parser.add_argument("--model", default=None, help="override GEMINI_MODEL for this check")
     args = parser.parse_args()
+
+    if args.set_key:
+        # Saving the key from here rather than from the shell, because every
+        # other route has a way to go wrong that produces a confusing error
+        # much later: PowerShell writes UTF-16, quotes get pasted along with
+        # the key, and Notepad adds a byte order mark. This writes plain UTF-8
+        # with none of that.
+        destination = KEY_LOCATIONS[0]
+        cleaned = args.set_key.strip().strip('"').strip("'")
+        destination.write_text(cleaned + "\n", encoding="utf-8")
+        print(f"wrote the key to {destination}")
+        print("that file is gitignored, so it will not end up on GitHub\n")
+        os.environ.pop("GEMINI_API_KEY", None)
 
     key = read_api_key()
     if not key:

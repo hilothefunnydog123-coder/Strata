@@ -6,6 +6,10 @@ tells you the trade. You place it.
 Python 3.11, standard library only. No pip install, no data subscription, no
 paid charting tier.
 
+**Never used a terminal? Read [SETUP.md](SETUP.md) instead of this file.** It
+starts from nothing and assumes no programming. The short version: the live
+half is the Pine script on TradingView and needs nothing installed at all.
+
 ```
 cd trading
 python3 tools/run_signals.py  --synthetic --days 10          # tickets

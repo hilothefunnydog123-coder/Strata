@@ -70,9 +70,19 @@ def read_api_key() -> str | None:
         return from_env
 
     for location in KEY_LOCATIONS:
-        try:
-            text = location.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        text = None
+        # PowerShell's `>` redirect writes UTF-16 on Windows 10, so a key file
+        # created the obvious way is not UTF-8 and reading it the obvious way
+        # fails. utf-8-sig also strips the byte order mark Notepad adds.
+        for encoding in ("utf-8-sig", "utf-16"):
+            try:
+                text = location.read_text(encoding=encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+            except OSError:
+                break
+        if text is None:
             continue
         for line in text.splitlines():
             line = line.strip()
