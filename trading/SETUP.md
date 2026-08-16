@@ -168,15 +168,27 @@ If that printed a table, you are done setting up.
 
 ---
 
-## Part 7: The Gemini key
+## Part 7: The Gemini key, and why you may not want it
 
-Free. It is the layer that reads whether the session is trending and can veto a
-setup or move the entry to the point of control.
+**Pine Script cannot call an API.** There is no HTTP in it, by design. A key
+pasted into the script would sit there doing nothing. That is not a limit I can
+engineer around, and anyone who tells you otherwise is describing a paid plan
+webhook plus a server.
 
-1. Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey) and
-   sign in with a Google account.
-2. Click **Create API key**. Copy what it gives you.
-3. Run this, with your key in place of the example:
+You do not need it. The judgement the strategy was described as needing an AI
+for, telling a one directional session from a balanced one and entering at the
+point of control when price is never going to reach the far side of value, is
+now in the Pine script itself as the **trend regime layer**. Same arithmetic as
+the Python side, no key, nothing installed, and it is what has been running in
+every backtest in the README. Turn it off with the "Trend regime layer"
+checkbox in the settings if you want to see the difference.
+
+Gemini is only worth setting up if you want it grading the same states from the
+Python side and want to compare the two. If that is you:
+
+1. [aistudio.google.com/apikey](https://aistudio.google.com/apikey), sign in,
+   **Create API key**, copy it.
+2. Run this once, with your key in place of the example:
 
 ```
 python tools/check_gemini.py --set-key AIzaSyYourActualKeyHere
@@ -185,21 +197,10 @@ python tools/check_gemini.py --set-key AIzaSyYourActualKeyHere
 python3 tools/check_gemini.py --set-key AIzaSyYourActualKeyHere
 ```
 
-That saves the key and immediately tests it with a real request. If it works it
-prints Gemini's read of a sample session next to what the rule based classifier
-said about the same thing.
-
-You only do this once. The key is saved in a file called `.env` in the
-`trading` folder, which is excluded from GitHub so it cannot get published by
-accident.
-
-If it says the call failed, run this to see which models your key can reach:
-
-```
-python tools/check_gemini.py --list
-```
-
----
+It saves the key and immediately tests it with a real request, printing
+Gemini's read of a sample session next to the rule based classifier's read of
+the same one. If the call fails, `--list` shows which models your key can
+reach.
 
 ## Part 8: The commands worth knowing
 

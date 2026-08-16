@@ -317,6 +317,19 @@ reference sessions, session slope in ATR, open type against the reference value
 area, and swing structure. That is the baseline the model has to beat, and the
 `--gemini` flag exists so the two can be run over the same data and compared.
 
+### Pine cannot call it, and does not need to
+
+Pine Script has no HTTP. A key in the script is inert. The judgement the brief
+wanted an AI for is in the Pine script as the **trend regime layer**, a port of
+`regime.py`: point of control migration across the last reference sessions,
+session slope in ATR, open type, and swing structure, weighted into a regime
+that can veto the counter trend side and pull the entry in to the point of
+control. No key, nothing installed, and it is the layer that produced every
+number in this file.
+
+Gemini is the optional second opinion on the Python side, and it only ever
+narrows what the rules already allow.
+
 ### Where the key goes
 
 Get one free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
