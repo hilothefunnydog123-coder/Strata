@@ -67,6 +67,11 @@ vaColour = input.color(color.new(#4a90d9, 0), "Value area", group = grpStyle)
 devColour = input.color(color.new(#7f8c8d, 30), "Developing", group = grpStyle)
 bullGapColour = input.color(color.new(#1e8449, 82), "Bullish gap", group = grpStyle)
 bearGapColour = input.color(color.new(#a93226, 82), "Bearish gap", group = grpStyle)
+showTicketBoxes = input.bool(true, "Draw the position boxes", group = grpStyle)
+ticketWidth = input.int(14, "Position box width, bars", minval = 2, group = grpStyle)
+tpBoxColour = input.color(color.new(#26a69a, 78), "Target box", group = grpStyle)
+runBoxColour = input.color(color.new(#26a69a, 89), "Runner box", group = grpStyle)
+slBoxColour = input.color(color.new(#ef5350, 78), "Stop box", group = grpStyle)
 
 // --------------------------------------------------------------- sessions ---
 
@@ -329,14 +334,21 @@ rewardRisk = riskPoints > 0 ? blendedReward / riskPoints : 0.0
 longTicket = longTrigger and rewardRisk >= minRewardRisk and targetPrice > entryPrice
 shortTicket = shortTrigger and rewardRisk >= minRewardRisk and targetPrice < entryPrice
 
-if longTicket or shortTicket
-    ticketColour = longTicket ? color.new(#1e8449, 0) : color.new(#a93226, 0)
-    line.new(bar_index, entryPrice, bar_index + 12, entryPrice, color = ticketColour, width = 2)
-    line.new(bar_index, stopPrice, bar_index + 12, stopPrice, color = color.new(#a93226, 30),
-         width = 1, style = line.style_dashed)
-    line.new(bar_index, targetPrice, bar_index + 12, targetPrice, color = color.new(#1e8449, 30),
-         width = 1, style = line.style_dashed)
-    label.new(bar_index + 12, entryPrice,
+// The same picture the strategy draws: green from the entry up to the point of
+// control, a paler green on to the far side of value, red from the entry down
+// to the stop. Boxes rather than lines because the thing worth seeing at a
+// glance is the two areas, not the three prices.
+if (longTicket or shortTicket) and showTicketBoxes
+    box.new(bar_index, math.max(entryPrice, targetPrice), bar_index + ticketWidth,
+         math.min(entryPrice, targetPrice), border_color = na, bgcolor = tpBoxColour)
+    box.new(bar_index, math.max(entryPrice, stopPrice), bar_index + ticketWidth,
+         math.min(entryPrice, stopPrice), border_color = na, bgcolor = slBoxColour)
+    if not na(runnerPrice)
+        box.new(bar_index, math.max(targetPrice, runnerPrice), bar_index + ticketWidth,
+             math.min(targetPrice, runnerPrice), border_color = na, bgcolor = runBoxColour)
+    line.new(bar_index, entryPrice, bar_index + ticketWidth, entryPrice,
+         color = color.new(#787b86, 0), width = 1, style = line.style_dashed)
+    label.new(bar_index + ticketWidth, entryPrice,
          (longTicket ? "LONG " : "SHORT ") + str.tostring(entryPrice, format.mintick) +
          "\nstop " + str.tostring(stopPrice, format.mintick) +
          "  (" + str.tostring(riskPoints, "#.##") + " pt)" +
@@ -344,7 +356,8 @@ if longTicket or shortTicket
          "\nrun  " + str.tostring(runnerPrice, format.mintick) +
          "\nR:R  " + str.tostring(rewardRisk, "#.##"),
          style = label.style_label_left,
-         color = ticketColour, textcolor = color.white, size = size.small)
+         color = longTicket ? color.new(#1e8449, 0) : color.new(#a93226, 0),
+         textcolor = color.white, size = size.small)
 
 plotshape(longTicket ? low : na, "Long ticket", shape.labelup, location.belowbar,
      color.new(#1e8449, 0), text = "L", textcolor = color.white, size = size.small)

@@ -1,0 +1,481 @@
+//@version=6
+//
+// Strata VP, as a strategy.
+//
+// Same rules as strata_volume_profile.pine, wired into TradingView's strategy
+// engine so the Strategy Tester grades it, and drawing every trade as the
+// position boxes you would draw by hand: green from the entry up to the point
+// of control, a lighter green on to the far side of value, red from the entry
+// down to the stop.
+//
+// The trade:
+//
+//   Long when price has swept the previous session's value area low, has also
+//   traded below the current session's developing value area low, has
+//   reclaimed the level, and a bullish fair value gap sits in the band between
+//   the level and price. Entry is a limit at the middle of that gap. Stop is
+//   ten points past its far edge. Half off at the previous session's point of
+//   control, stop to breakeven, the rest to the value area high. Shorts are
+//   the mirror.
+//
+// Read before trusting a Strategy Tester number:
+//
+//   Set the chart to 5 minute. The profile is built from the chart's own bars,
+//   so a 1 hour chart produces a 1 hour profile and the levels will not be the
+//   ones you see on your 5 minute chart.
+//
+//   Leave "Recalculate after order is filled" and "on every tick" off. Both
+//   let the strategy act inside a bar it has not finished seeing, which is the
+//   usual way a Pine strategy reports a curve it cannot repeat.
+//
+//   The tester fills a limit order whenever price trades through it. In a fast
+//   market that is optimistic, and it is the single largest gap between these
+//   numbers and a real fill.
+//
+//   Commission and slippage are set in the inputs and default to a micro at a
+//   prop firm. They are not zero and should never be.
+
+strategy("Strata VP Strategy", overlay = true,
+     initial_capital = 50000,
+     default_qty_type = strategy.fixed,
+     default_qty_value = 1,
+     commission_type = strategy.commission.cash_per_contract,
+     commission_value = 0.60,
+     slippage = 1,
+     pyramiding = 0,
+     calc_on_every_tick = false,
+     calc_on_order_fills = false,
+     process_orders_on_close = false,
+     max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
+
+// ---------------------------------------------------------------- inputs ---
+
+grpSession = "Sessions"
+tzName = input.string("America/Los_Angeles", "Timezone", group = grpSession)
+tradeSpec = input.session("0630-1300", "Session traded", group = grpSession,
+     tooltip = "New York cash by default. Asia is 1700-0100, London is 0000-0630.")
+refSpec = input.session("0300-0630", "Reference session", group = grpSession,
+     tooltip = "The window whose profile the traded session is graded against. " +
+     "0300-0630 is the brief as written. 1700-0630 is the full overnight.")
+flatByMinutes = input.int(20, "Stop opening trades this long before the close, minutes",
+     minval = 0, group = grpSession)
+
+grpProfile = "Profile"
+rowCount = input.int(48, "Rows", minval = 12, maxval = 160, group = grpProfile)
+vaShare = input.float(70.0, "Value area percent", minval = 50.0, maxval = 95.0,
+     group = grpProfile) / 100.0
+
+grpSetup = "Setup"
+minGapPoints = input.float(2.0, "Minimum fair value gap, points", minval = 0.0, group = grpSetup)
+armBars = input.int(20, "Arm stays valid for, bars", minval = 1, group = grpSetup)
+gapMaxAge = input.int(40, "Gap stays valid for, bars", minval = 1, group = grpSetup)
+warmupBars = input.int(6, "Bars into session before arming", minval = 0, group = grpSetup)
+limitValidBars = input.int(8, "Cancel an unfilled entry after, bars", minval = 1, group = grpSetup)
+maxPerSession = input.int(6, "Maximum trades per session", minval = 1, group = grpSetup)
+
+grpExit = "Exits"
+stopBuffer = input.float(10.0, "Stop, points past the gap", minval = 0.25, group = grpExit)
+partialPct = input.int(50, "Percent off at the point of control", minval = 0, maxval = 100,
+     group = grpExit, tooltip = "0 takes the whole position at the point of control. " +
+     "Below two contracts nothing can be scaled and this has no effect.")
+minRewardRisk = input.float(1.2, "Minimum reward to risk", minval = 0.1, group = grpExit,
+     tooltip = "Measured on the size weighted blend of both exits, not the first alone.")
+useBreakeven = input.bool(true, "Stop to breakeven after the partial", group = grpExit)
+
+grpRisk = "Risk"
+riskDollars = input.float(150.0, "Risk per trade, dollars", minval = 1.0, group = grpRisk)
+pointValue = input.float(2.0, "Dollars per point per contract", minval = 0.01, group = grpRisk,
+     tooltip = "2 for MNQ, 20 for NQ, 5 for MES, 50 for ES.")
+maxContracts = input.int(5, "Maximum contracts", minval = 1, group = grpRisk)
+
+grpStyle = "Style"
+showBoxes = input.bool(true, "Draw the position boxes", group = grpStyle)
+showProfile = input.bool(true, "Draw the reference levels", group = grpStyle)
+tpColour = input.color(color.new(#26a69a, 78), "Target box", group = grpStyle)
+runColour = input.color(color.new(#26a69a, 89), "Runner box", group = grpStyle)
+slColour = input.color(color.new(#ef5350, 78), "Stop box", group = grpStyle)
+pocColour = input.color(color.new(#e0a800, 0), "Point of control", group = grpStyle)
+vaColour = input.color(color.new(#4a90d9, 0), "Value area", group = grpStyle)
+
+// --------------------------------------------------------------- sessions ---
+
+inTrade = not na(time(timeframe.period, tradeSpec, tzName))
+inRef = not na(time(timeframe.period, refSpec, tzName))
+
+tradeOpen = inTrade and not inTrade[1]
+tradeClose = not inTrade and inTrade[1]
+refClose = not inRef and inRef[1]
+
+var int refBars = 0
+if inRef
+    refBars := inRef[1] ? refBars + 1 : 1
+
+var int sessionBars = 0
+sessionBars := tradeOpen ? 1 : inTrade ? sessionBars + 1 : 0
+
+// Bars left in the session, so the last stretch can be closed to new trades.
+var int sessionLength = 0
+if tradeClose
+    sessionLength := sessionBars[1]
+barsLeft = sessionLength > 0 ? sessionLength - sessionBars : 9999
+minutesLeft = barsLeft * (timeframe.in_seconds() / 60)
+lateInSession = sessionLength > 0 and minutesLeft < flatByMinutes
+
+// ---------------------------------------------------------------- profile ---
+
+// Volume distributed across each bar's range, then the standard value area:
+// start at the point of control and add whichever pair of rows, above or
+// below, holds more volume, until the requested share is inside.
+calcProfile(int startOffset, int length, int rows, float share) =>
+    float hi = na
+    float lo = na
+    if length > 0
+        for i = startOffset to startOffset + length - 1
+            hi := na(hi) ? high[i] : math.max(hi, high[i])
+            lo := na(lo) ? low[i] : math.min(lo, low[i])
+    float step = na(hi) or hi <= lo ? na : (hi - lo) / rows
+    float poc = na
+    float vah = na
+    float val = na
+    if not na(step) and step > 0
+        buckets = array.new<float>(rows, 0.0)
+        float total = 0.0
+        for i = startOffset to startOffset + length - 1
+            float bh = high[i]
+            float bl = low[i]
+            float bv = volume[i]
+            if bv > 0
+                int r1 = math.max(0, math.min(rows - 1, int(math.floor((bl - lo) / step))))
+                int r2 = math.max(0, math.min(rows - 1, int(math.floor((bh - lo) / step))))
+                if r1 == r2 or bh <= bl
+                    array.set(buckets, r1, array.get(buckets, r1) + bv)
+                else
+                    float span = bh - bl
+                    for r = r1 to r2
+                        float rowLow = lo + r * step
+                        float overlap = math.min(bh, rowLow + step) - math.max(bl, rowLow)
+                        if overlap > 0
+                            array.set(buckets, r, array.get(buckets, r) + bv * overlap / span)
+                total += bv
+
+        if total > 0
+            int pocRow = 0
+            float best = -1.0
+            for r = 0 to rows - 1
+                float v = array.get(buckets, r)
+                if v > best
+                    best := v
+                    pocRow := r
+
+            int upper = pocRow
+            int lower = pocRow
+            float inside = best
+            float target = total * share
+            bool more = true
+            while inside < target and more
+                bool canUp = upper < rows - 1
+                bool canDown = lower > 0
+                if not canUp and not canDown
+                    more := false
+                else
+                    int upStep = canUp ? math.min(2, rows - 1 - upper) : 0
+                    int downStep = canDown ? math.min(2, lower) : 0
+                    float upVol = -1.0
+                    float downVol = -1.0
+                    if upStep > 0
+                        upVol := 0.0
+                        for k = 1 to upStep
+                            upVol += array.get(buckets, upper + k)
+                    if downStep > 0
+                        downVol := 0.0
+                        for k = 1 to downStep
+                            downVol += array.get(buckets, lower - k)
+                    if upStep > 0 and upVol >= downVol
+                        inside += upVol
+                        upper += upStep
+                    else if downStep > 0
+                        inside += downVol
+                        lower -= downStep
+                    else
+                        more := false
+
+            poc := lo + (pocRow + 0.5) * step
+            vah := lo + (upper + 1) * step
+            val := lo + lower * step
+    [poc, vah, val]
+
+var float refPoc = na
+var float refVah = na
+var float refVal = na
+
+// Fixed for the whole traded session. Recomputing it while trading would move
+// every level underneath an open position.
+if refClose
+    [p, h, l] = calcProfile(1, refBars[1], rowCount, vaShare)
+    refPoc := p
+    refVah := h
+    refVal := l
+
+var float devVah = na
+var float devVal = na
+if inTrade and sessionBars > 2
+    [_p, h, l] = calcProfile(0, sessionBars, rowCount, vaShare)
+    devVah := h
+    devVal := l
+else if not inTrade
+    devVah := na
+    devVal := na
+
+plot(showProfile and inTrade ? refPoc : na, "Reference POC", pocColour, 2, plot.style_linebr)
+plot(showProfile and inTrade ? refVah : na, "Reference VAH", vaColour, 1, plot.style_linebr)
+plot(showProfile and inTrade ? refVal : na, "Reference VAL", vaColour, 1, plot.style_linebr)
+
+// ------------------------------------------------------- fair value gaps ---
+
+var float bullTop = na
+var float bullBottom = na
+var int bullBar = na
+var float bearTop = na
+var float bearBottom = na
+var int bearBar = na
+var float bullWorstFill = 0.0
+var float bearWorstFill = 0.0
+
+newBull = low > high[2] and (low - high[2]) >= minGapPoints
+newBear = high < low[2] and (low[2] - high) >= minGapPoints
+
+if newBull
+    bullTop := low
+    bullBottom := high[2]
+    bullBar := bar_index
+if newBear
+    bearTop := low[2]
+    bearBottom := high
+    bearBar := bar_index
+
+bullSize = nz(bullTop - bullBottom, 0)
+bearSize = nz(bearTop - bearBottom, 0)
+bullFill = bullSize > 0 ? math.max(0, math.min(1, (bullTop - low) / bullSize)) : 1
+bearFill = bearSize > 0 ? math.max(0, math.min(1, (high - bearBottom) / bearSize)) : 1
+bullWorstFill := newBull ? 0.0 : math.max(bullWorstFill, bullFill)
+bearWorstFill := newBear ? 0.0 : math.max(bearWorstFill, bearFill)
+
+bullAlive = not na(bullTop) and bullWorstFill < 0.5 and (bar_index - bullBar) <= gapMaxAge
+bearAlive = not na(bearTop) and bearWorstFill < 0.5 and (bar_index - bearBar) <= gapMaxAge
+
+// ----------------------------------------------------------------- setup ---
+
+haveLevels = not na(refVal) and not na(refVah) and not na(devVal) and not na(devVah)
+
+var bool sweptLow = false
+var bool sweptHigh = false
+if tradeOpen
+    sweptLow := false
+    sweptHigh := false
+    bullTop := na
+    bearTop := na
+
+// An excursion has to actually reach the level, and it keeps the level in play
+// for the rest of the session: the sweep happens in the first hour and the
+// rotation is often taken hours later.
+if inTrade and haveLevels
+    if low <= refVal and low <= devVal
+        sweptLow := true
+    if high >= refVah and high >= devVah
+        sweptHigh := true
+    // A completed rotation spends the setup it was rotating away from.
+    if close >= refPoc
+        sweptLow := false
+    if close <= refPoc
+        sweptHigh := false
+
+canArmLong = inTrade and haveLevels and sessionBars >= warmupBars and sweptLow and
+     close > refVal and close < refPoc
+canArmShort = inTrade and haveLevels and sessionBars >= warmupBars and sweptHigh and
+     close < refVah and close > refPoc
+
+var int armedLong = na
+var int armedShort = na
+armedLong := not inTrade ? na : canArmLong and na(armedLong) ? bar_index : armedLong
+armedShort := not inTrade ? na : canArmShort and na(armedShort) ? bar_index : armedShort
+
+longStale = not na(armedLong) and ((bar_index - armedLong) > armBars or close >= refPoc)
+shortStale = not na(armedShort) and ((bar_index - armedShort) > armBars or close <= refPoc)
+if longStale
+    armedLong := na
+if shortStale
+    armedShort := na
+
+longTrigger = not na(armedLong) and bullAlive and close < refPoc
+shortTrigger = not na(armedShort) and bearAlive and close > refPoc
+
+// ------------------------------------------------------------ the ticket ---
+
+// Entry at consequent encroachment, the middle of the gap. Stop a fixed
+// distance past the far edge, because if price closes the gap and keeps going
+// the imbalance that was the reason for the trade is gone.
+tEntry = longTrigger ? math.avg(bullTop, bullBottom) :
+     shortTrigger ? math.avg(bearTop, bearBottom) : na
+tStop = longTrigger ? bullBottom - stopBuffer :
+     shortTrigger ? bearTop + stopBuffer : na
+tTarget = longTrigger or shortTrigger ? refPoc : na
+tRunner = longTrigger ? refVah : shortTrigger ? refVal : na
+
+tRisk = math.abs(tEntry - tStop)
+runnerShare = partialPct / 100.0
+// The reward is the size weighted blend of both exits. Grading on the first
+// target alone understates a scaled trade and rejects the setups whose runner
+// is what pays for them.
+tReward = partialPct <= 0 or na(tRunner) ? math.abs(tTarget - tEntry) :
+     runnerShare * math.abs(tTarget - tEntry) + (1 - runnerShare) * math.abs(tRunner - tEntry)
+tRR = tRisk > 0 ? tReward / tRisk : 0.0
+
+// Size from the risk budget. A stop wide enough that one contract is already
+// too much is not a smaller trade, it is no trade.
+int tQty = not na(tRisk) and tRisk > 0 ?
+     int(math.floor(riskDollars / (tRisk * pointValue))) : 0
+tQty := math.min(tQty, maxContracts)
+
+var int tradesThisSession = 0
+if tradeOpen
+    tradesThisSession := 0
+
+roomToTrade = strategy.position_size == 0 and tradesThisSession < maxPerSession and
+     not lateInSession
+geometryOk = not na(tRisk) and tRisk > 0 and tRR >= minRewardRisk and tQty >= 1
+
+longTicket = longTrigger and geometryOk and roomToTrade and tTarget > tEntry
+shortTicket = shortTrigger and geometryOk and roomToTrade and tTarget < tEntry
+
+// ------------------------------------------------------------- the trade ---
+
+var float planEntry = na
+var float planStop = na
+var float planTarget = na
+var float planRunner = na
+var int planQty = 0
+var int planBar = na
+var bool planIsLong = true
+var bool filled = false
+
+if longTicket or shortTicket
+    planEntry := tEntry
+    planStop := tStop
+    planTarget := tTarget
+    planRunner := tRunner
+    planQty := tQty
+    planBar := bar_index
+    planIsLong := longTicket
+    filled := false
+    tradesThisSession += 1
+    if longTicket
+        strategy.entry("Long", strategy.long, qty = tQty, limit = tEntry, comment = "VP long")
+    else
+        strategy.entry("Short", strategy.short, qty = tQty, limit = tEntry, comment = "VP short")
+
+// The limit is only good for a few bars. A level that has not been revisited
+// by then is not the level that was traded.
+entryWorking = strategy.position_size == 0 and not na(planBar) and
+     (bar_index - planBar) > limitValidBars
+if entryWorking
+    strategy.cancel("Long")
+    strategy.cancel("Short")
+    planBar := na
+
+if strategy.position_size != 0
+    filled := true
+
+// Exits. Both legs are placed together so the stop exists the instant the
+// entry fills, and the runner's stop is re-issued at breakeven once the
+// partial has gone.
+if strategy.position_size != 0 and not na(planStop)
+    fromId = planIsLong ? "Long" : "Short"
+    scaled = math.abs(strategy.position_size) < planQty
+    runnerStop = useBreakeven and scaled ? planEntry : planStop
+    if partialPct > 0 and partialPct < 100 and planQty >= 2 and not na(planRunner)
+        strategy.exit("TP1", from_entry = fromId, qty_percent = partialPct,
+             limit = planTarget, stop = planStop, comment_profit = "POC", comment_loss = "stop")
+        strategy.exit("TP2", from_entry = fromId,
+             limit = planRunner, stop = runnerStop, comment_profit = "runner",
+             comment_loss = scaled ? "breakeven" : "stop")
+    else
+        strategy.exit("TP", from_entry = fromId, limit = planTarget, stop = planStop,
+             comment_profit = "POC", comment_loss = "stop")
+
+// Flat by the session close. A prop account carrying a position past it has
+// broken a rule before it has lost any money.
+if tradeClose and strategy.position_size != 0
+    strategy.close_all(comment = "session close")
+
+// ------------------------------------------------------ the position boxes ---
+
+// The picture: green from the entry up to the point of control, a paler green
+// on to the far side of value, red from the entry down to the stop. Drawn when
+// the order is placed and stretched to the right while the trade is open, so a
+// glance at the chart shows what was risked and what was collected.
+var box boxTarget = na
+var box boxRunner = na
+var box boxStop = na
+var line lineEntry = na
+var label labelTicket = na
+
+if showBoxes and (longTicket or shortTicket)
+    boxTarget := box.new(bar_index, math.max(planEntry, planTarget), bar_index + 1,
+         math.min(planEntry, planTarget), border_color = na, bgcolor = tpColour)
+    boxStop := box.new(bar_index, math.max(planEntry, planStop), bar_index + 1,
+         math.min(planEntry, planStop), border_color = na, bgcolor = slColour)
+    if not na(planRunner) and partialPct > 0
+        boxRunner := box.new(bar_index, math.max(planTarget, planRunner), bar_index + 1,
+             math.min(planTarget, planRunner), border_color = na, bgcolor = runColour)
+    lineEntry := line.new(bar_index, planEntry, bar_index + 1, planEntry,
+         color = color.new(#787b86, 0), width = 1, style = line.style_dashed)
+    labelTicket := label.new(bar_index, planEntry,
+         (planIsLong ? "LONG " : "SHORT ") + str.tostring(planQty) + " @ " +
+         str.tostring(planEntry, format.mintick) +
+         "\nstop " + str.tostring(planStop, format.mintick) +
+         "  " + str.tostring(tRisk, "#.##") + " pt  $" +
+         str.tostring(tRisk * pointValue * planQty, "#") +
+         "\ntgt  " + str.tostring(planTarget, format.mintick) +
+         (na(planRunner) ? "" : "\nrun  " + str.tostring(planRunner, format.mintick)) +
+         "\nR:R  " + str.tostring(tRR, "#.##"),
+         style = label.style_label_right, color = color.new(#2a2e39, 15),
+         textcolor = color.white, size = size.small)
+
+// Stretch the boxes while the trade is live, then leave them as the record.
+if showBoxes and strategy.position_size != 0
+    if not na(boxTarget)
+        box.set_right(boxTarget, bar_index + 1)
+    if not na(boxStop)
+        box.set_right(boxStop, bar_index + 1)
+    if not na(boxRunner)
+        box.set_right(boxRunner, bar_index + 1)
+    if not na(lineEntry)
+        line.set_x2(lineEntry, bar_index + 1)
+
+// An entry that never filled is not a trade, and leaving its boxes on the
+// chart makes the strategy look busier than it was.
+if showBoxes and entryWorking and not filled
+    box.delete(boxTarget)
+    box.delete(boxStop)
+    box.delete(boxRunner)
+    line.delete(lineEntry)
+    label.delete(labelTicket)
+
+plotshape(longTicket ? low : na, "Long", shape.triangleup, location.belowbar,
+     color.new(#26a69a, 0), size = size.tiny)
+plotshape(shortTicket ? high : na, "Short", shape.triangledown, location.abovebar,
+     color.new(#ef5350, 0), size = size.tiny)
+
+// ---------------------------------------------------------------- alerts ---
+
+plot(longTicket or shortTicket ? planEntry : na, "Entry", display = display.none)
+plot(longTicket or shortTicket ? planStop : na, "Stop", display = display.none)
+plot(longTicket or shortTicket ? planTarget : na, "Target", display = display.none)
+plot(longTicket or shortTicket ? planRunner : na, "Runner", display = display.none)
+
+alertcondition(longTicket, "Strata VP long",
+     'LONG {{ticker}} limit {{plot("Entry")}} stop {{plot("Stop")}} ' +
+     'target {{plot("Target")}} runner {{plot("Runner")}}')
+alertcondition(shortTicket, "Strata VP short",
+     'SHORT {{ticker}} limit {{plot("Entry")}} stop {{plot("Stop")}} ' +
+     'target {{plot("Target")}} runner {{plot("Runner")}}')

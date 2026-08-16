@@ -36,12 +36,27 @@ Tradovate gates API access behind an add on and the prop firm decides
 separately on top of that, so this account cannot place an automated order at
 all. Everything below is built around that rather than in spite of it.
 
-**The Pine script is the live half of the system.** It is not a decoration. It
-computes the profile, the gaps, the arm and trigger states and the full trade
-ticket on the chart during the session, using the same arithmetic as the Python
-engine including the reward to risk test, so a setup the engine would reject is
-not drawn either. Load `pine/strata_volume_profile.pine`, set the two session
-strings, and create alerts on "Volume profile long" and "Volume profile short".
+**The Pine scripts are the live half of the system.** They are not a
+decoration. They compute the profile, the gaps, the arm and trigger states and
+the full trade ticket on the chart during the session, using the same
+arithmetic as the Python engine including the reward to risk test, so a setup
+the engine would reject is not drawn either.
+
+There are two, and they share their rules line for line:
+
+- `strata_volume_profile.pine` is the indicator. Load it, set the two session
+  strings, and create alerts on "Volume profile long" and "Volume profile
+  short". This is what runs during the session.
+- `strata_volume_profile_strategy.pine` is the same thing wired into the
+  Strategy Tester, so TradingView grades it on your own data. Run it on a
+  5 minute chart, and leave "Recalculate on every tick" and "after order is
+  filled" off: both let a strategy act inside a bar it has not finished seeing,
+  which is the usual way a Pine backtest reports a curve it cannot repeat.
+
+Both draw each signal the way you would draw it by hand. Green box from the
+entry up to the point of control, a paler green box on to the far side of value
+where the runner goes, red box from the entry down to the stop, and a label
+with the prices, the risk in points and dollars, and the reward to risk.
 
 TradingView cannot send a webhook on the free plan, but it does not need to.
 The alert messages interpolate the actual prices, so the popup and the email
@@ -279,7 +294,11 @@ strata_vp/
                 Slack, Telegram. A failing sink never stops the others.
   runner.py     The loop, and `replay` for running it over a file. No orders.
   instruments.py Contract specs. MNQ is the default.
-pine/           The TradingView indicator. This is the live half.
+pine/           strata_volume_profile.pine        the indicator, for live
+                strata_volume_profile_strategy.pine the strategy, for the tester
+                Both draw every signal as position boxes: green from the entry
+                to the point of control, paler green on to the far side of
+                value, red from the entry down to the stop.
 tools/          Synthetic data, the backtest CLI, the signal CLI.
 tests/          130 tests, standard library unittest, no runner to install.
 ```
